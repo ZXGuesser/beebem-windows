@@ -1867,13 +1867,13 @@ bool DebugDisassembler(int Addr,
 		{
 			if (!LastAddrInBIOS)
 			{
-				AddrInfo addrInfo;
+				AddrInfo Info;
 
-				if (DebugLookupAddress(Addr, &addrInfo))
+				if (DebugLookupAddress(Addr, &Info))
 				{
 					DebugDisplayInfoF("Entered BIOS (0xF800-0xFFFF) at 0x%04X (%s)",
 					                  Addr,
-					                  addrInfo.desc.c_str());
+					                  Info.desc.c_str());
 				}
 				else
 				{
@@ -1895,11 +1895,11 @@ bool DebugDisassembler(int Addr,
 		{
 			if (!LastAddrInOS)
 			{
-				AddrInfo addrInfo;
+				AddrInfo Info;
 
-				if (DebugLookupAddress(Addr, &addrInfo))
+				if (DebugLookupAddress(Addr, &Info))
 				{
-					DebugDisplayInfoF("Entered OS (0xC000-0xFBFF) at 0x%04X (%s)", Addr, addrInfo.desc.c_str());
+					DebugDisplayInfoF("Entered OS (0xC000-0xFBFF) at 0x%04X (%s)", Addr, Info.desc.c_str());
 				}
 				else
 				{
@@ -1919,11 +1919,11 @@ bool DebugDisassembler(int Addr,
 		{
 			if (!LastAddrInROM)
 			{
-				RomInfo romInfo;
+				RomInfo Info;
 
-				if (ReadRomInfo(ROMSEL, &romInfo))
+				if (ReadRomInfo(ROMSEL, &Info))
 				{
-					DebugDisplayInfoF("Entered paged ROM bank %d \"%s\" (0x8000-0xBFFF) at 0x%04X", ROMSEL, romInfo.Title, Addr);
+					DebugDisplayInfoF("Entered paged ROM bank %d \"%s\" (0x8000-0xBFFF) at 0x%04X", ROMSEL, Info.Title, Addr);
 				}
 				else
 				{
