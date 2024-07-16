@@ -3709,12 +3709,6 @@ static bool DebugCmdWatch(const char* args)
 		}
 	}
 
-	if (Watches.size() >= MAX_BPS)
-	{
-		DebugDisplayInfo("You have too many watches!");
-		return true;
-	}
-
 	char Info[64];
 	sprintf(Info, "%s%04X", (w.host ? "" : "p"), w.start);
 
@@ -3730,6 +3724,11 @@ static bool DebugCmdWatch(const char* args)
 		});
 
 		Watches.erase(it);
+	}
+	else if (Watches.size() >= MAX_BPS)
+	{
+		DebugDisplayInfo("You have too many watches!");
+		return true;
 	}
 	else
 	{
