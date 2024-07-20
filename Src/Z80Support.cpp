@@ -77,7 +77,7 @@ AF=0000 MZ5H3VNC BC=0000 DE=0000 HL=0000 IX=0000 I=00 PC=0000:00,00,00,00
 AF'0000 MZ5H3VNC BC'0000 DE'0000 HL'0000 IY=0000 R=00 SP=0000:00,00,00,00
 */
 
-void Disp_RegSet1(char *str)
+void Z80DumpRegSet1(char *str)
 {
 	char* psz = str;
 	psz += sprintf(psz, "AF=%04X ", af[0]);
@@ -94,7 +94,7 @@ void Disp_RegSet1(char *str)
 	psz += sprintf(psz, ":%02X,%02X,%02X,%02X", ReadZ80Mem(pc), ReadZ80Mem(pc + 1), ReadZ80Mem(pc + 2), ReadZ80Mem(pc + 3));
 }
 
-void Disp_RegSet2(char *str)
+void Z80DumpRegSet2(char *str)
 {
 	char* psz = str;
 	psz += sprintf(psz, "AF'%04X ", af[1]);
@@ -116,7 +116,7 @@ void disp_regs()
 	char buff[64];
 	char str[256];
 
-	Z80_Disassemble(pc, buff);
+	Z80Disassemble(pc, buff);
 
 	char* psz = str;
 	psz += sprintf(psz, "AF=%04X ",af[0]);
@@ -329,7 +329,7 @@ void Debug_Z80()
 
 	for (int a = 0; a < 512; ++a)
 	{
-		int s = Z80_Disassemble(t, buff);
+		int s = Z80Disassemble(t, buff);
 		WriteLog("%04x : %s\n", t, buff);
 		t += s;
 	}

@@ -1973,13 +1973,13 @@ bool DebugDisassembler(int Addr,
 			case TubeDevice::AcornZ80:
 			case TubeDevice::TorchZ80: {
 				char buff[128];
-				Z80_Disassemble(Addr, buff);
+				Z80Disassemble(Addr, buff);
 
-				Disp_RegSet1(str);
+				Z80DumpRegSet1(str);
 				sprintf(str + strlen(str), " %s", buff);
 				DebugDisplayInfo(str);
 
-				Disp_RegSet2(str);
+				Z80DumpRegSet2(str);
 				DebugDisplayInfo(str);
 				break;
 			}
@@ -4135,7 +4135,7 @@ static int DebugDisassembleCommand(int addr, int count, bool host)
 		if ((TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80) && !host)
 		{
 			char buff[64];
-			int Len = Z80_Disassemble(addr, buff);
+			int Len = Z80Disassemble(addr, buff);
 
 			s += sprintf(s, "%04X ", addr);
 

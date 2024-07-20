@@ -68,8 +68,8 @@ extern FASTWORK simz80(FASTREG PC);
 #define Setlreg(x, v)	x = (((x)&0xff00) | ((v)&0xff))
 #define Sethreg(x, v)	x = (((x)&0xff) | (((v)&0xff) << 8))
 
-/* SEE functions for manipulating of memory in mem_mmu.h 
-      line RAM, GetBYTE, GetWORD, PutBYTE, PutWORD, .... 
+/* SEE functions for manipulating of memory in mem_mmu.h
+      line RAM, GetBYTE, GetWORD, PutBYTE, PutWORD, ....
 */
 
 extern unsigned char Z80ReadIO(unsigned int port);
@@ -78,12 +78,12 @@ extern void Z80WriteIO(unsigned int port, unsigned char value);
 void Z80Execute();
 void Z80Init();
 void Debug_Z80();
-int Z80_Disassemble(int adr, char *s);
+int Z80Disassemble(int adr, char *s);
 void PrintHex(int PC);
 unsigned char ReadZ80Mem(int pc);
 void WriteZ80Mem(int pc, unsigned char data);
-void Disp_RegSet1(char *str);
-void Disp_RegSet2(char *str);
+void Z80DumpRegSet1(char *str);
+void Z80DumpRegSet2(char *str);
 
 void z80_NMI_Interrupt(void);
 void z80_IRQ_Interrupt(void);

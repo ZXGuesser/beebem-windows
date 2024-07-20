@@ -24,7 +24,7 @@ Boston, MA  02110-1301, USA.
 #include "Z80.h"
 #include "Tube.h"
 
-int Z80_Disassemble(int adr, char *s)
+int Z80Disassemble(int adr, char *s)
 {
 	unsigned char a = ReadZ80Mem(adr);
 	unsigned char d = (a >> 3) & 7;
