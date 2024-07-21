@@ -2065,12 +2065,12 @@ bool DebugDisassembler(int Addr,
 				char buff[128];
 				Z80Disassemble(Addr, buff);
 
-				Z80DumpRegSet1(str);
-				sprintf(str + strlen(str), " %s", buff);
-				DebugDisplayInfo(str);
+				// Z80DumpRegSet1(str);
+				// sprintf(str + strlen(str), " %s", buff);
+				// DebugDisplayInfo(str);
 
-				Z80DumpRegSet2(str);
-				DebugDisplayInfo(str);
+				// Z80DumpRegSet2(str);
+				DebugDisplayInfo(buff);
 				break;
 			}
 
