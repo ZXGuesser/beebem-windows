@@ -279,7 +279,7 @@
     <ClCompile Include="Z80Support.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Z80dis.cpp">
+    <ClCompile Include="Z80Disassembler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ARMulator\armdis.cpp">

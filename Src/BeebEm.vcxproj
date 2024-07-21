@@ -250,7 +250,7 @@
     <ClCompile Include="WindowUtils.cpp" />
     <ClCompile Include="XAudio2Streamer.cpp" />
     <ClCompile Include="Z80.cpp" />
-    <ClCompile Include="Z80dis.cpp" />
+    <ClCompile Include="Z80Disassembler.cpp" />
     <ClCompile Include="Z80Support.cpp" />
     <ClCompile Include="zlib\adler32.c">
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4131</DisableSpecificWarnings>
