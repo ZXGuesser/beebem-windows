@@ -1368,7 +1368,7 @@ void Load1770UEF(FILE *SUEF, int Version)
 	DiscInfo[0].Type = static_cast<DiscType>(UEFRead8(SUEF));
 	DiscInfo[1].Type = static_cast<DiscType>(UEFRead8(SUEF));
 
-	char FileName[256];
+	char FileName[UEFSTATE_MAX_PATH];
 	ZeroMemory(FileName, sizeof(FileName));
 
 	if (Version >= 14)

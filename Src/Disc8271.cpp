@@ -2944,8 +2944,8 @@ void Load8271UEF(FILE *SUEF, int Version)
 	DiscInfo[0].Loaded = false;
 	DiscInfo[1].Loaded = false;
 
-	char FileName[256];
-	memset(FileName, 0, sizeof(FileName));
+	char FileName[UEFSTATE_MAX_PATH];
+	ZeroMemory(FileName, sizeof(FileName));
 
 	if (Version >= 14)
 	{

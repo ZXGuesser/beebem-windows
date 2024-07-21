@@ -35,6 +35,9 @@ enum class UEFStateResult
 	InvalidUEFVersion
 };
 
+// UEF savestate files up to version 13 used a fix buffer size.
+constexpr int UEFSTATE_MAX_PATH = 256;
+
 void UEFWrite64(uint64_t Value, FILE *pFile);
 void UEFWrite32(unsigned int Value, FILE *pFile);
 void UEFWrite16(unsigned int Value, FILE *pFile);

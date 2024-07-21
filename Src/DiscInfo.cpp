@@ -19,6 +19,7 @@ Boston, MA  02110-1301, USA.
 ****************************************************************/
 
 #include <stdio.h>
+#include <windows.h>
 
 #include "DiscInfo.h"
 #include "DiscEdit.h"

@@ -452,7 +452,7 @@ bool BeebWin::NewTape(char *FileName, int Size)
 void BeebWin::SelectFDC()
 {
 	char DefaultPath[MAX_PATH];
-	char FileName[256];
+	char FileName[MAX_PATH];
 	FileName[0] = '\0';
 
 	const char* filter = "FDC Extension Board Plugin DLL (*.dll)\0*.dll\0";
@@ -1509,8 +1509,8 @@ void BeebWin::LoadEmuUEF(FILE *SUEF, int Version)
 
 		if (KeyboardMapping == (int)KeyboardMappingType::User || KeyboardMapping == UEF_USER_KEYBOARD_MAPPING)
 		{
-			char FileName[256];
-			memset(FileName, 0, sizeof(FileName));
+			char FileName[UEFSTATE_MAX_PATH];
+			ZeroMemory(FileName, sizeof(FileName));
 
 			if (Version >= 14)
 			{

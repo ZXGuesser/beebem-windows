@@ -26,7 +26,7 @@ Boston, MA  02110-1301, USA.
 struct DiscInfoType
 {
     bool Loaded; // Set to true when a disc image has been loaded
-    char FileName[256]; // Filename of disc currently in drive 0 and 1
+    char FileName[MAX_PATH]; // Filename of disc currently in drive 0 and 1
     DiscType Type; // Current disc type
     bool DoubleSidedSSD; // Non-interleaved double sided disk image
 };

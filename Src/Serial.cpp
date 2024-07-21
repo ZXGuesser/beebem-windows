@@ -1282,8 +1282,8 @@ void LoadSerialUEF(FILE *SUEF, int Version)
 
 	SerialULA.RS423 = UEFReadBool(SUEF);
 
-	char FileName[256];
-	memset(FileName, 0, sizeof(FileName));
+	char FileName[UEFSTATE_MAX_PATH];
+	ZeroMemory(FileName, sizeof(FileName));
 
 	if (Version >= 14)
 	{

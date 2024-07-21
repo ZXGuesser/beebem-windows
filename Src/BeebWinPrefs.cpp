@@ -1653,7 +1653,7 @@ void BeebWin::LoadFilePathPreferences()
 	// Set FDC defaults if not already set
 	for (int machine = 0; machine < static_cast<int>(Model::Master128); ++machine)
 	{
-		char CfgName[256];
+		char CfgName[MAX_PATH];
 		sprintf(CfgName, CFG_FDC_DLL, machine);
 
 		if (!m_Preferences.HasValue(CfgName))
