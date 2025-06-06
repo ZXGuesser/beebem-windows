@@ -1604,12 +1604,39 @@ bool EconetPoll_real() // return NMI status
 
 							if (SendMe)
 							{
-								if (sendto(SendSocket, (char *)&EconetTx, SendLen, 0,
-								           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+								if (!StrictAUNMode && (EconetTx.deststn == 255 || EconetTx.deststn == 0))
 								{
-									EconetError("Econet: Failed to send packet to station %d (%s port %u)",
-									            (unsigned int)network[i].station,
-									            IpAddressStr(network[i].inet_addr), (unsigned int)network[i].port);
+									/* we need to do a fake broadcast to hosts we know about instead of a real ethernet
+									broadcast */
+									int k = 0;
+									do {
+										if (!(network[k].inet_addr == EconetListenIP && network[k].port == EconetListenPort) && network[k].network == 0) // don't send to ourself or to remote nets for now
+										{
+											RecvAddr.sin_port = htons(network[k].port);
+											S_ADDR(RecvAddr) = network[k].inet_addr;
+											if (sendto(SendSocket, (char *)&EconetTx, SendLen, 0,
+											    (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+											{
+												EconetError("Econet: Failed to send packet to station %d (%s port %u)",
+												            (unsigned int)network[k].station,
+												            IpAddressStr(network[k].inet_addr), (unsigned int)network[k].port);
+											}
+										}
+										k++;
+									} while (k < networkp);
+								}
+								else
+								{
+									if (!(network[i].inet_addr == EconetListenIP && network[i].port == EconetListenPort)) // don't send to ourself
+									{
+										if (sendto(SendSocket, (char *)&EconetTx, SendLen, 0,
+										    (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+										{
+											EconetError("Econet: Failed to send packet to station %d (%s port %u)",
+											            (unsigned int)network[i].station,
+											            IpAddressStr(network[i].inet_addr), (unsigned int)network[i].port);
+										}
+									}
 								}
 							}
 						}
