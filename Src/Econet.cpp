@@ -1618,12 +1618,37 @@ bool EconetPoll_real() // return NMI status
 
 							if (SendMe)
 							{
-								if (sendto(SendSocket, (char *)&EconetTx, SendLen, 0,
-								           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+								if (!(S_ADDR(RecvAddr) == EconetListenIP && htons(RecvAddr.sin_port) == EconetListenPort)) // never send to ourself
 								{
-									EconetError("Econet: Failed to send packet to station %d (%s port %u)",
-									            (unsigned int)EconetTx.deststn,
-									            IpAddressStr(S_ADDR(RecvAddr)), (unsigned int)htons(RecvAddr.sin_port));
+									if (sendto(SendSocket, (char *)&EconetTx, SendLen, 0,
+											   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+									{
+										EconetError("Econet: Failed to send packet to station %d (%s port %u)",
+													(unsigned int)EconetTx.deststn,
+													IpAddressStr(S_ADDR(RecvAddr)), (unsigned int)htons(RecvAddr.sin_port));
+									}
+								}
+								
+								if (EconetTx.ah.type == AUNType::Broadcast)
+								{
+									// need to send unicast copies to all hosts which won't see the broadcast
+									for (int i=0; i < stationsp; i++)
+									{
+										// don't send to ourself or hosts listening on the AUN port
+										if (stations[i].port != DEFAULT_AUN_PORT && !(stations[i].inet_addr == EconetListenIP && stations[i].port == EconetListenPort))
+										{
+											S_ADDR(RecvAddr) = stations[i].inet_addr;
+											RecvAddr.sin_port = htons(stations[i].port);
+											
+											if (sendto(SendSocket, (char *)&EconetTx, SendLen, 0,
+											           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+											{
+												EconetError("Econet: Failed to send packet to station %d (%s port %u)",
+												            (unsigned int)EconetTx.deststn,
+												            IpAddressStr(S_ADDR(RecvAddr)), (unsigned int)htons(RecvAddr.sin_port));
+											}
+										}
+									}
 								}
 							}
 						}
