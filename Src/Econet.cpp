@@ -137,7 +137,6 @@ const unsigned char STATUS_REG2_RX_DATA_AVAILABLE              = 0x80;
 // Configuration Options.
 // These, among others, are overridden in Econet.cfg, see ReadNetwork()
 const bool DEFAULT_AUN_MODE = false;
-const bool DEFAULT_LEARN_MODE = false;
 const bool DEFAULT_STRICT_AUN_MODE = false;
 const bool DEFAULT_SINGLE_SOCKET = true;
 const int DEFAULT_FLAG_FILL_TIMEOUT = 500000;
@@ -147,13 +146,10 @@ const unsigned int DEFAULT_FOUR_WAY_STAGE_TIMEOUT = 500000;
 const bool DEFAULT_MASSAGE_NETWORKS = false;
 
 static bool AUNMode = DEFAULT_AUN_MODE; // Use Acorn Universal Networking (AUN) style networking
-static bool LearnMode = DEFAULT_LEARN_MODE; // Add receipts from unknown hosts to network table
 static bool StrictAUNMode = DEFAULT_STRICT_AUN_MODE; // Assume network ip=stn number when sending to unknown hosts
 static bool SingleSocket = DEFAULT_SINGLE_SOCKET; // Use same socket for Send and receive
 static unsigned int FourWayStageTimeout = DEFAULT_FOUR_WAY_STAGE_TIMEOUT;
 static bool MassageNetworks = DEFAULT_MASSAGE_NETWORKS; // Massage network numbers on send/receive (add/sub 128)
-
-static int inmask, outmask;
 
 bool EconetStateChanged = false;
 bool EconetEnabled;    // Enable hardware
@@ -436,49 +432,6 @@ static EconetHost* FindNetworkConfig(unsigned char Station)
 	return nullptr;
 }
 
-static EconetHost* FindHost(sockaddr_in* pAddress)
-{
-	for (int i = 0; i < stationsp; i++)
-	{
-		if (pAddress->sin_port == htons(stations[i].port) &&
-		    S_ADDR(*pAddress) == stations[i].inet_addr)
-		{
-			return &stations[i];
-		}
-	}
-
-	return nullptr;
-}
-
-//---------------------------------------------------------------------------
-
-static EconetHost* AddHost(sockaddr_in* pAddress)
-{
-	if (stationsp < NETWORK_TABLE_LENGTH)
-	{
-		if (DebugEnabled) DebugDisplayTrace(DebugType::Econet, true, "Econet: Previously unknown host; add entry!");
-
-		EconetHost* pHost = &stations[stationsp];
-
-		pHost->port = ntohs(pAddress->sin_port);
-		pHost->inet_addr = pAddress->sin_addr.s_addr;
-		// TODO sort this out!! potential for clashes!! look for dupes
-		pHost->station = (pHost->inet_addr & 0xFF000000) >> 24;
-		// TODO and we need to use the map file ..
-		pHost->network = 0;
-
-		stationsp++;
-
-		return pHost;
-	}
-	else
-	{
-		if (DebugEnabled) DebugDisplayTrace(DebugType::Econet, true, "Econet: Previously unknown host; host table full");
-	}
-
-	return nullptr;
-}
-
 //---------------------------------------------------------------------------
 
 static void EconetCloseSockets()
@@ -672,6 +625,7 @@ bool EconetReset()
 									EconetListenPort = DEFAULT_AUN_PORT;
 									EconetStationID = IN_ADDR(localaddr) >> 24;
 
+									// add ourself to the list of known stations
 									stations[stationsp].inet_addr = EconetListenIP;
 									stations[stationsp].port = EconetListenPort;
 									stations[stationsp].station = EconetStationID;
@@ -838,17 +792,43 @@ static bool ReadEconetConfigFile()
 			{
 				try
 				{
-					stations[stationsp].network   = (unsigned char)std::stoi(Tokens[0]);
-					stations[stationsp].station   = (unsigned char)std::stoi(Tokens[1]);
-					stations[stationsp].inet_addr = inet_addr(Tokens[2].c_str());
-					stations[stationsp].port      = (u_short)std::stoi(Tokens[3]);
-
-					DebugDisplayTraceF(DebugType::Econet, true,
-					                   "Econet: ConfigFile Net %i Stn %i IP %s Port %i",
-					                   stations[stationsp].network, stations[stationsp].station,
-					                   IpAddressStr(stations[stationsp].inet_addr), stations[stationsp].port);
-
-					stationsp++;
+					unsigned char network = (unsigned char)std::stoi(Tokens[0]);
+					unsigned long address = inet_addr(Tokens[2].c_str());
+					u_short port          = (u_short)std::stoi(Tokens[3]);
+					
+					if (Tokens[1] == "*")
+					{
+						// this line defines an entire network
+						// it is added before any networks from AUNMap so takes precedence
+						networks[networksp].network = network;
+						networks[networksp].inet_addr = address;
+						networks[networksp].port = port;
+						
+						DebugDisplayTraceF(DebugType::Econet, true,
+						                   "Econet: ConfigFile Net %i IP %s Port %i",
+						                   networks[networksp].network,
+						                   IpAddressStr(networks[networksp].inet_addr),
+						                   networks[networksp].port);
+						
+						networks[++networksp].network = 255; // terminate list with invalid net
+					}
+					else
+					{
+						unsigned char station = (unsigned char)std::stoi(Tokens[1]);
+						if (station == 0 || station == 255) throw; // not a valid station number
+						
+						stations[stationsp].network = network;
+						stations[stationsp].station = station;
+						stations[stationsp].inet_addr = address;
+						stations[stationsp].port = port;
+						
+						DebugDisplayTraceF(DebugType::Econet, true,
+						                   "Econet: ConfigFile Net %i Stn %i IP %s Port %i",
+						                   stations[stationsp].network, stations[stationsp].station,
+						                   IpAddressStr(stations[stationsp].inet_addr), stations[stationsp].port);
+						
+						stations[++stationsp].station = 0; // terminate list with invalid station
+					}
 				}
 				catch (const std::exception&)
 				{
@@ -877,7 +857,7 @@ static bool ReadEconetConfigFile()
 				}
 				else if (StrCaseCmp(Key.c_str(), "LEARN") == 0)
 				{
-					LearnMode = std::stoi(Value) != 0;
+					// LearnMode removed 2025-06-21
 				}
 				else if (StrCaseCmp(Key.c_str(), "AUNSTRICT") == 0)
 				{
@@ -922,8 +902,6 @@ static bool ReadEconetConfigFile()
 		}
 	}
 
-	stations[stationsp].station = 0;
-
 	return Success;
 }
 
@@ -940,8 +918,6 @@ static bool ReadAUNConfigFile()
 	}
 
 	bool Success = true;
-
-	networksp = 0;
 
 	std::string Line;
 	int LineCounter = 0;
@@ -977,7 +953,7 @@ static bool ReadAUNConfigFile()
 				try
 				{
 					networks[networksp].inet_addr = inet_addr(Tokens[1].c_str()) & 0x00FFFFFF; // stored as lsb..msb ?!?!
-					networks[networksp].network   = (unsigned char)(std::stoi(Tokens[2]) & inmask); // 30jun strip b7
+					networks[networksp].network   = (unsigned char)(std::stoi(Tokens[2]));
 					networks[networksp].port      = DEFAULT_AUN_PORT; // always use the default port for proper AUN networks
 
 					if (DebugEnabled)
@@ -1016,7 +992,7 @@ static bool ReadAUNConfigFile()
 		}
 	}
 
-	networks[networksp].network = 0; // terminate table. 0 is always local so should not be in file.
+	networks[networksp].network = 255; // terminate table with invalid net.
 
 	return Success;
 }
@@ -1026,7 +1002,6 @@ static bool ReadAUNConfigFile()
 static bool ReadNetwork()
 {
 	AUNMode = DEFAULT_AUN_MODE;
-	LearnMode = DEFAULT_LEARN_MODE;
 	StrictAUNMode = DEFAULT_STRICT_AUN_MODE;
 	SingleSocket = DEFAULT_SINGLE_SOCKET;
 	EconetFlagFillTimeout = DEFAULT_FLAG_FILL_TIMEOUT;
@@ -1035,27 +1010,16 @@ static bool ReadNetwork()
 	FourWayStageTimeout = DEFAULT_FOUR_WAY_STAGE_TIMEOUT;
 	MassageNetworks = DEFAULT_MASSAGE_NETWORKS;
 
+	// clear tables
 	stationsp = 0;
 	stations[0].station = 0;
+	networksp = 0;
+	networks[0].network = 255;
 
 	if (!ReadEconetConfigFile())
 	{
 		return false;
 	}
-
-	if (MassageNetworks)
-	{
-		inmask  = 255;
-		outmask = 0;
-	}
-	else
-	{
-		inmask  = 127;
-		outmask = 128;
-	}
-
-	networksp = 0;
-	networks[0].network = 0; // terminate table
 
 	// Don't bother reading file if not using AUN.
 	if (AUNMode)
@@ -1436,109 +1400,83 @@ bool EconetPoll_real() // return NMI status
 					// (or one zero byte for broadcast)
 
 					sockaddr_in RecvAddr;
+					RecvAddr.sin_family = AF_INET;
+					
 					bool SendMe = false;
 					int SendLen = 0;
-					int i = 0;
 
-					if (AUNMode && IsBroadcastStation(BeebTx.eh.deststn))
+					if (IsBroadcastStation(BeebTx.eh.deststn))
 					{
-						// TODO something
-						// Somewhere that I cannot now find suggested that
-						// aun buffers broadcast packet, and broadcasts a simple flag. stations
-						// poll us to get the actual broadcast data ..
-						// Hmmm...
-						//
-						// ok, just send it to the local broadcast address.
-						// TODO lookup destnet in aunnet() and use proper ip address!
-						RecvAddr.sin_family = AF_INET;
-						RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
+						// Set address to the local broadcast address and port to the default AUN port
+						// to do an AUN broadcast. Some BeebEm instances might not see this so we will
+						// send unicast copies to those that need them later
 						S_ADDR(RecvAddr) = INADDR_BROADCAST; // ((EconetListenIP & 0x00FFFFFF) | 0xFF000000);
+						RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
 						SendMe = true;
 					}
 					else
 					{
-						do {
-							// Does the packet match this network table entry?
-							// // check for 0.stn and mynet.stn.
-							// aunnet won't be populated if not in AUN mode, but we don't need to not check
-							// it because it won't matter.
-							if ((stations[i].network == BeebTx.eh.destnet ||
-							    (stations[i].network == networks[myaunnet].network && stations[i].network != 0)) &&
+						// Work out where we need to send a packet for this econet address
+						
+						// search for a single specifically defined host in stations table
+						for (int i = 0; i < stationsp; i++)
+						{
+							if (stations[i].network == BeebTx.eh.destnet &&
 							    stations[i].station == BeebTx.eh.deststn)
 							{
+								S_ADDR(RecvAddr) = stations[i].inet_addr;
+								RecvAddr.sin_port = htons(stations[i].port);
 								SendMe = true;
 								break;
 							}
-							i++;
-						} while (i < stationsp);
-
-						// guess address if not found in table
-						if (!SendMe && StrictAUNMode) // didn't find it and allowed to guess
+						}
+						
+						if (!SendMe)
 						{
-							//if (DebugEnabled)
-								DebugDisplayTrace(DebugType::Econet, true, "Econet: Send to unknown host; make assumptions & add entry!");
-
-							if (BeebTx.eh.destnet == 0 || BeebTx.eh.destnet == networks[myaunnet].network)
+							// didn't find the station
+							// search to see if the destination network is defined in networks table
+							for (int i = 0; i < networksp; i++)
 							{
-								stations[i].inet_addr = networks[myaunnet].inet_addr | (BeebTx.eh.deststn << 24);
-								stations[i].port = DEFAULT_AUN_PORT;
-								stations[i].network = BeebTx.eh.destnet;
-								stations[i].station = BeebTx.eh.deststn;
-								SendMe = true;
-								stations[++stationsp].station = 0;
-							}
-							else
-							{
-								int j = 0;
-
-								do {
-									if (networks[j].network == BeebTx.eh.destnet)
+								if (networks[i].network == BeebTx.eh.destnet)
+								{
+									// located the network
+									if (networks[i].inet_addr & 0xFF000000 == 0)
 									{
-										stations[i].inet_addr = networks[j].inet_addr | (BeebTx.eh.deststn << 24);
-										stations[i].port = DEFAULT_AUN_PORT;
-										stations[i].network = BeebTx.eh.destnet;
-										stations[i].station = BeebTx.eh.deststn;
+										// last octet is zero so this is true AUN
+										S_ADDR(RecvAddr) = (networks[i].inet_addr & 0x00FFFFFF) | (BeebTx.eh.deststn << 24);
+										RecvAddr.sin_port = htons(networks[i].port); // TODO this should always be DEFAULT_AUN_PORT - should we override this?
 										SendMe = true;
-										stations[++stationsp].station = 0;
 										break;
 									}
-									j++;
-								} while (j < networksp);
+									else
+									{
+										// whole network defined with a single address
+										// treat port as the base port number for a PiEB exposed network
+										S_ADDR(RecvAddr) = networks[i].inet_addr;
+										RecvAddr.sin_port = htons(networks[i].port + (BeebTx.eh.destnet << 8) + BeebTx.eh.deststn);
+										SendMe = true;
+										break;
+									}
+								}
 							}
 						}
-
-						RecvAddr.sin_family = AF_INET;
-						RecvAddr.sin_port = htons(stations[i].port);
-						S_ADDR(RecvAddr) = stations[i].inet_addr;
 					}
-
-					//if (DebugEnabled)
-					{
-						DebugDisplayTraceF(DebugType::Econet, true,
-						                   "Econet: TXLast set: Send %d byte packet to network %d station %d (%s port %u)",
-						                   BeebTx.Pointer,
-						                   (unsigned int)BeebTx.eh.destnet,
-						                   (unsigned int)BeebTx.eh.deststn,
-						                   IpAddressStr(S_ADDR(RecvAddr)),
-						                   (unsigned int)htons(RecvAddr.sin_port));
-
-						std::string str = "Econet: Packet data:" + BytesToString(BeebTx.buff, BeebTx.Pointer);
-
-						DebugDisplayTrace(DebugType::Econet, true, str.c_str());
-					}
-
-					/*
-					if (AUNMode && fourwaystage != FWS_IDLE) {
-						if (RecvAddr.sin_port != EconetTx.inet_addr ||
-							RecvAddr.sin_port != htons(EconetTx.port) ) {
-								EconetError("Erm.. trying to send somewhere while in the middle of talking to somewhere else.");
-						}
-					}
-					*/
 
 					// Send a datagram to the receiver
 					if (SendMe)
 					{
+						DebugDisplayTraceF(DebugType::Econet, true,
+										   "Econet: TXLast set: Send %d byte packet to network %d station %d (%s port %u)",
+										   BeebTx.Pointer,
+										   (unsigned int)BeebTx.eh.destnet,
+										   (unsigned int)BeebTx.eh.deststn,
+										   IpAddressStr(S_ADDR(RecvAddr)),
+										   (unsigned int)htons(RecvAddr.sin_port));
+
+						std::string str = "Econet: Packet data:" + BytesToString(BeebTx.buff, BeebTx.Pointer);
+
+						DebugDisplayTrace(DebugType::Econet, true, str.c_str());
+						
 						LastError.network = 0; // reset the network & station where the last send error occurred
 						LastError.station = 0;
 
@@ -1587,7 +1525,7 @@ bool EconetPoll_real() // return NMI status
 								EconetTx.ah.pad = 0;
 								EconetTx.ah.handle = (ec_sequence += 4);
 
-								EconetTx.destnet = BeebTx.eh.destnet | outmask; //30JUN
+								EconetTx.destnet = BeebTx.eh.destnet; //30JUN
 								EconetTx.deststn = BeebTx.eh.deststn;
 								// j = 0;
 								for (unsigned int k = 6; k < BeebTx.Pointer; k++, j++) {
@@ -1646,14 +1584,6 @@ bool EconetPoll_real() // return NMI status
 								EconetTx.ah = EconetRx.ah;
 								EconetTx.ah.type = AUNType::Ack;
 								SendMe = true;
-								/*
-								if (sendto(SendSocket, (char *) &EconetTx.ah, SendLen, 0,
-									(SOCKADDR *) &RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR) {
-										EconetError("Econet: Failed to send packet to %02x %02x (%08X :%u)",
-											(unsigned int)(stations[i].inet_addr), (unsigned int)stations[i].station,
-											(unsigned int)stations[i].inet_addr, (unsigned int)stations[i].port);
-								}
-								*/
 
 								fourwaystage = FourWayStage::WaitForIdle;
 								//if (DebugEnabled)
@@ -1690,8 +1620,8 @@ bool EconetPoll_real() // return NMI status
 								           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 								{
 									EconetError("Econet: Failed to send packet to station %d (%s port %u)",
-									            (unsigned int)stations[i].station,
-									            IpAddressStr(stations[i].inet_addr), (unsigned int)stations[i].port);
+									            (unsigned int)EconetTx.deststn,
+									            IpAddressStr(S_ADDR(RecvAddr)), (unsigned int)htons(RecvAddr.sin_port));
 								}
 							}
 						}
@@ -1702,7 +1632,7 @@ bool EconetPoll_real() // return NMI status
 							{
 								EconetError("Econet: Failed to send packet to network %d station %d (%s port %u)",
 								            (unsigned int)BeebTx.eh.destnet, (unsigned int)BeebTx.eh.deststn,
-								            IpAddressStr(stations[i].inet_addr), (unsigned int)stations[i].port);
+								            IpAddressStr(S_ADDR(RecvAddr)), (unsigned int)htons(RecvAddr.sin_port));
 							}
 						}
 
@@ -1718,6 +1648,7 @@ bool EconetPoll_real() // return NMI status
 						//if (DebugEnabled)
 							DebugDumpADLC();
 					}
+					/* disabled because puking error boxes is annoying
 					else
 					{
 						if (LastError.network != BeebTx.eh.destnet && LastError.station != BeebTx.eh.deststn)
@@ -1738,7 +1669,7 @@ bool EconetPoll_real() // return NMI status
 							LastError.network = BeebTx.eh.destnet; // if there is a send error, remember the network and station
 							LastError.station = BeebTx.eh.deststn; // to prevent the user being notified on each retry
 						}
-					 }
+					}*/
 				}
 			}
 		}
@@ -1835,19 +1766,54 @@ bool EconetPoll_real() // return NMI status
 								if (AUNMode)
 								{
 									// convert from AUN format
-									// find station number of sender
-									EconetHost* pHost = FindHost(&RecvAddr);
-
-									if (pHost == nullptr)
+									// find network and station number of sender
+									NetStn recvStn = {0,0};
+									bool found = false;
+									
+									// search for source in known stations
+									for (int i = 0; i < stationsp; i++)
 									{
-										// packet from unknown host
-										if (LearnMode)
+										if (htons(RecvAddr.sin_port) == stations[i].port &&
+											S_ADDR(RecvAddr) == stations[i].inet_addr)
 										{
-											pHost = AddHost(&RecvAddr);
+											recvStn.station = stations[i].station;
+											recvStn.network = stations[i].network;
+											found = true;
+											break;
+										}
+									}
+									
+									if (!found)
+									{
+										// search source in networks
+										for (int i = 0; i < networksp; i++)
+										{
+											if (S_ADDR(RecvAddr) == networks[i].inet_addr)
+											{
+												// a single address using sequential ports
+												int s = (htons(RecvAddr.sin_port) - networks[i].port) - (networks[i].network << 8);
+												// check whether result is in range
+												if (s > 0 && s < 255)
+												{
+													recvStn.network = networks[i].network;
+													recvStn.station = s;
+													found = true;
+													break;
+												}
+												// else must be a different net on the same host
+											}
+											else if ((S_ADDR(RecvAddr) & 0x00FFFFFF) == networks[i].inet_addr && htons(RecvAddr.sin_port) == DEFAULT_AUN_PORT)
+											{
+												// true AUN addressing
+												recvStn.network = networks[i].network;
+												recvStn.station = (S_ADDR(RecvAddr) & 0xFF000000) >> 24;
+												found = true;
+												break;
+											}
 										}
 									}
 
-									if (pHost == nullptr) // didn't find it in the table ..
+									if (!found) // couldn't resolve econet source address
 									{
 										//if (DebugEnabled)
 											DebugDisplayTrace(DebugType::Econet, true, "Econet: Packet ignored");
@@ -1860,8 +1826,8 @@ bool EconetPoll_real() // return NMI status
 										{
 											DebugDisplayTraceF(DebugType::Econet, true,
 											                   "Econet: Packet was from %02x %02x ",
-											                   (unsigned int)pHost->network,
-											                   (unsigned int)pHost->station);
+											                   (unsigned int)recvStn.network,
+											                   (unsigned int)recvStn.station);
 										}
 
 										// TODO - many of these copies can use memcpy()
@@ -1869,13 +1835,10 @@ bool EconetPoll_real() // return NMI status
 										{
 										case FourWayStage::Idle:
 											// we weren't doing anything when this packet came in.
-											BeebRx.eh.srcstn = pHost->station;
-											BeebRx.eh.srcnet = pHost->network;
-
+											BeebRx.eh.srcstn = recvStn.station;
+											BeebRx.eh.srcnet = recvStn.network;
 											BeebRx.eh.deststn = EconetStationID; // must be for us.
 											BeebRx.eh.destnet = 0;
-											// BeebRx.eh.deststn = EconetRx.eh.deststn ; // 30jun was EconetStationID; // must be for us.
-											// BeebRx.eh.destnet = EconetRx.eh.destnet & inmask ; // 30jun was 0
 
 											BeebRx.eh.cb = EconetRx.ah.cb | 128;
 											BeebRx.eh.port = EconetRx.ah.port;
@@ -1944,12 +1907,10 @@ bool EconetPoll_real() // return NMI status
 											// be - *STATIONs poll sends packet to itself... packet we get
 											// here is the one we just sent out..!!!
 											// I'm pretty sure that real econet can't send to itself..
-											BeebRx.eh.srcstn = pHost->station;
-											BeebRx.eh.srcnet = pHost->network;
+											BeebRx.eh.srcstn = recvStn.station;
+											BeebRx.eh.srcnet = recvStn.network;
 											BeebRx.eh.deststn = EconetStationID; // must be for us.
 											BeebRx.eh.destnet = 0;
-											// BeebRx.eh.deststn = EconetRx.eh.deststn ; // 30jun was EconetStationID; // must be for us.
-											// BeebRx.eh.destnet = EconetRx.eh.destnet & inmask ; // 30jun was 0
 
 											j = 4;
 											for (unsigned int i = 0; i < RetVal - sizeof(EconetRx.ah); i++, j++) {
@@ -1969,12 +1930,10 @@ bool EconetPoll_real() // return NMI status
 												// are we expecting a (N)ACK ?
 												// TODO check it is a (n)ack for packet we just sent!!, deal with naks!
 												// construct a final ack for the beeb
-												BeebRx.eh.srcstn = pHost->station;
-												BeebRx.eh.srcnet = pHost->network;
+												BeebRx.eh.srcstn = recvStn.station;
+												BeebRx.eh.srcnet = recvStn.network;
 												BeebRx.eh.deststn = EconetStationID; // must be for us.
 												BeebRx.eh.destnet = 0;
-												// BeebRx.eh.deststn = EconetRx.eh.deststn ; // 30jun was EconetStationID; // must be for us.
-												// BeebRx.eh.destnet = EconetRx.eh.destnet & inmask ; // 30jun was 0
 
 												BeebRx.BytesInBuffer = 4;
 												BeebRx.Pointer = 0;
@@ -2045,7 +2004,7 @@ bool EconetPoll_real() // return NMI status
 							BeebRx.eh.deststn = EconetStationID;
 							BeebRx.eh.destnet = 0;
 							BeebRx.eh.srcstn = (unsigned char)EconetTx.deststn; // use scout's dest as source of ack.
-							BeebRx.eh.srcnet = (unsigned char)EconetTx.destnet; // & inmask; //30jun
+							BeebRx.eh.srcnet = (unsigned char)EconetTx.destnet;
 
 							BeebRx.BytesInBuffer = 4;
 							BeebRx.Pointer = 0;
@@ -2058,11 +2017,9 @@ bool EconetPoll_real() // return NMI status
 							// beeb acked the scout we gave it, so give it the data AUN sent us earlier.
 							BeebRx.eh.deststn = EconetStationID; // as it is data it must be for us
 							BeebRx.eh.destnet = 0;
-							// BeebRx.eh.deststn = EconetRx.eh.deststn ; // 30jun
-							// BeebRx.eh.destnet = EconetRx.eh.destnet & inmask ; // 30jun was 0
 
 							BeebRx.eh.srcstn = (unsigned char)EconetTx.deststn;  //30jun dont think this is right..
-							BeebRx.eh.srcnet = (unsigned char)(EconetTx.destnet & inmask);
+							BeebRx.eh.srcnet = (unsigned char)(EconetTx.destnet);
 
 							j = 4;
 
