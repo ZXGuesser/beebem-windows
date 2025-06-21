@@ -155,6 +155,23 @@ int ParseNumber(const char* Name, const std::string& str, int Min, int Max)
 
 /****************************************************************************/
 
+bool IsNumber(const char* str)
+{
+	if (str == nullptr || str[0] == '\0')
+
+	for (; *str != '\0'; str++)
+	{
+		if (!isdigit(*str))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+/****************************************************************************/
+
 bool ParseHexNumber(const std::string& str, unsigned long* pValue)
 {
 	try

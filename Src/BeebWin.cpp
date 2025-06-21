@@ -419,6 +419,9 @@ bool BeebWin::Initialise()
 	}
 
 	LoadPreferences();
+	
+	if (PreferredStationID)
+		EconetEnabled = true; // enable Econet automatically if we got a station number with -EcoStn
 
 	// Read disc images path from registry
 	if (!RegGetStringValue(HKEY_CURRENT_USER, CFG_REG_KEY, "DiscsPath",
@@ -5521,28 +5524,57 @@ void BeebWin::ParseCommandLine()
 			}
 			else if (StrCaseCmp(__argv[i], "-EcoStn") == 0)
 			{
-				int Value = atoi(__argv[++i]);
+				++i;
 
-				if (Value < 1 || Value > 254)
+				const char* dot = strchr(__argv[i], '.');
+				int Value = atoi(__argv[i]); // first digit
+
+				if (dot == nullptr)
 				{
-					Invalid = true;
+					// only one digit
+					if (Value >= 1 && Value <= 254)
+					{
+						PreferredStationID = static_cast<unsigned char>(Value);
+					}
+					else
+					{
+						Invalid = true;
+					}
 				}
 				else
 				{
-					EconetStationID = static_cast<unsigned char>(Value);
+					if (Value >= 1 && Value <= 127)
+					{
+						PreferredNetworkID = static_cast<unsigned char>(Value);
+
+						Value = atoi(dot + 1); // second digit
+
+						if (Value >= 1 && Value <= 254)
+						{
+							PreferredStationID = static_cast<unsigned char>(Value);
+						}
+						else
+						{
+							Invalid = true;
+						}
+					}
+					else
+					{
+						Invalid = true;
+					}
 				}
 			}
 			else if (StrCaseCmp(__argv[i], "-EcoFF") == 0)
 			{
 				int Value = atoi(__argv[++i]);
 
-				if (Value < 1)
+				if (Value >= 1)
 				{
-					Invalid = true;
+					EconetFlagFillTimeout = Value;
 				}
 				else
 				{
-					EconetFlagFillTimeout = Value;
+					Invalid = true;
 				}
 			}
 			else if (StrCaseCmp(__argv[i], "-KbdCmd") == 0)
@@ -5565,13 +5597,13 @@ void BeebWin::ParseCommandLine()
 			{
 				int Value = atoi(__argv[++i]);
 
-				if (Value < 1)
+				if (Value >= 1)
 				{
-					Invalid = true;
+					m_AutoBootDelay = Value;
 				}
 				else
 				{
-					m_AutoBootDelay = Value;
+					Invalid = true;
 				}
 			}
 			else if (StrCaseCmp(__argv[i], "-Model") == 0)
