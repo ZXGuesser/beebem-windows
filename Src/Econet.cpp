@@ -1418,10 +1418,12 @@ bool EconetPoll_real() // return NMI status
 					{
 						// Work out where we need to send a packet for this econet address
 						
+						unsigned int mask = MassageNetworks ? 0x7F : 0xFF; // match AUN nets for econet network numbers if MassageNetworks is enabled.
+						
 						// search for a single specifically defined host in stations table
 						for (int i = 0; i < stationsp; i++)
 						{
-							if (stations[i].network == BeebTx.eh.destnet &&
+							if ((stations[i].network & mask) == (BeebTx.eh.destnet & mask) &&
 							    stations[i].station == BeebTx.eh.deststn)
 							{
 								S_ADDR(RecvAddr) = stations[i].inet_addr;
@@ -1437,7 +1439,7 @@ bool EconetPoll_real() // return NMI status
 							// search to see if the destination network is defined in networks table
 							for (int i = 0; i < networksp; i++)
 							{
-								if (networks[i].network == BeebTx.eh.destnet)
+								if ((networks[i].network & mask) == (BeebTx.eh.destnet & mask))
 								{
 									// located the network
 									if (networks[i].inet_addr & 0xFF000000 == 0)
@@ -1811,6 +1813,11 @@ bool EconetPoll_real() // return NMI status
 												break;
 											}
 										}
+									}
+									
+									if (MassageNetworks)
+									{
+										recvStn.network &= 0x7F; // make AUN nets > 127 appear to be econet
 									}
 
 									if (!found) // couldn't resolve econet source address
