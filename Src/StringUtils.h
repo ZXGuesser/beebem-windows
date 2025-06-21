@@ -31,6 +31,7 @@ void ParseLine(const std::string& Line, std::vector<std::string>& Tokens);
 const char* ParseToken(const char* Str, std::string& Token);
 bool ParseNumber(const std::string& str, int* pValue);
 int ParseNumber(const char* Name, const std::string& str, int Min, int Max);
+bool IsNumber(const char* str);
 bool ParseHexNumber(const std::string& str, unsigned long* pValue);
 bool ParseHexNumber(const std::string& str, int* pValue);
 char ToHexDigit(int Value);
