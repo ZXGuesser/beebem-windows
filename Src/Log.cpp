@@ -29,6 +29,8 @@ Boston, MA  02110-1301, USA.
 #include "FileUtils.h"
 #include "Main.h"
 
+/****************************************************************************/
+
 static FILE *LogFile = nullptr;
 
 static const char* const mon[] = {
@@ -36,16 +38,31 @@ static const char* const mon[] = {
 	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
-void OpenLog()
+/****************************************************************************/
+
+void OpenLog(const char* FileName)
 {
-	LogFile = nullptr;
-
 	char PathName[MAX_PATH];
-	strcpy(PathName, mainWin->GetUserDataPath());
-	AppendPath(PathName, "BeebEm.log");
 
-	// LogFile = fopen(PathName, "wt");
+	if (FileName == nullptr || FileName[0] == '\0')
+	{
+		strcpy(PathName, mainWin->GetUserDataPath());
+		AppendPath(PathName, "BeebEm.log");
+	}
+	if (IsRelativePath(FileName))
+	{
+		strcpy(PathName, mainWin->GetUserDataPath());
+		AppendPath(PathName, FileName);
+	}
+	else if (strlen(FileName) < MAX_PATH)
+	{
+		strcpy(PathName, FileName);
+	}
+
+	LogFile = fopen(PathName, "wt");
 }
+
+/****************************************************************************/
 
 void CloseLog()
 {
@@ -55,6 +72,8 @@ void CloseLog()
 		LogFile = nullptr;
 	}
 }
+
+/****************************************************************************/
 
 void WriteLog(const char *fmt, ...)
 {
@@ -77,3 +96,5 @@ void WriteLog(const char *fmt, ...)
 		fputs(buff, LogFile);
 	}
 }
+
+/****************************************************************************/

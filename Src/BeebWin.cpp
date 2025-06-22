@@ -315,6 +315,9 @@ BeebWin::BeebWin()
 	m_HasCommandLineTube = false;
 	m_CommandLineTube = TubeDevice::None;
 
+	// Log file
+	m_EnableLogFile = false;
+
 	// Startup key sequence
 	m_KbdCmdPos = -1;
 	m_KbdCmdKey = 0;
@@ -378,6 +381,12 @@ bool BeebWin::Initialise()
 
 	// Parse command line
 	ParseCommandLine();
+
+	if (m_EnableLogFile)
+	{
+		OpenLog(m_LogFileName.c_str());
+	}
+
 	bool bFound = FindCommandLineFile(m_CommandLineFileName1);
 	FindCommandLineFile(m_CommandLineFileName2);
 
@@ -5228,6 +5237,20 @@ void BeebWin::ParseCommandLine()
 		else if (StrCaseCmp(__argv[i], "-FullScreen") == 0)
 		{
 			m_StartFullScreen = true;
+		}
+		else if (StrCaseCmp(__argv[i], "-Log") == 0)
+		{
+			m_EnableLogFile = true;
+
+			if (i + 1 >= __argc || __argv[i + 1][0] == '-')
+			{
+				// No more command line arguments, or next argument
+				// is a switch. Use default log file name.
+			}
+			else
+			{
+				m_LogFileName = __argv[++i];
+			}
 		}
 		else if (__argv[i][0] == '-' && i+1 >= __argc)
 		{

@@ -782,6 +782,10 @@ public:
 	bool m_HasCommandLineTube;
 	TubeDevice m_CommandLineTube;
 
+	// Log file
+	bool m_EnableLogFile;
+	std::string m_LogFileName;
+
 	// Startup key sequence
 	std::string m_KbdCmd;
 	int m_KbdCmdPos;

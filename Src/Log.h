@@ -23,8 +23,8 @@ Boston, MA  02110-1301, USA.
 #ifndef LOG_HEADER
 #define LOG_HEADER
 
-void OpenLog();
-void WriteLog(const char *fmt, ...);
+void OpenLog(const char* FileName);
+void WriteLog(const char *Format, ...);
 void CloseLog();
 
 #endif
