@@ -1442,7 +1442,7 @@ bool EconetPoll_real() // return NMI status
 								if ((networks[i].network & mask) == (BeebTx.eh.destnet & mask))
 								{
 									// located the network
-									if (networks[i].inet_addr & 0xFF000000 == 0)
+									if ((networks[i].inet_addr & 0xFF000000) == 0)
 									{
 										// last octet is zero so this is true AUN
 										S_ADDR(RecvAddr) = (networks[i].inet_addr & 0x00FFFFFF) | (BeebTx.eh.deststn << 24);
