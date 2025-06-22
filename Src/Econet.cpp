@@ -330,6 +330,12 @@ struct EconetNet {
 	u_short port; // AUN port or base port from which sequential ports are calculated
 };
 
+struct EconetGateway {
+	unsigned long inet_addr;
+	unsigned char network;
+	u_short port;
+};
+
 struct NetStn {
 	unsigned char network;
 	unsigned char station;
@@ -341,9 +347,11 @@ const int NETWORK_TABLE_LENGTH = 512; // Total number of hosts we can know about
 const int AUN_TABLE_LENGTH = 128; // number of disparate networks in AUNMap
 static EconetHost stations[NETWORK_TABLE_LENGTH]; // individual stations we know about
 static EconetNet networks[AUN_TABLE_LENGTH]; // AUN networks we know about
+static EconetGateway gateways[AUN_TABLE_LENGTH]; // Extended AUN Gateways we know about
 
 static int stationsp = 0; // How many individual stations do I know about?
 static int networksp = 0;  // How many networks do I know about?
+static int gatewaysp = 0; // How many gateways do I know about?
 static int myaunnet = 0; // aunnet table entry that I match. should be -1 as 0 is valid
 
 static unsigned char irqcause;   // flag to indicate cause of irq sr1b7
@@ -799,6 +807,9 @@ static bool ReadEconetConfigFile()
 					if (Tokens[1] == "*")
 					{
 						// this line defines an entire network
+						if (network >= 253)
+							throw std::out_of_range ("invalid network");
+							
 						// it is added before any networks from AUNMap so takes precedence
 						networks[networksp].network = network;
 						networks[networksp].inet_addr = address;
@@ -811,6 +822,25 @@ static bool ReadEconetConfigFile()
 						                   networks[networksp].port);
 						
 						networks[++networksp].network = 255; // terminate list with invalid net
+					}
+					else if (Tokens[1] == "G")
+					{
+						// this line defines an Extended AUN gateway
+						if (network >= 253)
+							throw std::out_of_range ("invalid network");
+						// a gateway is allowed to specify network zero, in which case it will match all otherwise unknown nets
+						
+						gateways[gatewaysp].network = network;
+						gateways[gatewaysp].inet_addr = address;
+						gateways[gatewaysp].port = port;
+						
+						DebugDisplayTraceF(DebugType::Econet, true,
+						                   "Econet: ConfigFile Gateway %i IP %s Port %i",
+						                   gateways[gatewaysp].network,
+						                   IpAddressStr(gateways[gatewaysp].inet_addr),
+						                   gateways[gatewaysp].port);
+						
+						gateways[++gatewaysp].network = 255; // terminate list with invalid net
 					}
 					else
 					{
@@ -1016,6 +1046,8 @@ static bool ReadNetwork()
 	stations[0].station = 0;
 	networksp = 0;
 	networks[0].network = 255;
+	gatewaysp = 0;
+	gateways[0].network = 255;
 
 	if (!ReadEconetConfigFile())
 	{
@@ -1404,6 +1436,7 @@ bool EconetPoll_real() // return NMI status
 					RecvAddr.sin_family = AF_INET;
 					
 					bool SendMe = false;
+					bool ExtendedAUN = false;
 					int SendLen = 0;
 
 					if (IsBroadcastStation(BeebTx.eh.deststn))
@@ -1460,6 +1493,27 @@ bool EconetPoll_real() // return NMI status
 										SendMe = true;
 										break;
 									}
+								}
+							}
+						}
+						
+						if (!SendMe && BeebTx.eh.destnet != 0 && BeebTx.eh.destnet != 255)
+						{
+							// didn't find the network and it is not for net 0 or 255
+							// search for a gateway which can get packets to this network
+							
+							for (int i = 0; i < gatewaysp; i++)
+							{
+								if (gateways[i].network == BeebTx.eh.destnet || gateways[i].network == 0)
+								{
+									// A gateway defined with network 0 matches all networks so will send anything we weren't able to find
+									
+									S_ADDR(RecvAddr) = gateways[i].inet_addr;
+									RecvAddr.sin_port = htons(gateways[i].port);
+									
+									ExtendedAUN = true; // we need to send Extended AUN to this port
+									SendMe = true;
+									break;
 								}
 							}
 						}
@@ -1619,15 +1673,34 @@ bool EconetPoll_real() // return NMI status
 
 							if (SendMe)
 							{
+								char *p = (char *)&EconetTx;
+								if (ExtendedAUN)
+								{
+									// we need to make a copy of the packet with  additional addressing on the front
+									unsigned char tmp[ETHERNET_BUFFER_SIZE+16];
+									int i = 0;
+									tmp[i++] = BeebTx.eh.deststn;
+									tmp[i++] = BeebTx.eh.destnet;
+									tmp[i++] = 0; // srcstn will be determined by the bridge
+									tmp[i++] = 0; // srcnet will be determined by the bridge
+									memcpy(tmp+i, &EconetTx.raw, SendLen);
+									SendLen += 4;
+									p = (char *)&tmp; // transmit this buffer instead of EconetTx
+								}
+								
 								if (!(S_ADDR(RecvAddr) == EconetListenIP && htons(RecvAddr.sin_port) == EconetListenPort)) // never send to ourself
 								{
-									if (sendto(SendSocket, (char *)&EconetTx, SendLen, 0,
+									if (sendto(SendSocket, p, SendLen, 0,
 											   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 									{
 										EconetError("Econet: Failed to send packet to station %d (%s port %u)",
 													(unsigned int)EconetTx.deststn,
 													IpAddressStr(S_ADDR(RecvAddr)), (unsigned int)htons(RecvAddr.sin_port));
 									}
+									
+									std::string str2 = "Econet: Ethernet data:" + BytesToString((unsigned char *)p, SendLen);
+
+									DebugDisplayTrace(DebugType::Econet, true, str2.c_str());
 								}
 								
 								if (EconetTx.ah.type == AUNType::Broadcast)
@@ -1795,7 +1868,6 @@ bool EconetPoll_real() // return NMI status
 								{
 									// convert from AUN format
 									// find network and station number of sender
-									NetStn recvStn = {0,0};
 									bool found = false;
 									
 									// search for source in known stations
@@ -1804,8 +1876,8 @@ bool EconetPoll_real() // return NMI status
 										if (htons(RecvAddr.sin_port) == stations[i].port &&
 											S_ADDR(RecvAddr) == stations[i].inet_addr)
 										{
-											recvStn.station = stations[i].station;
-											recvStn.network = stations[i].network;
+											BeebRx.eh.srcnet = stations[i].network;
+											BeebRx.eh.srcstn = stations[i].station;
 											found = true;
 											break;
 										}
@@ -1823,8 +1895,8 @@ bool EconetPoll_real() // return NMI status
 												// check whether result is in range
 												if (s > 0 && s < 255)
 												{
-													recvStn.network = networks[i].network;
-													recvStn.station = s;
+													BeebRx.eh.srcnet = networks[i].network;
+													BeebRx.eh.srcstn = (unsigned char) s;
 													found = true;
 													break;
 												}
@@ -1833,17 +1905,43 @@ bool EconetPoll_real() // return NMI status
 											else if ((S_ADDR(RecvAddr) & 0x00FFFFFF) == networks[i].inet_addr && htons(RecvAddr.sin_port) == DEFAULT_AUN_PORT)
 											{
 												// true AUN addressing
-												recvStn.network = networks[i].network;
-												recvStn.station = (S_ADDR(RecvAddr) & 0xFF000000) >> 24;
+												BeebRx.eh.srcnet = networks[i].network;
+												BeebRx.eh.srcstn = (S_ADDR(RecvAddr) & 0xFF000000) >> 24;
 												found = true;
 												break;
 											}
 										}
 									}
 									
-									if (MassageNetworks)
+									if (!found && RetVal > 4)
 									{
-										recvStn.network &= 0x7F; // make AUN nets > 127 appear to be econet
+										// search source in extended AUN gateways
+										for (int i = 0; i < gatewaysp; i++)
+										{
+											if (S_ADDR(RecvAddr) == gateways[i].inet_addr && htons(RecvAddr.sin_port) == gateways[i].port)
+											{
+												// PiEB gateways use an extended AUN which contains the econet addresses at the start of the packet
+												memcpy(&BeebRx.eh, &EconetRx, sizeof(ShorEconetHeader));
+												
+												// this means the AUN data we want starts four bytes later than usual. This seems terribly inefficient, but lets remove those bytes from the buffer rather than trying to keep track of an offset through all the rest of the code.
+												
+												memmove(EconetRx.raw, EconetRx.raw + 4, RetVal - 4);
+												RetVal -= 4; // adjust the length
+												
+												std::string str = "EconetPoll: Packet data:" + BytesToString( EconetRx.raw, RetVal);
+												DebugDisplayTrace(DebugType::Econet, true, str.c_str());
+												
+												found = true;
+												break;
+											}
+										}
+									}
+									else
+									{
+										if (MassageNetworks)
+										{
+											BeebRx.eh.srcnet &= 0x7F; // make AUN nets > 127 appear to be econet
+										}
 									}
 
 									if (!found) // couldn't resolve econet source address
@@ -1855,12 +1953,16 @@ bool EconetPoll_real() // return NMI status
 									}
 									else
 									{
+										// must be for us.
+										BeebRx.eh.deststn = EconetStationID;
+										BeebRx.eh.destnet = 0;
+										
 										//if (DebugEnabled)
 										{
 											DebugDisplayTraceF(DebugType::Econet, true,
 											                   "Econet: Packet was from %02x %02x ",
-											                   (unsigned int)recvStn.network,
-											                   (unsigned int)recvStn.station);
+											                   (unsigned int)BeebRx.eh.srcnet,
+											                   (unsigned int)BeebRx.eh.srcstn);
 										}
 
 										// TODO - many of these copies can use memcpy()
@@ -1868,11 +1970,6 @@ bool EconetPoll_real() // return NMI status
 										{
 										case FourWayStage::Idle:
 											// we weren't doing anything when this packet came in.
-											BeebRx.eh.srcstn = recvStn.station;
-											BeebRx.eh.srcnet = recvStn.network;
-											BeebRx.eh.deststn = EconetStationID; // must be for us.
-											BeebRx.eh.destnet = 0;
-
 											BeebRx.eh.cb = EconetRx.ah.cb | 128;
 											BeebRx.eh.port = EconetRx.ah.port;
 
@@ -1940,10 +2037,6 @@ bool EconetPoll_real() // return NMI status
 											// be - *STATIONs poll sends packet to itself... packet we get
 											// here is the one we just sent out..!!!
 											// I'm pretty sure that real econet can't send to itself..
-											BeebRx.eh.srcstn = recvStn.station;
-											BeebRx.eh.srcnet = recvStn.network;
-											BeebRx.eh.deststn = EconetStationID; // must be for us.
-											BeebRx.eh.destnet = 0;
 
 											j = 4;
 											for (unsigned int i = 0; i < RetVal - sizeof(EconetRx.ah); i++, j++) {
@@ -1963,10 +2056,6 @@ bool EconetPoll_real() // return NMI status
 												// are we expecting a (N)ACK ?
 												// TODO check it is a (n)ack for packet we just sent!!, deal with naks!
 												// construct a final ack for the beeb
-												BeebRx.eh.srcstn = recvStn.station;
-												BeebRx.eh.srcnet = recvStn.network;
-												BeebRx.eh.deststn = EconetStationID; // must be for us.
-												BeebRx.eh.destnet = 0;
 
 												BeebRx.BytesInBuffer = 4;
 												BeebRx.Pointer = 0;
