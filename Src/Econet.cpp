@@ -815,7 +815,8 @@ static bool ReadEconetConfigFile()
 					else
 					{
 						unsigned char station = (unsigned char)std::stoi(Tokens[1]);
-						if (station == 0 || station == 255) throw; // not a valid station number
+						if (station == 0 || station == 255)
+							throw std::out_of_range ("invalid station"); // not a valid station number
 						
 						stations[stationsp].network = network;
 						stations[stationsp].station = station;
