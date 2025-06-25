@@ -175,6 +175,7 @@ static unsigned int TimeBetweenBytes = DEFAULT_TIME_BETWEEN_BYTES;
 // to communicate with each other. Note that you STILL need to have them
 // all listed in Econet.cfg so each one knows where the others are.
 unsigned char EconetStationID = 0; // default Station ID
+unsigned char myaunnet = 0; // what is our local net number
 static u_short EconetListenPort = 0; // default Listen port
 static unsigned long EconetListenIP = 0x0100007f;
 // IP settings:
@@ -352,7 +353,7 @@ static EconetGateway gateways[AUN_TABLE_LENGTH]; // Extended AUN Gateways we kno
 static int stationsp = 0; // How many individual stations do I know about?
 static int networksp = 0;  // How many networks do I know about?
 static int gatewaysp = 0; // How many gateways do I know about?
-static int myaunnet = 0; // aunnet table entry that I match. should be -1 as 0 is valid
+
 
 static unsigned char irqcause;   // flag to indicate cause of irq sr1b7
 static unsigned char sr1b2cause; // flag to indicate cause of irq sr1b2
@@ -553,6 +554,7 @@ bool EconetReset()
 		{
 			EconetListenPort = pNetworkConfig->port;
 			EconetListenIP = pNetworkConfig->inet_addr;
+			myaunnet = pNetworkConfig->network;
 		}
 		else
 		{
@@ -599,6 +601,7 @@ bool EconetReset()
 							EconetListenPort = stations[i].port;
 							EconetListenIP = stations[i].inet_addr;
 							EconetStationID = stations[i].station;
+							myaunnet = stations[i].network;
 						}
 					}
 				}
@@ -627,13 +630,14 @@ bool EconetReset()
 
 								if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
 								{
-									myaunnet = j;
 
 									EconetListenIP = IN_ADDR(localaddr);
 									EconetListenPort = DEFAULT_AUN_PORT;
 									EconetStationID = IN_ADDR(localaddr) >> 24;
+									myaunnet = networks[j].network;
 
 									// add ourself to the list of known stations
+									// TODO: is this a good idea?
 									stations[stationsp].inet_addr = EconetListenIP;
 									stations[stationsp].port = EconetListenPort;
 									stations[stationsp].station = EconetStationID;
@@ -997,7 +1001,7 @@ static bool ReadAUNConfigFile()
 					// Note which network we are a part of. This won't work on first run as EconetListenIP not set!
 					if (networks[networksp].inet_addr == (EconetListenIP & 0x00FFFFFF))
 					{
-						myaunnet = networksp;
+						myaunnet = networks[networksp].network;
 
 						if (DebugEnabled)
 						{
