@@ -1927,6 +1927,7 @@ bool EconetPoll_real() // return NMI status
 												
 												memmove(EconetRx.raw, EconetRx.raw + 4, RetVal - 4);
 												RetVal -= 4; // adjust the length
+												EconetRx.BytesInBuffer = RetVal; // must update this too!
 												
 												std::string str = "EconetPoll: Packet data:" + BytesToString( EconetRx.raw, RetVal);
 												DebugDisplayTrace(DebugType::Econet, true, str.c_str());
