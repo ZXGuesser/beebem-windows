@@ -1493,7 +1493,7 @@ bool EconetPoll_real() // return NMI status
 										// whole network defined with a single address
 										// treat port as the base port number for a PiEB exposed network
 										S_ADDR(RecvAddr) = networks[i].inet_addr;
-										RecvAddr.sin_port = htons(networks[i].port + (BeebTx.eh.destnet << 8) + BeebTx.eh.deststn);
+										RecvAddr.sin_port = htons(networks[i].port + BeebTx.eh.deststn);
 										SendMe = true;
 										break;
 									}
@@ -1895,7 +1895,7 @@ bool EconetPoll_real() // return NMI status
 											if (S_ADDR(RecvAddr) == networks[i].inet_addr)
 											{
 												// a single address using sequential ports
-												int s = (htons(RecvAddr.sin_port) - networks[i].port) - (networks[i].network << 8);
+												int s = (htons(RecvAddr.sin_port) - networks[i].port);
 												// check whether result is in range
 												if (s > 0 && s < 255)
 												{
