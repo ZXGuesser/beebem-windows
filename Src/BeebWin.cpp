@@ -5331,15 +5331,39 @@ void BeebWin::ParseCommandLine()
 			}
 			else if (StrCaseCmp(__argv[i], "-EcoStn") == 0)
 			{
-				int Value = atoi(__argv[++i]);
-
-				if (Value < 1 || Value > 254)
+				const char* dot = strchr(__argv[++i], '.');
+				int Value = atoi(__argv[i]); // first digit
+				if (dot == nullptr)
 				{
-					Invalid = true;
+					// only one digit
+					if (Value < 1 || Value > 254)
+					{
+						Invalid = true;
+					}
+					else
+					{
+						EconetStationID = static_cast<unsigned char>(Value);
+					}
 				}
 				else
 				{
-					EconetStationID = static_cast<unsigned char>(Value);
+					if (Value < 0 || Value > 254)
+					{
+						Invalid = true;
+					}
+					else
+					{
+						int Value2 = atoi(dot+1); // second digit
+						if (Value2 < 1 || Value > 254)
+						{
+							Invalid = true;
+						}
+						else
+						{
+							myaunnet = static_cast<unsigned char>(Value);
+							EconetStationID = static_cast<unsigned char>(Value2);
+						}
+					}
 				}
 			}
 			else if (StrCaseCmp(__argv[i], "-EcoFF") == 0)

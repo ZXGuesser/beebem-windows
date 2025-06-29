@@ -1945,20 +1945,40 @@ bool EconetPoll_real() // return NMI status
 										// if it is then it will be Extended AUN, but everything we need is within the first 8 bytes so just read them out of EconetRx.raw directly
 										if (EconetRx.raw[2]==0 && EconetRx.raw[3]!=0 && EconetRx.raw[4]==0x02 && EconetRx.raw[5]==GW_REPLY_PORT && EconetRx.raw[6]==0x91 && EconetRx.raw[7]==0) // check it looks like a GW reply should do
 										{
-											// it does! Let's add it to the list
+											// it does!
 											// EconetRx.raw[0] is our station number on the bridge
 											// EconetRx.raw[1] is our network number on the bridge
 											
-											gateways[gatewaysp].network = 0;
-											gateways[gatewaysp].inet_addr = S_ADDR(RecvAddr);
-											gateways[gatewaysp].port = htons(RecvAddr.sin_port);
+											// check we haven't got this gateway defined already
+											bool dupe = false;
+											for (int i = 0; i < gatewaysp; i++)
+											{
+												if (gateways[i].inet_addr == S_ADDR(RecvAddr) && gateways[i].port == htons(RecvAddr.sin_port))
+												{
+													dupe = true; // we already know about this gateway
+													DebugDisplayTraceF(DebugType::Econet, true,
+																	   "Econet: Gateway at %s:%i already defined for net %d",
+																	   IpAddressStr(gateways[i].inet_addr),
+																	   gateways[i].port,
+																	   gateways[i].network);
+													break;
+												}
+											}
 											
-											DebugDisplayTraceF(DebugType::Econet, true,
-															   "Econet: Learned about gateway at %s:%i",
-															   IpAddressStr(gateways[gatewaysp].inet_addr),
-															   gateways[gatewaysp].port);
-											
-											gateways[++gatewaysp].network = 255; // terminate list with invalid net
+											if (!dupe)
+											{
+												// add it to the list as a catch-all
+												gateways[gatewaysp].network = 0;
+												gateways[gatewaysp].inet_addr = S_ADDR(RecvAddr);
+												gateways[gatewaysp].port = htons(RecvAddr.sin_port);
+												
+												DebugDisplayTraceF(DebugType::Econet, true,
+																   "Econet: Learned about new gateway at %s:%i",
+																   IpAddressStr(gateways[gatewaysp].inet_addr),
+																   gateways[gatewaysp].port);
+												
+												gateways[++gatewaysp].network = 255; // terminate list with invalid net
+											}
 										}
 									}
 									else
