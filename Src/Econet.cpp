@@ -29,7 +29,7 @@ Boston, MA  02110-1301, USA.
 // Resources:
 // * http://www.riscos.com/support/developers/prm/aun.html
 
-#include <windows.h>
+#include <ws2tcpip.h>
 
 #include <stdio.h>
 
@@ -178,6 +178,7 @@ static SOCKET SendSocket = INVALID_SOCKET;
 static bool ReceiverSocketsOpen = false; // Used to flag line up and clock running
 
 const u_short DEFAULT_AUN_PORT = 32768;
+const unsigned char GW_REPLY_PORT = 0x9b; // where gateway replies will be sent
 
 // Written in 2004:
 // we will be using Econet over Ethernet as per AUN,
@@ -426,7 +427,7 @@ static EconetHost* FindNetworkConfig(unsigned char Station)
 {
 	for (int i = 0; i < stationsp; ++i)
 	{
-		if (stations[i].station == Station && (stations[i].network == myaunnet || myaunnet == 0))
+		if (stations[i].station == Station && stations[i].network == myaunnet)
 		{
 			return &stations[i];
 		}
@@ -530,6 +531,14 @@ bool EconetReset()
 		EconetError("Econet: Failed to open listening socket (error %ld)", GetLastSocketError());
 		goto Fail;
 	}
+	
+	// stops multiple instances binding to the same port (which shouldn't be possible but happens anyway where we bind to a wildcard address)
+	const char exclusive = '1';
+	if (setsockopt(ListenSocket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, &exclusive, sizeof(exclusive)) == -1)
+	{
+		EconetError("Econet: Failed to set exclusive socket lock", GetLastSocketError());
+		goto Fail;
+	}
 
 	// The sockaddr_in structure specifies the address family,
 	// IP address, and port for the socket that is being bound.
@@ -561,10 +570,12 @@ bool EconetReset()
 		service.sin_port = htons(EconetListenPort);
 		S_ADDR(service) = EconetListenIP;
 
-		if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == SOCKET_ERROR)
+		if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) != 0)
 		{
 			EconetError("Econet: Failed to bind to port %d (error %ld)", EconetListenPort, GetLastSocketError());
-			goto Fail;
+			EconetStationID = 0;
+			myaunnet = 0;
+			goto newID;
 		}
 	}
 	else
@@ -637,28 +648,35 @@ newID:
 				
 				if (EconetStationID == 0)
 				{
-					// no AUNMap matches our networks or port is already in use - bind to a random port
-					service.sin_port = htons(EconetListenPort); // initially 0 which selects a random port
-					S_ADDR(service) = 0;
-					if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
+					EconetListenIP = S_ADDR(service);
+					service.sin_port = htons(EconetListenPort);
+					// no AUNMap matches our networks or port is already in use - look for a port to bind to
+					if (EconetListenPort > 10000 && EconetListenPort < 10255 && (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0))
 					{
-						bool newaddr = !EconetListenPort;
-						int len = sizeof(service);
-						getsockname(ListenSocket, (SOCKADDR*)&service, &len);
-						EconetListenIP = S_ADDR(service);
-						EconetListenPort = htons(service.sin_port);
-						EconetStationID = (EconetListenPort&0x3F)+1; // base station number on random port
+						// re-bind an automatically assigned address we previously had
+						EconetStationID = (EconetListenPort - 10000) & 0xff; // station number from port
 						myaunnet = 0;
-						
-						if (newaddr)
-							EconetError("Failed to find free station/port.\n\nRandomly assigned station %d.%d on %s:%d", myaunnet, EconetStationID, IpAddressStr(EconetListenIP), EconetListenPort); // warn user of what we have done
-						
-						DebugDisplayTraceF(DebugType::Econet, true,"Econet: automatically assigned random station %d.%d on %s:%d", myaunnet, EconetStationID, IpAddressStr(EconetListenIP), EconetListenPort);
 					}
 					else
 					{
-						// failed to (re)bind this port number
-						EconetListenPort = 0;
+						// look for a free port and assign a suitable station number
+						S_ADDR(service) = 0; // TODO: this will end up using the first network adapter for things if there are more than one
+						
+						for (unsigned char j = 1; j < 254; j++)
+						{
+							service.sin_port = htons(10000+j);
+							if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
+							{
+								EconetListenPort = 10000+j;
+								EconetStationID = j;
+								myaunnet = 0;
+								
+								EconetError("Automatically assigned station %d.%d on %s:%d", myaunnet, EconetStationID, IpAddressStr(EconetListenIP), EconetListenPort); // warn user of what we have done
+								DebugDisplayTraceF(DebugType::Econet, true,"Econet: automatically assigned random station %d.%d on %s:%d", myaunnet, EconetStationID, IpAddressStr(EconetListenIP), EconetListenPort);
+								
+								break;
+							}
+						}
 					}
 				}
 
@@ -708,6 +726,28 @@ newID:
 	SetTrigger(TimeBetweenBytes, EconetTrigger);
 
 	EconetStateChanged = true;
+	
+	// finally send a bridge discovery broadcast to learn of any Pi Econet Bridge gateways on the network.
+	
+	sockaddr_in RecvAddr;
+	RecvAddr.sin_family = AF_INET;
+	S_ADDR(RecvAddr) = INADDR_BROADCAST;
+	RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
+	
+	EthernetPacket tmp;
+	tmp.ah.type = AUNType::Broadcast;
+	tmp.ah.cb = 0x10; // control &90
+	tmp.ah.port = 0x9c; // bridge port
+	tmp.ah.pad = 0;
+	tmp.ah.handle = 0;
+	memset(tmp.buff,0,8);
+	tmp.buff[0] = GW_REPLY_PORT; // where response is sent
+	
+	if (sendto(SendSocket, (char *)&tmp, sizeof(tmp.ah) + 8, 0,
+	   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+	{
+		EconetError("Econet: Failed to send bridge discovery broadcast");
+	}
 
 	return true;
 
@@ -1046,8 +1086,6 @@ static bool ReadNetwork()
 	}
 
 	return ReadAUNConfigFile();
-
-	return true;
 }
 
 //---------------------------------------------------------------------------
@@ -1902,21 +1940,38 @@ bool EconetPoll_real() // return NMI status
 
 								if (!found) // couldn't resolve econet source address
 								{
-									//if (DebugEnabled)
+									if (RetVal == 12) // it might be a bridge gateway response
+									{
+										// if it is then it will be Extended AUN, but everything we need is within the first 8 bytes so just read them out of EconetRx.raw directly
+										if (EconetRx.raw[2]==0 && EconetRx.raw[3]!=0 && EconetRx.raw[4]==0x02 && EconetRx.raw[5]==GW_REPLY_PORT && EconetRx.raw[6]==0x91 && EconetRx.raw[7]==0) // check it looks like a GW reply should do
+										{
+											// it does! Let's add it to the list
+											// EconetRx.raw[0] is our station number on the bridge
+											// EconetRx.raw[1] is our network number on the bridge
+											
+											gateways[gatewaysp].network = 0;
+											gateways[gatewaysp].inet_addr = S_ADDR(RecvAddr);
+											gateways[gatewaysp].port = htons(RecvAddr.sin_port);
+											
+											DebugDisplayTraceF(DebugType::Econet, true,
+															   "Econet: Learned about gateway at %s:%i",
+															   IpAddressStr(gateways[gatewaysp].inet_addr),
+															   gateways[gatewaysp].port);
+											
+											gateways[++gatewaysp].network = 255; // terminate list with invalid net
+										}
+									}
+									else
 										DebugDisplayTrace(DebugType::Econet, true, "Econet: Packet ignored");
 
 									BeebRx.BytesInBuffer = 0; // ignore the packet
 								}
 								else
 								{
-									// must be for us.
-									BeebRx.eh.deststn = EconetStationID;
-									BeebRx.eh.destnet = 0;
-									
 									//if (DebugEnabled)
 									{
 										DebugDisplayTraceF(DebugType::Econet, true,
-														   "Econet: Packet was from %02x %02x ",
+														   "Econet: Packet was from station %d.%d ",
 														   (unsigned int)BeebRx.eh.srcnet,
 														   (unsigned int)BeebRx.eh.srcstn);
 									}
@@ -1932,7 +1987,7 @@ bool EconetPoll_real() // return NMI status
 										switch (EconetRx.ah.type)
 										{
 											case AUNType::Broadcast:
-												BeebRx.eh.deststn = 255; // wasn't just for us..
+												BeebRx.eh.deststn = 255; // not just for us..
 												BeebRx.eh.destnet = 255;
 												j = 6;
 												for (unsigned int i = 0; i < RetVal - sizeof(EconetRx.ah); i++, j++) {
@@ -1945,6 +2000,9 @@ bool EconetPoll_real() // return NMI status
 												break;
 
 											case AUNType::Immediate:
+												// must be for us.
+												BeebRx.eh.deststn = EconetStationID;
+												BeebRx.eh.destnet = 0;
 												j = 6;
 												for (unsigned int i = 0; i < RetVal - sizeof(EconetRx.ah); i++, j++) {
 													BeebRx.buff[j] = EconetRx.buff[i];
@@ -1957,6 +2015,21 @@ bool EconetPoll_real() // return NMI status
 
 											case AUNType::Unicast:
 												// we're assuming things here..
+												if (BeebRx.BytesInBuffer == 0 && EconetRx.ah.port == GW_REPLY_PORT && EconetRx.ah.cb == 0x91 && EconetRx.ah.handle == 0)
+												{
+													// this is a bridge gateway response
+													DebugDisplayTraceF(DebugType::Econet, true, "Econet: Gateway response received. Bridge sees us as station %d.%d ",
+														   (unsigned int)BeebRx.eh.destnet,
+														   (unsigned int)BeebRx.eh.deststn);
+													// not a real econet packet - ignore it
+													fourwaystage = FourWayStage::WaitForIdle;
+													break;
+												}
+												
+												// must be for us.
+												BeebRx.eh.deststn = EconetStationID;
+												BeebRx.eh.destnet = 0;
+												
 												if (EconetRx.ah.port == 0 && EconetRx.ah.cb == (0x82 & 0x7f)) {
 													j = 6;
 													for (unsigned int i = 0; i < 8; i++, j++) {
@@ -1993,6 +2066,9 @@ bool EconetPoll_real() // return NMI status
 										// be - *STATIONs poll sends packet to itself... packet we get
 										// here is the one we just sent out..!!!
 										// I'm pretty sure that real econet can't send to itself..
+										// must be for us.
+										BeebRx.eh.deststn = EconetStationID;
+										BeebRx.eh.destnet = 0;
 
 										j = 4;
 										for (unsigned int i = 0; i < RetVal - sizeof(EconetRx.ah); i++, j++) {
@@ -2006,6 +2082,9 @@ bool EconetPoll_real() // return NMI status
 										break;
 
 									case FourWayStage::DataSent:
+										// must be for us.
+										BeebRx.eh.deststn = EconetStationID;
+										BeebRx.eh.destnet = 0;
 										// we sent block of data, awaiting final ack..
 										if (EconetRx.ah.type == AUNType::Ack || EconetRx.ah.type == AUNType::NAck)
 										{
