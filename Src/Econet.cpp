@@ -29,7 +29,7 @@ Boston, MA  02110-1301, USA.
 // Resources:
 // * http://www.riscos.com/support/developers/prm/aun.html
 
-#include <ws2tcpip.h>
+#include <windows.h>
 
 #include <stdio.h>
 
@@ -532,6 +532,7 @@ bool EconetReset()
 		goto Fail;
 	}
 	
+	/* needed if we bind our socket to 0.0.0.0, but means bringing in winsock2 which causes VS2022 to get very upset about lots of deprecated functions that we can't replace if we want to retain XP compatibility
 	// stops multiple instances binding to the same port (which shouldn't be possible but happens anyway where we bind to a wildcard address)
 	const char exclusive = '1';
 	if (setsockopt(ListenSocket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, &exclusive, sizeof(exclusive)) == -1)
@@ -539,6 +540,7 @@ bool EconetReset()
 		EconetError("Econet: Failed to set exclusive socket lock", GetLastSocketError());
 		goto Fail;
 	}
+	*/
 
 	// The sockaddr_in structure specifies the address family,
 	// IP address, and port for the socket that is being bound.
@@ -660,7 +662,11 @@ newID:
 					else
 					{
 						// look for a free port and assign a suitable station number
-						S_ADDR(service) = 0; // TODO: this will end up using the first network adapter for things if there are more than one
+						struct in_addr localaddr;
+						memcpy(&localaddr, host->h_addr_list[0], sizeof(struct in_addr));
+						
+						EconetListenIP = IN_ADDR(localaddr);
+						S_ADDR(service) = EconetListenIP; // TODO: this will use the first network address of this PC. This might not be useful if there are multiple network adapters but we have no good way to determine which to use in the absence of any user configuration
 						
 						for (unsigned char j = 1; j < 254; j++)
 						{
