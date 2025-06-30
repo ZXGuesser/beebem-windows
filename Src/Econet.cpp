@@ -180,7 +180,7 @@ static SOCKET SendSocket = INVALID_SOCKET;
 static bool ReceiverSocketsOpen = false; // Used to flag line up and clock running
 
 const u_short DEFAULT_AUN_PORT = 32768;
-const unsigned char GW_REPLY_PORT = 0x9b; // where gateway replies will be sent
+const unsigned char BEEBEM_ECONET_PORT = 0x9b; // where gateway replies and BeebEm Ping/Pong will be sent
 
 // Written in 2004:
 // we will be using Econet over Ethernet as per AUN,
@@ -689,7 +689,7 @@ newID:
 						{
 							unsigned char s = (j + r) & 0xff;
 							if (s == 0 || s >= 254)
-								break; // don't take an invalid number or the fileserver station
+								continue; // don't take an invalid number or the fileserver station
 							
 							service.sin_port = htons(10000+s);
 							if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
@@ -775,7 +775,7 @@ newID:
 
 	EconetStateChanged = true;
 	
-	// finally send a bridge discovery broadcast to learn of any Pi Econet Bridge gateways on the network.
+	// send a bridge discovery broadcast to learn of any Pi Econet Bridge gateways on the network.
 	
 	sockaddr_in RecvAddr;
 	RecvAddr.sin_family = AF_INET;
@@ -784,17 +784,29 @@ newID:
 	
 	EthernetPacket tmp;
 	tmp.ah.type = AUNType::Broadcast;
-	tmp.ah.cb = 0x10; // control &90
-	tmp.ah.port = 0x9c; // bridge port
+	tmp.ah.cb = 0x10; // control &90 locate gateway
+	tmp.ah.port = 0x9c; // Pi Econet Bridge port
 	tmp.ah.pad = 0;
 	tmp.ah.handle = 0;
 	memset(tmp.buff,0,8);
-	tmp.buff[0] = GW_REPLY_PORT; // where response is sent
+	tmp.buff[0] = BEEBEM_ECONET_PORT; // where response is sent
 	
 	if (sendto(SendSocket, (char *)&tmp, sizeof(tmp.ah) + 8, 0,
 	   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 	{
 		EconetError("Econet: Failed to send bridge discovery broadcast");
+	}
+	
+	// discover other BeebEm instances by pinging the network
+	tmp.ah.cb = 0x1f; // control &9f Ping
+	tmp.ah.port = BEEBEM_ECONET_PORT; // BeebEm port
+	tmp.ah.pad = 0;
+	tmp.ah.handle = 0;
+	memset(tmp.buff,0,8);
+	if (sendto(SendSocket, (char *)&tmp, sizeof(tmp.ah) + 8, 0,
+	   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+	{
+		EconetError("Econet: Failed to send BeebEm ping");
 	}
 
 	return true;
@@ -1590,9 +1602,6 @@ bool EconetPoll_real() // return NMI status
 								}
 							}
 						}
-						
-						// TODO: should we try to guess automatically assigned station numbers on this host?
-						// currently we can only send to those stations we have learned about by receiving a packet
 					}
 
 					// Send a datagram to the receiver
@@ -2010,7 +2019,7 @@ bool EconetPoll_real() // return NMI status
 									if (RetVal == 12) // it might be a bridge gateway response
 									{
 										// if it is then it will be Extended AUN, but everything we need is within the first 8 bytes so just read them out of EconetRx.raw directly
-										if (EconetRx.raw[2]==0 && EconetRx.raw[3]!=0 && EconetRx.raw[4]==0x02 && EconetRx.raw[5]==GW_REPLY_PORT && (EconetRx.raw[6]|0x80)==0x91 && EconetRx.raw[7]==0) // check it looks like a GW reply should do
+										if (EconetRx.raw[2]==0 && EconetRx.raw[3]!=0 && EconetRx.raw[4]==0x02 && EconetRx.raw[5]==BEEBEM_ECONET_PORT && (EconetRx.raw[6]|0x80)==0x91 && EconetRx.raw[7]==0) // check it looks like a GW reply should do
 										{
 											// it does!
 											// EconetRx.raw[0] is our station number on the bridge
@@ -2073,17 +2082,50 @@ bool EconetPoll_real() // return NMI status
 										switch (EconetRx.ah.type)
 										{
 											case AUNType::Broadcast:
-												BeebRx.eh.deststn = 255; // not just for us..
-												BeebRx.eh.destnet = 255;
-												j = 6;
-												for (unsigned int i = 0; i < RetVal - sizeof(EconetRx.ah); i++, j++) {
-													BeebRx.buff[j] = EconetRx.buff[i];
+												// catch some fake packets used for network discovery
+												if (BeebRx.eh.port == 0x9c && EconetRx.ah.handle == 0)
+												{
+													// This is a gateway discovery broadcast from another BeebEm instance so ignore it
+													fourwaystage = FourWayStage::WaitForIdle;
+													break;
 												}
-												BeebRx.BytesInBuffer = j;
-												fourwaystage = FourWayStage::WaitForIdle;
-												//if (DebugEnabled)
-													DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (broadcast received)");
-												break;
+												else if (BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9f && EconetRx.ah.handle == 0)
+												{
+													// this is a BeebEm Ping used for host discovery
+													DebugDisplayTraceF(DebugType::Econet, true, "Econet: Received BeebEm Ping from %d.%d ",
+														   (unsigned int)BeebRx.eh.srcnet,
+														   (unsigned int)BeebRx.eh.srcstn);
+													// send a Pong packet back to source address
+													EthernetPacket tmp;
+													tmp.ah.type = AUNType::Unicast;
+													tmp.ah.cb = 0x1e; // control &9e Pong
+													tmp.ah.port = BEEBEM_ECONET_PORT;
+													tmp.ah.pad = 0;
+													tmp.ah.handle = 0;
+													if (sendto(SendSocket, (char *)&tmp, sizeof(tmp.ah), 0,
+													   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+													{
+														EconetError("Econet: Failed to send BeebEm Pong");
+													}
+													// this was not a real econet packet so ignore it
+													fourwaystage = FourWayStage::WaitForIdle;
+													break;
+												}
+												else
+												{
+													// else it is a real econet broadcast
+													BeebRx.eh.deststn = 255; // not just for us..
+													BeebRx.eh.destnet = 255;
+													j = 6;
+													for (unsigned int i = 0; i < RetVal - sizeof(EconetRx.ah); i++, j++) {
+														BeebRx.buff[j] = EconetRx.buff[i];
+													}
+													BeebRx.BytesInBuffer = j;
+													fourwaystage = FourWayStage::WaitForIdle;
+													//if (DebugEnabled)
+														DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (broadcast received)");
+													break;
+												}
 
 											case AUNType::Immediate:
 												// must be for us.
@@ -2100,8 +2142,8 @@ bool EconetPoll_real() // return NMI status
 												break;
 
 											case AUNType::Unicast:
-												// we're assuming things here..
-												if (BeebRx.BytesInBuffer == 0 && EconetRx.ah.port == GW_REPLY_PORT && EconetRx.ah.cb == 0x91 && EconetRx.ah.handle == 0)
+												// catch some fake packets used for network discovery
+												if (BeebRx.BytesInBuffer == 0 && BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x91 && EconetRx.ah.handle == 0)
 												{
 													// this is a bridge gateway response
 													DebugDisplayTraceF(DebugType::Econet, true, "Econet: Gateway response received. Bridge sees us as station %d.%d ",
@@ -2111,32 +2153,44 @@ bool EconetPoll_real() // return NMI status
 													fourwaystage = FourWayStage::WaitForIdle;
 													break;
 												}
-												
-												// must be for us.
-												BeebRx.eh.deststn = EconetStationID;
-												BeebRx.eh.destnet = 0;
-												
-												if (EconetRx.ah.port == 0 && EconetRx.ah.cb == (0x82 & 0x7f)) {
-													j = 6;
-													for (unsigned int i = 0; i < 8; i++, j++) {
-														BeebRx.buff[j] = EconetRx.buff[i];
-													}
-													BeebRx.BytesInBuffer = j;
+												else if (BeebRx.BytesInBuffer == 0 && BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9e && EconetRx.ah.handle == 0)
+												{
+													// this is a BeebEm Pong
+													DebugDisplayTraceF(DebugType::Econet, true, "Econet: BeebEm Pong received from %d.%d",
+														   (unsigned int)BeebRx.eh.srcnet,
+														   (unsigned int)BeebRx.eh.srcstn);
+													// not a real econet packet - ignore it
+													fourwaystage = FourWayStage::WaitForIdle;
+													break;
 												}
-
-												else if (EconetRx.ah.port == 0 && EconetRx.ah.cb >= (0x83 & 0x7f) && EconetRx.ah.cb <= (0x85 & 0x7f)) {
-													j = 6;
-													for (unsigned int i = 0; i < 4; i++, j++) {
-														BeebRx.buff[j] = EconetRx.buff[i];
+												else
+												{
+													// else it is a real econet packet
+													BeebRx.eh.deststn = EconetStationID; // must be for us.
+													BeebRx.eh.destnet = 0;
+													
+													if (EconetRx.ah.port == 0 && EconetRx.ah.cb == (0x82 & 0x7f)) {
+														j = 6;
+														for (unsigned int i = 0; i < 8; i++, j++) {
+															BeebRx.buff[j] = EconetRx.buff[i];
+														}
+														BeebRx.BytesInBuffer = j;
 													}
-													BeebRx.BytesInBuffer = j;
-												}
 
-												else BeebRx.BytesInBuffer = sizeof(BeebRx.eh);
-												fourwaystage = FourWayStage::ScoutReceived;
-												//if (DebugEnabled)
-													DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_SCOUTRCVD");
-												break;
+													else if (EconetRx.ah.port == 0 && EconetRx.ah.cb >= (0x83 & 0x7f) && EconetRx.ah.cb <= (0x85 & 0x7f)) {
+														j = 6;
+														for (unsigned int i = 0; i < 4; i++, j++) {
+															BeebRx.buff[j] = EconetRx.buff[i];
+														}
+														BeebRx.BytesInBuffer = j;
+													}
+
+													else BeebRx.BytesInBuffer = sizeof(BeebRx.eh);
+													fourwaystage = FourWayStage::ScoutReceived;
+													//if (DebugEnabled)
+														DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_SCOUTRCVD");
+													break;
+												}
 
 											default:
 												//ignore anything else
