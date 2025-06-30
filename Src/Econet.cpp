@@ -2010,7 +2010,7 @@ bool EconetPoll_real() // return NMI status
 									if (RetVal == 12) // it might be a bridge gateway response
 									{
 										// if it is then it will be Extended AUN, but everything we need is within the first 8 bytes so just read them out of EconetRx.raw directly
-										if (EconetRx.raw[2]==0 && EconetRx.raw[3]!=0 && EconetRx.raw[4]==0x02 && EconetRx.raw[5]==GW_REPLY_PORT && EconetRx.raw[6]==0x91 && EconetRx.raw[7]==0) // check it looks like a GW reply should do
+										if (EconetRx.raw[2]==0 && EconetRx.raw[3]!=0 && EconetRx.raw[4]==0x02 && EconetRx.raw[5]==GW_REPLY_PORT && (EconetRx.raw[6]|0x80)==0x91 && EconetRx.raw[7]==0) // check it looks like a GW reply should do
 										{
 											// it does!
 											// EconetRx.raw[0] is our station number on the bridge
@@ -2048,9 +2048,8 @@ bool EconetPoll_real() // return NMI status
 											}
 										}
 									}
-									else
-										DebugDisplayTrace(DebugType::Econet, true, "Econet: Packet ignored");
 									
+									DebugDisplayTrace(DebugType::Econet, true, "Econet: Packet ignored");
 									BeebRx.BytesInBuffer = 0; // ignore the packet
 								}
 								else
