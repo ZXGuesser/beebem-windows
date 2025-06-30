@@ -36,6 +36,7 @@ Boston, MA  02110-1301, USA.
 #include <fstream>
 #include <string>
 #include <vector>
+#include <time.h>
 
 #include "Econet.h"
 #include "6502core.h"
@@ -174,6 +175,7 @@ static u_short EconetListenPort = 0; // default Listen port
 static unsigned long EconetListenIP = 0x0100007f;
 // IP settings:
 static SOCKET ListenSocket = INVALID_SOCKET; // Listen socket
+static SOCKET BroadcastListenSocket = INVALID_SOCKET;
 static SOCKET SendSocket = INVALID_SOCKET;
 static bool ReceiverSocketsOpen = false; // Used to flag line up and clock running
 
@@ -440,19 +442,20 @@ static EconetHost* FindNetworkConfig(unsigned char Station)
 
 static void EconetCloseSockets()
 {
-	// In single socket mode, SendSocket == ListenSocket
-	if (SendSocket != INVALID_SOCKET && SendSocket != ListenSocket)
-	{
-		CloseSocket(SendSocket);
-	}
-
+	// SendSocket == ListenSocket
 	if (ListenSocket != INVALID_SOCKET)
 	{
 		CloseSocket(ListenSocket);
 	}
+	
+	if (BroadcastListenSocket != INVALID_SOCKET)
+	{
+		CloseSocket(BroadcastListenSocket);
+	}
 
 	SendSocket = INVALID_SOCKET;
 	ListenSocket = INVALID_SOCKET;
+	BroadcastListenSocket = INVALID_SOCKET;
 
 	ReceiverSocketsOpen = false;
 }
@@ -529,6 +532,15 @@ bool EconetReset()
 	if (ListenSocket == INVALID_SOCKET)
 	{
 		EconetError("Econet: Failed to open listening socket (error %ld)", GetLastSocketError());
+		goto Fail;
+	}
+	
+	// Create a SOCKET for listening for incoming AUN broadcasts
+	BroadcastListenSocket = socket(AF_INET, SOCK_DGRAM, 0);
+
+	if (BroadcastListenSocket == INVALID_SOCKET)
+	{
+		EconetError("Econet: Failed to open broadcast listener socket (error %ld)", GetLastSocketError());
 		goto Fail;
 	}
 	
@@ -662,19 +674,28 @@ newID:
 					else
 					{
 						// look for a free port and assign a suitable station number
+						// TODO: should we have a configuration option to disable automatic assignment?
+						// we assign station numbers at random to reduce the chances of collisions between instances on different PCs. We have no other way to prevent them so hope for the best!
 						struct in_addr localaddr;
 						memcpy(&localaddr, host->h_addr_list[0], sizeof(struct in_addr));
 						
 						EconetListenIP = IN_ADDR(localaddr);
 						S_ADDR(service) = EconetListenIP; // TODO: this will use the first network address of this PC. This might not be useful if there are multiple network adapters but we have no good way to determine which to use in the absence of any user configuration
 						
-						for (unsigned char j = 1; j < 254; j++)
+						srand((unsigned int)time(0));
+						int r = rand() % 256; // start looking for free stations at a random offset
+						
+						for (int j = 0; j <= 256; j++)
 						{
-							service.sin_port = htons(10000+j);
+							unsigned char s = (j + r) & 0xff;
+							if (s == 0 || s >= 254)
+								break; // don't take an invalid number or the fileserver station
+							
+							service.sin_port = htons(10000+s);
 							if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
 							{
-								EconetListenPort = 10000+j;
-								EconetStationID = j;
+								EconetListenPort = 10000+s;
+								EconetStationID = s;
 								myaunnet = 0;
 								
 								EconetError("Automatically assigned station %d.%d on %s:%d", myaunnet, EconetStationID, IpAddressStr(EconetListenIP), EconetListenPort); // warn user of what we have done
@@ -724,6 +745,27 @@ newID:
 	{
 		EconetError("Econet: Failed to set socket for broadcasts (error %ld)", GetLastSocketError());
 		goto Fail;
+	}
+	
+	if (htons(service.sin_port) != DEFAULT_AUN_PORT)
+	{
+		// bind additional BroadcastListenSocket for reception of AUN broadcasts
+		const char val = 1;
+		if (setsockopt(BroadcastListenSocket, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val)) == -1)
+		{
+			EconetError("Econet: Failed to set socket for shared reception of broadcasts (error %ld)", GetLastSocketError());
+			goto Fail;
+		}
+		
+		sockaddr_in broadcastaddr;
+		broadcastaddr.sin_family = AF_INET;
+		broadcastaddr.sin_addr.s_addr = INADDR_ANY; // listen on all interfaces
+		broadcastaddr.sin_port = htons(DEFAULT_AUN_PORT);
+		
+		if (bind(BroadcastListenSocket, (SOCKADDR*)&broadcastaddr, sizeof(broadcastaddr)) == 0)
+		{
+			DebugDisplayTraceF(DebugType::Econet, true,"Econet: Started broadcast listener");
+		}
 	}
 
 	ReceiverSocketsOpen = true;
@@ -1548,6 +1590,9 @@ bool EconetPoll_real() // return NMI status
 								}
 							}
 						}
+						
+						// TODO: should we try to guess automatically assigned station numbers on this host?
+						// currently we can only send to those stations we have learned about by receiving a packet
 					}
 
 					// Send a datagram to the receiver
@@ -1731,28 +1776,6 @@ bool EconetPoll_real() // return NMI status
 
 								DebugDisplayTrace(DebugType::Econet, true, str2.c_str());
 							}
-							
-							if (EconetTx.ah.type == AUNType::Broadcast)
-							{
-								// need to send unicast copies to all hosts which won't see the broadcast
-								for (int i=0; i < stationsp; i++)
-								{
-									// don't send to ourself or hosts listening on the AUN port
-									if (stations[i].port != DEFAULT_AUN_PORT && !(stations[i].inet_addr == EconetListenIP && stations[i].port == EconetListenPort))
-									{
-										S_ADDR(RecvAddr) = stations[i].inet_addr;
-										RecvAddr.sin_port = htons(stations[i].port);
-										
-										if (sendto(SendSocket, (char *)&EconetTx, SendLen, 0,
-												   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
-										{
-											EconetError("Econet: Failed to send packet to station %d (%s port %u)",
-														(unsigned int)EconetTx.deststn,
-														IpAddressStr(S_ADDR(RecvAddr)), (unsigned int)htons(RecvAddr.sin_port));
-										}
-									}
-								}
-							}
 						}
 
 						// Sending packet will mean peer goes into flag fill while
@@ -1767,19 +1790,12 @@ bool EconetPoll_real() // return NMI status
 						//if (DebugEnabled)
 							DebugDumpADLC();
 					}
-					/* disabled because puking error boxes is annoying
 					else
 					{
-						if (LastError.network != BeebTx.eh.destnet && LastError.station != BeebTx.eh.deststn)
-						{
-							EconetError("Econet: Station %d.%d not found in AUN Map or Econet.cfg",
-										(unsigned int)BeebTx.eh.destnet,
-										(unsigned int)BeebTx.eh.deststn);
-
-							LastError.network = BeebTx.eh.destnet; // if there is a send error, remember the network and station
-							LastError.station = BeebTx.eh.deststn; // to prevent the user being notified on each retry
-						}
-					}*/
+						DebugDisplayTraceF(DebugType::Econet, true,"Econet: Unable to resolve station %d.%d",
+										   (unsigned int)BeebTx.eh.destnet,
+										   (unsigned int)BeebTx.eh.deststn);
+					}
 				}
 			}
 		}
@@ -1834,12 +1850,27 @@ bool EconetPoll_real() // return NMI status
 						// Try and get another packet from network
 						// Check if packet is waiting without blocking
 						fd_set ReadFds;
-						FD_ZERO(&ReadFds);
-						FD_SET(ListenSocket, &ReadFds);
-
 						timeval TimeOut = {0, 0};
-
-						int RetVal = select((int)ListenSocket + 1, &ReadFds, NULL, NULL, &TimeOut);
+						int RetVal = 0;
+						SOCKET sock = ListenSocket;
+						
+						if (BroadcastListenSocket != INVALID_SOCKET)
+						{
+							// check if BroadcastListenSocket has a packet
+							FD_ZERO(&ReadFds);
+							FD_SET(BroadcastListenSocket, &ReadFds);
+							RetVal = select((int)BroadcastListenSocket + 1, &ReadFds, NULL, NULL, &TimeOut);
+							if (RetVal > 0)
+								sock = BroadcastListenSocket; // switch to use socket
+						}
+						
+						if (!RetVal)
+						{
+							// nothing on BroadcastListenSocket, check the main listen socket
+							FD_ZERO(&ReadFds);
+							FD_SET(ListenSocket, &ReadFds);
+							RetVal = select((int)ListenSocket + 1, &ReadFds, NULL, NULL, &TimeOut);
+						}
 
 						if (RetVal > 0)
 						{
@@ -1847,8 +1878,14 @@ bool EconetPoll_real() // return NMI status
 							// Read the packet
 							int sizRcvAdr = sizeof(RecvAddr);
 
-							RetVal = recvfrom(ListenSocket, (char *)EconetRx.raw, sizeof(EconetRx.raw) + sizeof(EconetRx.buff), 0, (SOCKADDR *)&RecvAddr, &sizRcvAdr);
+							RetVal = recvfrom(sock, (char *)EconetRx.raw, sizeof(EconetRx.raw) + sizeof(EconetRx.buff), 0, (SOCKADDR *)&RecvAddr, &sizRcvAdr);
 							EconetRx.BytesInBuffer = RetVal;
+							
+							if (sock == BroadcastListenSocket)
+							{
+								if ((EconetRx.ah.type != AUNType::Broadcast) || (S_ADDR(RecvAddr) == EconetListenIP && htons(RecvAddr.sin_port) == EconetListenPort))
+									RetVal = 0; // not a broadcast packet or we sent it so throw it away!
+							}
 
 							if (RetVal > 0)
 							{
@@ -1943,6 +1980,30 @@ bool EconetPoll_real() // return NMI status
 										BeebRx.eh.srcnet &= 0x7F; // make AUN nets > 127 appear to be econet
 									}
 								}
+								
+								if (!found)
+								{
+									if (htons(RecvAddr.sin_port) > 10000 && htons(RecvAddr.sin_port) < 10255)
+									{
+										// guess that this might be an automatically assigned BeebEm station
+										// TODO should we put this behind a configuration option?
+										BeebRx.eh.srcnet = 0;
+										BeebRx.eh.srcstn = (unsigned char)(htons(RecvAddr.sin_port) - 10000);
+										found = true;
+										DebugDisplayTraceF(DebugType::Econet, true,
+														   "Econet: Guessing that %s:%i is station 0.%d",
+														   IpAddressStr(S_ADDR(RecvAddr)),
+														   htons(RecvAddr.sin_port),
+														   BeebRx.eh.srcstn);
+										// add this to the list of stations we know about so we can reply to it
+										stations[stationsp].network = 0;
+										stations[stationsp].station = BeebRx.eh.srcstn;
+										stations[stationsp].inet_addr = S_ADDR(RecvAddr);
+										stations[stationsp].port = htons(RecvAddr.sin_port);
+										stations[++stationsp].station = 0; // terminate list with invalid station
+										// If there is already a station with this number in the list from a different host then we won't see this. That's an unavoidable consequence of assigning stations this way
+									}
+								}
 
 								if (!found) // couldn't resolve econet source address
 								{
@@ -1989,7 +2050,7 @@ bool EconetPoll_real() // return NMI status
 									}
 									else
 										DebugDisplayTrace(DebugType::Econet, true, "Econet: Packet ignored");
-
+									
 									BeebRx.BytesInBuffer = 0; // ignore the packet
 								}
 								else
