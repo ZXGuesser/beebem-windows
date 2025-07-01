@@ -699,7 +699,6 @@ newID:
 								EconetStationID = s;
 								myaunnet = 0;
 								
-								EconetError("Automatically assigned station %d.%d on %s:%d", myaunnet, EconetStationID, IpAddressStr(EconetListenIP), EconetListenPort); // warn user of what we have done
 								DebugDisplayTraceF(DebugType::Econet, true,"Econet: automatically assigned random station %d.%d on %s:%d", myaunnet, EconetStationID, IpAddressStr(EconetListenIP), EconetListenPort);
 								
 								break;

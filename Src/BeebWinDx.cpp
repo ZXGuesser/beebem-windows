@@ -35,6 +35,7 @@ Boston, MA  02110-1301, USA.
 #include "Main.h"
 #include "Messages.h"
 #include "Resource.h"
+#include "Econet.h"
 
 #define DEBUG_DX9
 
@@ -1105,15 +1106,23 @@ void BeebWin::DisplayTiming()
 {
 	if (ShouldDisplayTiming())
 	{
-		if (m_MouseCaptured)
+		if (EconetEnabled)
 		{
-			sprintf(m_szTitle, "%s  Speed: %2.2f  fps: %2d  %s",
-			        WindowTitle, m_RelativeSpeed, (int)m_FramesPerSecond, pszReleaseCaptureMessage);
+			if (IsPaused())
+				sprintf(m_szTitle, "%s  Paused  Econet: %d.%d  %s",
+						WindowTitle, myaunnet, EconetStationID, m_MouseCaptured?pszReleaseCaptureMessage:"");
+			else
+				sprintf(m_szTitle, "%s  Speed: %2.2f  fps: %2d  Econet: %d.%d  %s",
+						WindowTitle, m_RelativeSpeed, (int)m_FramesPerSecond, myaunnet, EconetStationID, m_MouseCaptured?pszReleaseCaptureMessage:"");
 		}
 		else
 		{
-			sprintf(m_szTitle, "%s  Speed: %2.2f  fps: %2d",
-			        WindowTitle, m_RelativeSpeed, (int)m_FramesPerSecond);
+			if (IsPaused())
+				sprintf(m_szTitle, "%s  Paused  %s",
+						WindowTitle, m_MouseCaptured?pszReleaseCaptureMessage:"");
+			else
+				sprintf(m_szTitle, "%s  Speed: %2.2f  fps: %2d  %s",
+						WindowTitle, m_RelativeSpeed, (int)m_FramesPerSecond, m_MouseCaptured?pszReleaseCaptureMessage:"");
 		}
 
 		SetWindowText(m_hWnd, m_szTitle);
@@ -1128,14 +1137,15 @@ void BeebWin::UpdateWindowTitle()
 	}
 	else
 	{
-		if (m_MouseCaptured)
+		if (EconetEnabled)
 		{
-			sprintf(m_szTitle, "%s  %s",
-			        WindowTitle, pszReleaseCaptureMessage);
+			sprintf(m_szTitle, "%s  %sEconet: %d.%d  %s",
+					WindowTitle, IsPaused()?"Paused  ":"", myaunnet, EconetStationID, m_MouseCaptured?pszReleaseCaptureMessage:"");
 		}
 		else
 		{
-			strcpy(m_szTitle, WindowTitle);
+			sprintf(m_szTitle, "%s  %s%s",
+					WindowTitle, IsPaused()?"Paused  ":"", m_MouseCaptured?pszReleaseCaptureMessage:"");
 		}
 
 		SetWindowText(m_hWnd, m_szTitle);

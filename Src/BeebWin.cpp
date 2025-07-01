@@ -933,6 +933,8 @@ void BeebWin::ResetBeebSystem(Model NewModelType, bool LoadRoms)
 			}
 		}
 	}
+	
+	UpdateWindowTitle();
 }
 
 /****************************************************************************/
@@ -3803,6 +3805,7 @@ void BeebWin::ToggleEconet()
 	else
 	{
 		EconetReset();
+		UpdateWindowTitle();
 	}
 
 	UpdateEconetMenu();
@@ -4111,12 +4114,12 @@ void BeebWin::HandleCommand(UINT MenuID)
 		if (m_ShowSpeedAndFPS)
 		{
 			m_ShowSpeedAndFPS = false;
-			SetWindowText(m_hWnd, WindowTitle);
 		}
 		else
 		{
 			m_ShowSpeedAndFPS = true;
 		}
+		UpdateWindowTitle();
 
 		CheckMenuItem(IDM_SPEEDANDFPS, m_ShowSpeedAndFPS);
 		break;
@@ -5056,11 +5059,7 @@ void BeebWin::TogglePause()
 
 	CheckMenuItem(IDM_PAUSE, m_Paused);
 
-	if (m_ShowSpeedAndFPS && m_Paused)
-	{
-		sprintf(m_szTitle, "%s  Paused", WindowTitle);
-		SetWindowText(m_hWnd, m_szTitle);
-	}
+	UpdateWindowTitle();
 
 	if (m_Paused)
 	{
