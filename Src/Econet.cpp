@@ -200,7 +200,8 @@ enum class AUNType : unsigned char {
 	Ack = 3,
 	NAck = 4,
 	Immediate = 5,
-	ImmReply = 6
+	ImmReply = 6,
+	BeebEm = 0xff  // proprietary BeebEm messages carried over an AUN port
 };
 
 struct AUNHeader
@@ -792,7 +793,7 @@ newID:
 	RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
 	
 	EthernetPacket tmp;
-	tmp.ah.type = AUNType::Broadcast;
+	tmp.ah.type = AUNType::Broadcast; // the gateway is listening for an AUN broadcast
 	tmp.ah.cb = 0x10; // control &90 locate gateway
 	tmp.ah.port = 0x9c; // Pi Econet Bridge port
 	tmp.ah.pad = 0;
@@ -807,8 +808,12 @@ newID:
 	}
 	
 	// discover other BeebEm instances by pinging the network
-	tmp.ah.cb = 0x1f; // control &9f Ping
-	tmp.ah.port = BEEBEM_ECONET_PORT; // BeebEm port
+	// this uses packets conforming to the structure of AUN, but with a
+	// proprietary type which will hopefully be ignored by any existing
+	// AUN code.
+	tmp.ah.type = AUNType::BeebEm;
+	tmp.ah.cb = 0x1f; // control &9f a discovery Ping
+	tmp.ah.port = BEEBEM_ECONET_PORT; // BeebEm reply port
 	tmp.ah.pad = 0;
 	tmp.ah.handle = 0;
 	memset(tmp.buff,0,8);
@@ -1901,8 +1906,8 @@ bool EconetPoll_real() // return NMI status
 							RetVal = recvfrom(sock, (char *)EconetRx.raw, sizeof(EconetRx.raw) + sizeof(EconetRx.buff), 0, (SOCKADDR *)&RecvAddr, &sizRcvAdr);
 							EconetRx.BytesInBuffer = RetVal;
 							
-							if (sock == BroadcastListenSocket && EconetRx.ah.type != AUNType::Broadcast)
-								RetVal = 0; // non broadcast packet seen on broadcast socket - ignore
+							if (sock == BroadcastListenSocket && EconetRx.ah.type != AUNType::Broadcast && EconetRx.ah.type != AUNType::BeebEm)
+								RetVal = 0; // non broadcast/beebem packet seen on broadcast socket - ignore
 							
 							if (S_ADDR(RecvAddr) == EconetListenIP && htons(RecvAddr.sin_port) == EconetListenPort)
 								RetVal = 0; // we sent this broadcast packet - ignore
@@ -2044,7 +2049,7 @@ bool EconetPoll_real() // return NMI status
 											}
 										}
 									}
-									else if (RetVal == 16 && EconetRx.ah.port == BEEBEM_ECONET_PORT && EconetRx.ah.handle == 0) // it might be a discovery packet
+									if (RetVal == 16 && EconetRx.ah.port == BEEBEM_ECONET_PORT && EconetRx.ah.type == AUNType::BeebEm) // it might be a discovery packet from an unknown station
 									{
 										if ((EconetRx.ah.cb | 128) == 0x9f) // BeebEm Ping
 										{
@@ -2074,7 +2079,7 @@ bool EconetPoll_real() // return NMI status
 											
 											// send a Pong packet back to source address
 											EthernetPacket tmp;
-											tmp.ah.type = AUNType::Unicast;
+											tmp.ah.type = AUNType::BeebEm;
 											tmp.ah.cb = 0x1e; // control &9e Pong
 											tmp.ah.port = BEEBEM_ECONET_PORT;
 											tmp.ah.pad = 0;
@@ -2140,15 +2145,9 @@ bool EconetPoll_real() // return NMI status
 
 										switch (EconetRx.ah.type)
 										{
-											case AUNType::Broadcast:
-												// catch some fake packets used for network discovery
-												if (BeebRx.eh.port == 0x9c && EconetRx.ah.handle == 0)
-												{
-													// This is a gateway discovery broadcast from another BeebEm instance so ignore it
-													fourwaystage = FourWayStage::WaitForIdle;
-													break;
-												}
-												else if (BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9f && EconetRx.ah.handle == 0)
+											case AUNType::BeebEm:
+												// catch some proprietary packets used for network discovery
+												if (BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9f && EconetRx.ah.handle == 0)
 												{
 													// this is a BeebEm Ping used for host discovery from a an address we think we know already
 													// TODO: check the station number hasn't changed and maybe update it?
@@ -2157,7 +2156,7 @@ bool EconetPoll_real() // return NMI status
 														   (unsigned int)BeebRx.eh.srcstn);
 													// send a Pong packet back to source address
 													EthernetPacket tmp;
-													tmp.ah.type = AUNType::Unicast;
+													tmp.ah.type = AUNType::BeebEm;
 													tmp.ah.cb = 0x1e; // control &9e Pong
 													tmp.ah.port = BEEBEM_ECONET_PORT;
 													tmp.ah.pad = 0;
@@ -2171,6 +2170,24 @@ bool EconetPoll_real() // return NMI status
 														EconetError("Econet: Failed to send BeebEm Pong");
 													}
 													// this was not a real econet packet so ignore it
+													fourwaystage = FourWayStage::WaitForIdle;
+												}
+												else if (BeebRx.BytesInBuffer == 0 && BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9e && EconetRx.ah.handle == 0)
+												{
+													// this is a BeebEm Pong used for host discovery from a an address we think we know already
+													// TODO: check the station number hasn't changed and maybe update it?
+													DebugDisplayTraceF(DebugType::Econet, true, "Econet: BeebEm Pong received from %d.%d",
+														   (unsigned int)BeebRx.eh.srcnet,
+														   (unsigned int)BeebRx.eh.srcstn);
+													// not a real econet packet - ignore it
+													fourwaystage = FourWayStage::WaitForIdle;
+												}
+												break;
+												
+											case AUNType::Broadcast:
+												if (BeebRx.eh.port == 0x9c && EconetRx.ah.handle == 0)
+												{
+													// This is a gateway discovery broadcast from another BeebEm instance so ignore it
 													fourwaystage = FourWayStage::WaitForIdle;
 													break;
 												}
@@ -2205,24 +2222,12 @@ bool EconetPoll_real() // return NMI status
 												break;
 
 											case AUNType::Unicast:
-												// catch some fake packets used for network discovery
 												if (BeebRx.BytesInBuffer == 0 && BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x91 && EconetRx.ah.handle == 0)
 												{
 													// this is a bridge gateway response
 													DebugDisplayTraceF(DebugType::Econet, true, "Econet: Gateway response received. Bridge sees us as station %d.%d ",
 														   (unsigned int)BeebRx.eh.destnet,
 														   (unsigned int)BeebRx.eh.deststn);
-													// not a real econet packet - ignore it
-													fourwaystage = FourWayStage::WaitForIdle;
-													break;
-												}
-												else if (BeebRx.BytesInBuffer == 0 && BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9e && EconetRx.ah.handle == 0)
-												{
-													// this is a BeebEm Pong used for host discovery from a an address we think we know already
-													// TODO: check the station number hasn't changed and maybe update it?
-													DebugDisplayTraceF(DebugType::Econet, true, "Econet: BeebEm Pong received from %d.%d",
-														   (unsigned int)BeebRx.eh.srcnet,
-														   (unsigned int)BeebRx.eh.srcstn);
 													// not a real econet packet - ignore it
 													fourwaystage = FourWayStage::WaitForIdle;
 													break;
