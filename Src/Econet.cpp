@@ -696,7 +696,7 @@ newID:
 						
 						for (int j = 0; j <= 256; j++)
 						{
-							if (s == 0 || s == 255)
+							if (s == 0 || s >= ((PreferredStationID==254)?255:254))
 								continue; // don't take an invalid number
 							
 							service.sin_port = htons(10000+s);
