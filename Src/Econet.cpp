@@ -2263,6 +2263,7 @@ bool EconetPoll_real() // return NMI status
 
 											default:
 												//ignore anything else
+												fourwaystage = FourWayStage::WaitForIdle;
 												BeebRx.BytesInBuffer = 0;
 												break;
 										}
