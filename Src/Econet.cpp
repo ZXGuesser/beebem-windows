@@ -560,6 +560,8 @@ bool EconetReset()
 	service.sin_family = AF_INET;
 	service.sin_addr.s_addr = INADDR_ANY; //inet_addr("127.0.0.1");
 
+	unsigned char PreferredStationID = (myaunnet==0)?EconetStationID:0; // try to automatically assign the specified station if required if it is in net 0
+	
 	// Already have a station num? Either from command line or a free one
 	// we found on previous reset.
 	if (EconetStationID != 0)
@@ -686,11 +688,16 @@ newID:
 						srand((unsigned int)time(0));
 						int r = rand() % 256; // start looking for free stations at a random offset
 						
+						unsigned char s;
+						if (PreferredStationID)
+							s = PreferredStationID; // try to bind the station ID asked for
+						else
+							s = r & 0xff; // the first random offset
+						
 						for (int j = 0; j <= 256; j++)
 						{
-							unsigned char s = (j + r) & 0xff;
-							if (s == 0 || s >= 254)
-								continue; // don't take an invalid number or the fileserver station
+							if (s == 0 || s == 255)
+								continue; // don't take an invalid number
 							
 							service.sin_port = htons(10000+s);
 							if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
@@ -703,6 +710,8 @@ newID:
 								
 								break;
 							}
+							
+							s = (j + r) & 0xff;
 						}
 					}
 				}
