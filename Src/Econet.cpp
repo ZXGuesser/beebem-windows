@@ -914,93 +914,111 @@ static bool ReadEconetConfigFile()
 		std::vector<std::string> Tokens;
 
 		ParseConfigLine(Line, Tokens);
-
+		if (Tokens.size() == 5 && (StrCaseCmp(Tokens[0].c_str(), "STATION") == 0))
+		{
+			Tokens.erase(Tokens.begin()); // remove STATION from the beginning leaving old style 4 token station
+		}
+		
 		if (Tokens.size() == 4)
 		{
-			if (stationsp < NETWORK_TABLE_LENGTH)
+			try
 			{
-				try
+				
+				if (StrCaseCmp(Tokens[0].c_str(), "NETWORK") == 0)
 				{
-					unsigned char network = (unsigned char)std::stoi(Tokens[0]);
-					unsigned long address = inet_addr(Tokens[2].c_str());
-					u_short port          = (u_short)std::stoi(Tokens[3]);
 					
-					if (Tokens[1] == "*")
+					if (networksp < AUN_TABLE_LENGTH)
 					{
+						unsigned char network = (unsigned char)std::stoi(Tokens[1]);
 						// this line defines an entire network
 						if (network >= 253)
 							throw std::out_of_range ("invalid network");
 							
 						// it is added before any networks from AUNMap so takes precedence
 						networks[networksp].network = network;
-						networks[networksp].inet_addr = address;
-						networks[networksp].port = port;
+						networks[networksp].inet_addr = inet_addr(Tokens[2].c_str());
+						networks[networksp].port = (u_short)std::stoi(Tokens[3]);
 						
 						DebugDisplayTraceF(DebugType::Econet, true,
-						                   "Econet: ConfigFile Net %i IP %s Port %i",
-						                   networks[networksp].network,
-						                   IpAddressStr(networks[networksp].inet_addr),
-						                   networks[networksp].port);
-						
-						networks[++networksp].network = 255; // terminate list with invalid net
+										   "Econet: ConfigFile Net %i IP %s Port %i",
+										   networks[networksp].network,
+										   IpAddressStr(networks[networksp].inet_addr),
+										   networks[networksp].port);
+						networksp++;
 					}
-					else if (Tokens[1] == "G")
+					else
 					{
+						EconetError("Too many network entries in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
+						Success = false;
+						break;
+					}
+				}
+				else if (StrCaseCmp(Tokens[0].c_str(), "GATEWAY") == 0)
+				{
+					if (gatewaysp < AUN_TABLE_LENGTH)
+					{
+						unsigned char network = (unsigned char)std::stoi(Tokens[1]);
 						// this line defines an Extended AUN gateway
 						if (network >= 253)
 							throw std::out_of_range ("invalid network");
 						// a gateway is allowed to specify network zero, in which case it will match all otherwise unknown nets
 						
 						gateways[gatewaysp].network = network;
-						gateways[gatewaysp].inet_addr = address;
-						gateways[gatewaysp].port = port;
+						gateways[gatewaysp].inet_addr = inet_addr(Tokens[2].c_str());
+						gateways[gatewaysp].port = (u_short)std::stoi(Tokens[3]);
 						
 						DebugDisplayTraceF(DebugType::Econet, true,
-						                   "Econet: ConfigFile Gateway %i IP %s Port %i",
-						                   gateways[gatewaysp].network,
-						                   IpAddressStr(gateways[gatewaysp].inet_addr),
-						                   gateways[gatewaysp].port);
+										   "Econet: ConfigFile Gateway %i IP %s Port %i",
+										   gateways[gatewaysp].network,
+										   IpAddressStr(gateways[gatewaysp].inet_addr),
+										   gateways[gatewaysp].port);
 						
-						gateways[++gatewaysp].network = 255; // terminate list with invalid net
+						gatewaysp++;
 					}
 					else
 					{
-						unsigned char station = (unsigned char)std::stoi(Tokens[1]);
-						if (station == 0 || station == 255)
-							throw std::out_of_range ("invalid station"); // not a valid station number
-						
-						stations[stationsp].network = network;
-						stations[stationsp].station = station;
-						stations[stationsp].inet_addr = address;
-						stations[stationsp].port = port;
-						
-						DebugDisplayTraceF(DebugType::Econet, true,
-						                   "Econet: ConfigFile Net %i Stn %i IP %s Port %i",
-						                   stations[stationsp].network, stations[stationsp].station,
-						                   IpAddressStr(stations[stationsp].inet_addr), stations[stationsp].port);
-						
-						stations[++stationsp].station = 0; // terminate list with invalid station
+						EconetError("Too many gateway entries in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
+						Success = false;
+						break;
 					}
 				}
-				catch (const std::exception&)
+				else if (stationsp < NETWORK_TABLE_LENGTH)
 				{
-					EconetError("Invalid value in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
+					unsigned char station = (unsigned char)std::stoi(Tokens[1]);
+					if (station == 0 || station == 255)
+						throw std::out_of_range ("invalid station"); // not a valid station number
+					
+					stations[stationsp].network = (unsigned char)std::stoi(Tokens[0]);
+					stations[stationsp].station = station;
+					stations[stationsp].inet_addr = inet_addr(Tokens[2].c_str());
+					stations[stationsp].port = (u_short)std::stoi(Tokens[3]);
+					
+					DebugDisplayTraceF(DebugType::Econet, true,
+									   "Econet: ConfigFile Net %i Stn %i IP %s Port %i",
+									   stations[stationsp].network, stations[stationsp].station,
+									   IpAddressStr(stations[stationsp].inet_addr), stations[stationsp].port);
+					
+					stationsp++;
+				}
+				else
+				{
+					EconetError("Too many station entries in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
 					Success = false;
 					break;
 				}
 			}
-			else
+			catch (const std::exception&)
 			{
-				EconetError("Too many network entries in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
+				EconetError("Invalid value in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
 				Success = false;
 				break;
 			}
 		}
 		else if (Tokens.size() == 2)
 		{
+			// key/value options
 			const std::string& Key   = Tokens[0];
 			const std::string& Value = Tokens[1];
-
 			try
 			{
 				if (StrCaseCmp(Key.c_str(), "AUNMODE") == 0)
@@ -1133,8 +1151,6 @@ static bool ReadAUNConfigFile()
 		}
 	}
 
-	networks[networksp].network = 255; // terminate table with invalid net.
-
 	return Success;
 }
 
@@ -1150,11 +1166,8 @@ static bool ReadNetwork()
 
 	// clear tables
 	stationsp = 0;
-	stations[0].station = 0;
 	networksp = 0;
-	networks[0].network = 255;
 	gatewaysp = 0;
-	gateways[0].network = 255;
 
 	if (!ReadEconetConfigFile())
 	{
@@ -2044,8 +2057,7 @@ bool EconetPoll_real() // return NMI status
 																   "Econet: Learned about new gateway at %s:%i",
 																   IpAddressStr(gateways[gatewaysp].inet_addr),
 																   gateways[gatewaysp].port);
-												
-												gateways[++gatewaysp].network = 255; // terminate list with invalid net
+												gatewaysp++;
 											}
 										}
 									}
@@ -2068,8 +2080,7 @@ bool EconetPoll_real() // return NMI status
 												stations[stationsp].network = BeebRx.eh.srcnet;
 												stations[stationsp].station = BeebRx.eh.srcstn;
 												stations[stationsp].inet_addr = S_ADDR(RecvAddr);
-												stations[stationsp].port = htons(RecvAddr.sin_port);
-												stations[++stationsp].station = 0; // terminate list with invalid station
+												stations[stationsp++].port = htons(RecvAddr.sin_port);
 												DebugDisplayTraceF(DebugType::Econet, true,
 															   "Econet: added station %d.%d to host list",
 															   (unsigned int)BeebRx.eh.srcnet,
@@ -2110,8 +2121,7 @@ bool EconetPoll_real() // return NMI status
 												stations[stationsp].network = BeebRx.eh.srcnet;
 												stations[stationsp].station = BeebRx.eh.srcstn;
 												stations[stationsp].inet_addr = S_ADDR(RecvAddr);
-												stations[stationsp].port = htons(RecvAddr.sin_port);
-												stations[++stationsp].station = 0; // terminate list with invalid station
+												stations[stationsp++].port = htons(RecvAddr.sin_port);
 												// TODO: If there is already a station with this number in the list from a different host then we won't see this.
 												DebugDisplayTraceF(DebugType::Econet, true,
 															   "Econet: added station %d.%d to host list",
