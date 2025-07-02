@@ -111,6 +111,7 @@ const char* const CFG_TEXT_TO_SPEECH_VOICE         = "TextToSpeechVoice";
 
 // UI
 const char* const CFG_SHOW_FPS                     = "ShowFPS";
+const char* const CFG_SHOW_STN                     = "ShowSTN";
 const char* const CFG_SHOW_FPS_OLD                 = "ShowFSP"; // For BeebEm v4.18 and earlier.
 const char* const CFG_SHOW_KEYBOARD_LEDS           = "ShowKeyboardLEDs";
 const char* const CFG_SHOW_DISC_LEDS               = "ShowDiscLEDs";

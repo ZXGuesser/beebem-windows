@@ -1418,6 +1418,7 @@ void BeebWin::InitMenu(void)
 	UpdateDisplayRendererOptionsMenu();
 
 	CheckMenuItem(IDM_SPEEDANDFPS, m_ShowSpeedAndFPS);
+	CheckMenuItem(IDM_NETDOTSTN, m_ShowNetDotStn);
 	CheckMenuItem(IDM_FULLSCREEN, m_FullScreen);
 	CheckMenuItem(IDM_MAINTAINASPECTRATIO, m_MaintainAspectRatio);
 	UpdateMonitorMenu();
@@ -4125,6 +4126,20 @@ void BeebWin::HandleCommand(UINT MenuID)
 		UpdateWindowTitle();
 
 		CheckMenuItem(IDM_SPEEDANDFPS, m_ShowSpeedAndFPS);
+		break;
+
+	case IDM_NETDOTSTN:
+		if (m_ShowNetDotStn)
+		{
+			m_ShowNetDotStn = false;
+		}
+		else
+		{
+			m_ShowNetDotStn = true;
+		}
+		UpdateWindowTitle();
+
+		CheckMenuItem(IDM_NETDOTSTN, m_ShowNetDotStn);
 		break;
 
 	case IDM_XAUDIO2:

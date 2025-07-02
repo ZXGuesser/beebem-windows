@@ -246,6 +246,7 @@
 #define IDM_1440X1080                   40010
 #define IDM_1600X1200                   40011
 #define IDM_SPEEDANDFPS                 40012
+#define IDM_NETDOTSTN                   40328
 #define IDM_SOUNDONOFF                  40013
 #define IDM_44100KHZ                    40014
 #define IDM_22050KHZ                    40015

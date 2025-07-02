@@ -623,6 +623,7 @@ public:
 
 	// Timing
 	bool m_ShowSpeedAndFPS;
+	bool m_ShowNetDotStn;
 	TimingType m_TimingType;
 	int m_TimingSpeed;
 	double m_RealTimeTarget;

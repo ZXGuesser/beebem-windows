@@ -1100,6 +1100,7 @@ void BeebWin::LoadUIPreferences(int Version)
 
 		m_Preferences.GetBoolValue(CFG_SHOW_KEYBOARD_LEDS, LEDs.ShowKB, false);
 		m_Preferences.GetBoolValue(CFG_SHOW_DISC_LEDS, LEDs.ShowDisc, false);
+		m_Preferences.GetBoolValue(CFG_SHOW_STN, m_ShowNetDotStn, true);
 	}
 	else
 	{
@@ -1786,6 +1787,7 @@ void BeebWin::SavePreferences(bool saveAll)
 
 		// UI
 		m_Preferences.SetBoolValue(CFG_SHOW_FPS, m_ShowSpeedAndFPS);
+		m_Preferences.SetBoolValue(CFG_SHOW_STN, m_ShowNetDotStn);
 		m_Preferences.EraseValue(CFG_SHOW_FPS_OLD);
 		m_Preferences.SetBoolValue(CFG_SHOW_KEYBOARD_LEDS, LEDs.ShowKB);
 		m_Preferences.SetBoolValue(CFG_SHOW_DISC_LEDS, LEDs.ShowDisc);

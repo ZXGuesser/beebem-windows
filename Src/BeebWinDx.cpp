@@ -1060,22 +1060,38 @@ void BeebWin::DisplayClientAreaText(HDC hDC)
 
 	DisplayFDCBoardInfo(hDC, 0, TextStart);
 
-	if (m_ShowSpeedAndFPS && m_FullScreen)
+	if (m_FullScreen)
 	{
 		char fps[50];
 
-		if (!m_Paused)
-		{
-			sprintf(fps, "%2.2f %2d", m_RelativeSpeed, (int)m_FramesPerSecond);
-		}
-		else
+		if (m_Paused)
 		{
 			sprintf(fps, "Paused");
 		}
 
+		if (!m_Paused && m_ShowSpeedAndFPS && m_ShowNetDotStn && EconetEnabled)
+		{
+			sprintf(fps, "%2.2f %2d %d.%d", m_RelativeSpeed, (int)m_FramesPerSecond, myaunnet, EconetStationID);
+		}
+
+		if (!m_Paused && m_ShowSpeedAndFPS && (!m_ShowNetDotStn || !EconetEnabled))
+		{
+			sprintf(fps, "%2.2f %2d", m_RelativeSpeed, (int)m_FramesPerSecond);
+		}
+
+		if (!m_Paused && !m_ShowSpeedAndFPS && m_ShowNetDotStn && EconetEnabled)
+		{
+			sprintf(fps, "%d.%d", myaunnet, EconetStationID);
+		}
+
+		if (!m_Paused && !m_ShowSpeedAndFPS && (!m_ShowNetDotStn || !EconetEnabled))
+		{
+			sprintf(fps, "");
+		}
+
 		SetBkMode(hDC, TRANSPARENT);
 		SetTextColor(hDC, 0x808080);
-		TextOut(hDC, TeletextEnabled ? 490 : 580, TextStart, fps, (int)strlen(fps));
+		TextOut(hDC, TeletextEnabled ? 460 : 550, TextStart, fps, (int)strlen(fps));
 	}
 }
 
@@ -1106,7 +1122,7 @@ void BeebWin::DisplayTiming()
 {
 	if (ShouldDisplayTiming())
 	{
-		if (EconetEnabled)
+		if (EconetEnabled && m_ShowNetDotStn)
 		{
 			if (IsPaused())
 				sprintf(m_szTitle, "%s  Paused  Econet: %d.%d  %s",
@@ -1137,7 +1153,7 @@ void BeebWin::UpdateWindowTitle()
 	}
 	else
 	{
-		if (EconetEnabled)
+		if (EconetEnabled && m_ShowNetDotStn)
 		{
 			sprintf(m_szTitle, "%s  %sEconet: %d.%d  %s",
 					WindowTitle, IsPaused()?"Paused  ":"", myaunnet, EconetStationID, m_MouseCaptured?pszReleaseCaptureMessage:"");

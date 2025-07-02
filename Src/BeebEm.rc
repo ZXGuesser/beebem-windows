@@ -173,6 +173,7 @@ BEGIN
         MENUITEM "Smooth Teletext Mode Only",   IDM_DXSMOOTHMODE7ONLY
         MENUITEM SEPARATOR
         MENUITEM "&Speed and FPS On/Off",       IDM_SPEEDANDFPS
+        MENUITEM "Econet net.stn On/Off",       IDM_NETDOTSTN
         MENUITEM SEPARATOR
         MENUITEM "&Full Screen",                IDM_FULLSCREEN
         MENUITEM "Maintain Aspect Ratio in Full Screen", IDM_MAINTAINASPECTRATIO
