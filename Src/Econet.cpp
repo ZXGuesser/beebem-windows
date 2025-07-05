@@ -173,6 +173,8 @@ static unsigned int TimeBetweenBytes = DEFAULT_TIME_BETWEEN_BYTES;
 // all listed in Econet.cfg so each one knows where the others are.
 unsigned char EconetStationID = 0; // default Station ID
 unsigned char myaunnet = 0; // what is our local net number
+unsigned char PreferredStationID = 0;
+unsigned char PreferredNet = 0;
 static u_short EconetListenPort = 0; // default Listen port
 static unsigned long EconetListenIP = 0x0100007f;
 // IP settings:
@@ -428,12 +430,14 @@ static std::string BytesToString(const unsigned char* pData, int Length)
 
 //---------------------------------------------------------------------------
 
-static EconetHost* FindNetworkConfig(unsigned char Station)
+static EconetHost* FindNetworkConfig(unsigned char Station, unsigned char Net)
 {
+	DebugDisplayTraceF(DebugType::Econet, true,"Econet: Look for %d.%d in Econet.cfg", Net, Station);
 	for (int i = 0; i < stationsp; ++i)
 	{
-		if (stations[i].station == Station && stations[i].network == myaunnet)
+		if (stations[i].station == Station && stations[i].network == Net)
 		{
+			DebugDisplayTraceF(DebugType::Econet, true,"Econet: Found %d.%d in Econet.cfg", Net, Station);
 			return &stations[i];
 		}
 	}
@@ -464,6 +468,130 @@ static void EconetCloseSockets()
 }
 
 //---------------------------------------------------------------------------
+
+static void AllocateNewAddress(){
+	// Find an available station number.
+	char localhost[256];
+	hostent *host;
+	
+	sockaddr_in service;
+	service.sin_family = AF_INET;
+	service.sin_addr.s_addr = INADDR_ANY; //inet_addr("127.0.0.1");
+
+	// Get localhost IP address
+	if (gethostname(localhost, 256) != SOCKET_ERROR &&
+		(host = gethostbyname(localhost)) != NULL)
+	{
+		// See if configured addresses match local IPs
+		for (int i = 0; i < stationsp; ++i)
+		{
+			// Check address for each network interface/card
+			for (int a = 0; host->h_addr_list[a] != nullptr; ++a)
+			{
+				struct in_addr localaddr;
+				memcpy(&localaddr, host->h_addr_list[a], sizeof(struct in_addr));
+
+				if (stations[i].inet_addr == inet_addr("127.0.0.1") ||
+					stations[i].inet_addr == IN_ADDR(localaddr))
+				{
+					if (!PreferredStationID || (stations[i].station == PreferredStationID && stations[i].network == PreferredNet))
+					{
+						service.sin_port = htons(stations[i].port);
+						S_ADDR(service) = stations[i].inet_addr;
+
+						if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
+						{
+							EconetListenPort = stations[i].port;
+							EconetListenIP = stations[i].inet_addr;
+							EconetStationID = stations[i].station;
+							myaunnet = stations[i].network;
+						}
+					}
+				}
+			}
+		}
+
+		if (EconetStationID == 0)
+		{
+			// Still can't find one - try to find our AUNNet
+			DebugDisplayTrace(DebugType::Econet, true, "Econet: couldn't get host from configured addresses - trying automatic");
+			for (int j = 0; j < networksp && PreferredStationID == 0; j++)
+			{
+				for (int a = 0; host->h_addr_list[a] != NULL; ++a)
+				{
+					struct in_addr localaddr;
+					memcpy(&localaddr, host->h_addr_list[a], sizeof(struct in_addr));
+
+					if (networks[j].inet_addr == (IN_ADDR(localaddr) & 0x00FFFFFF))
+					{
+						service.sin_port = htons(DEFAULT_AUN_PORT);
+						S_ADDR(service) = IN_ADDR(localaddr);
+
+						if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
+						{
+							EconetListenIP = IN_ADDR(localaddr);
+							EconetListenPort = DEFAULT_AUN_PORT;
+							EconetStationID = IN_ADDR(localaddr) >> 24;
+							myaunnet = networks[j].network;
+							
+							DebugDisplayTraceF(DebugType::Econet, true,"Econet: Automatically assigned station %d.%d using AUNMap", myaunnet, EconetStationID);
+						}
+					}
+				}
+			}
+			
+			if (EconetStationID == 0 && AutoConfigure)
+			{
+				// look for a free port and assign a suitable station number
+				// we assign station numbers at random to reduce the chances of collisions between instances on different PCs. We have no other way to prevent them so hope for the best!
+				struct in_addr localaddr;
+				memcpy(&localaddr, host->h_addr_list[0], sizeof(struct in_addr));
+				
+				EconetListenIP = IN_ADDR(localaddr);
+				S_ADDR(service) = EconetListenIP; // TODO: this will use the first network address of this PC. This might not be useful if there are multiple network adapters but we have no good way to determine which to use in the absence of any user configuration
+				
+				srand((unsigned int)time(0));
+				int r = rand() % 256; // start looking for free stations at a random offset
+				
+				unsigned char s;
+				if (PreferredStationID)
+					s = PreferredStationID; // try to bind the station ID asked for
+				else
+					s = r & 0xff; // the first random offset
+				
+				for (int j = 0; j <= 256; j++)
+				{
+					if (s == 0 || s >= ((PreferredStationID==254)?255:254))
+						continue; // don't take an invalid number
+					
+					service.sin_port = htons(10000+(PreferredNet << 8)+s);
+					if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
+					{
+						EconetListenPort = 10000+(PreferredNet << 8)+s;
+						EconetStationID = s;
+						myaunnet = PreferredNet;
+						
+						DebugDisplayTraceF(DebugType::Econet, true,"Econet: automatically assigned random station %d.%d on %s:%d", myaunnet, EconetStationID, IpAddressStr(EconetListenIP), EconetListenPort);
+						
+						break;
+					}
+					
+					s = (j + r) & 0xff;
+				}
+			}
+
+			if (EconetStationID == 0)
+			{
+				// couldn't even bind a random port
+				EconetError("Econet: Failed to find free station/port to bind to");
+			}
+		}
+	}
+	else
+	{
+		EconetError("Econet: Failed to resolve local IP address");
+	}
+}
 
 bool EconetReset()
 {
@@ -562,183 +690,58 @@ bool EconetReset()
 	sockaddr_in service;
 	service.sin_family = AF_INET;
 	service.sin_addr.s_addr = INADDR_ANY; //inet_addr("127.0.0.1");
-
-	unsigned char PreferredStationID = (myaunnet==0)?EconetStationID:0; // try to automatically assign the specified station if required if it is in net 0
 	
-	// Already have a station num? Either from command line or a free one
-	// we found on previous reset.
-	if (EconetStationID != 0)
+	// Already have a station num?
+	if (EconetStationID)
 	{
-		// Look up our port number in network config
-		EconetHost* pNetworkConfig = FindNetworkConfig(EconetStationID);
+		// try to get same address again
+		PreferredStationID = EconetStationID;
+		PreferredNet = myaunnet;
+	}
+	
+	if (PreferredStationID)
+	{
+		EconetHost* pNetworkConfig = FindNetworkConfig(PreferredStationID, PreferredNet);
 
 		if (pNetworkConfig != nullptr)
 		{
 			EconetListenPort = pNetworkConfig->port;
 			EconetListenIP = pNetworkConfig->inet_addr;
+			EconetStationID = pNetworkConfig->station;
 			myaunnet = pNetworkConfig->network;
+			
+			service.sin_port = htons(EconetListenPort);
+			S_ADDR(service) = EconetListenIP;
+			
+			if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) != 0)
+			{
+				EconetError("Econet: Failed to bind to port %d (error %ld)", EconetListenPort, GetLastSocketError());
+				EconetStationID = 0;
+				myaunnet = 0;
+				AllocateNewAddress(); // try to allocate a station number instead
+			}
 		}
 		else
 		{
-			DebugDisplayTraceF(DebugType::Econet, true,"Econet: Failed to find station %d.%d in Econet.cfg", myaunnet, EconetStationID);
+			DebugDisplayTraceF(DebugType::Econet, true,"Econet: Failed to find station %d.%d in Econet.cfg", PreferredNet, PreferredStationID);
 			EconetStationID = 0;
 			myaunnet = 0;
-			goto newID; // try to get a different station number
-		}
-
-		service.sin_port = htons(EconetListenPort);
-		S_ADDR(service) = EconetListenIP;
-
-		if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) != 0)
-		{
-			EconetError("Econet: Failed to bind to port %d (error %ld)", EconetListenPort, GetLastSocketError());
-			EconetStationID = 0;
-			myaunnet = 0;
-			goto newID;
+			AllocateNewAddress(); // try to allocate a station number instead
 		}
 	}
 	else
 	{
-newID:
-		// Station number not specified, find first one not already in use.
-		char localhost[256];
-		hostent *host;
-
-		// Get localhost IP address
-		if (gethostname(localhost, 256) != SOCKET_ERROR &&
-		    (host = gethostbyname(localhost)) != NULL)
-		{
-			// See if configured addresses match local IPs
-			for (int i = 0; i < stationsp && EconetStationID == 0; ++i)
-			{
-				// Check address for each network interface/card
-				for (int a = 0; host->h_addr_list[a] != nullptr && EconetStationID == 0; ++a)
-				{
-					struct in_addr localaddr;
-					memcpy(&localaddr, host->h_addr_list[a], sizeof(struct in_addr));
-
-					if (stations[i].inet_addr == inet_addr("127.0.0.1") ||
-					    stations[i].inet_addr == IN_ADDR(localaddr))
-					{
-						service.sin_port = htons(stations[i].port);
-						S_ADDR(service) = stations[i].inet_addr;
-
-						if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
-						{
-							EconetListenPort = stations[i].port;
-							EconetListenIP = stations[i].inet_addr;
-							EconetStationID = stations[i].station;
-							myaunnet = stations[i].network;
-						}
-					}
-				}
-			}
-
-			if (EconetStationID == 0)
-			{
-				// Still can't find one - try to find our AUNNet
-				DebugDisplayTrace(DebugType::Econet, true, "Econet: No free hosts in table; trying automatic mode");
-
-				for (int j = 0; j < networksp && EconetStationID == 0; j++)
-				{
-					for (int a = 0; host->h_addr_list[a] != NULL && EconetStationID == 0; ++a)
-					{
-						struct in_addr localaddr;
-						memcpy(&localaddr, host->h_addr_list[a], sizeof(struct in_addr));
-
-						if (networks[j].inet_addr == (IN_ADDR(localaddr) & 0x00FFFFFF))
-						{
-							service.sin_port = htons(DEFAULT_AUN_PORT);
-							S_ADDR(service) = IN_ADDR(localaddr);
-
-							if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
-							{
-
-								EconetListenIP = IN_ADDR(localaddr);
-								EconetListenPort = DEFAULT_AUN_PORT;
-								EconetStationID = IN_ADDR(localaddr) >> 24;
-								myaunnet = networks[j].network;
-								
-								DebugDisplayTraceF(DebugType::Econet, true,"Econet: Automatically assigned station %d.%d using AUNMap", myaunnet, EconetStationID);
-							}
-						}
-					}
-				}
-				
-				if (EconetStationID == 0 && AutoConfigure)
-				{
-					S_ADDR(service) = EconetListenIP;
-					service.sin_port = htons(EconetListenPort);
-					// no AUNMap matches our networks or port is already in use - look for a port to bind to
-					if (EconetListenPort > 10000 && EconetListenPort < 10255 && (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0))
-					{
-						// re-bind an automatically assigned address we previously had
-						EconetStationID = (EconetListenPort - 10000) & 0xff; // station number from port
-						myaunnet = 0;
-						DebugDisplayTraceF(DebugType::Econet, true,"Econet: re-bound station %d.%d on %s:%d", myaunnet, EconetStationID, IpAddressStr(EconetListenIP), EconetListenPort);
-					}
-					else
-					{
-						// look for a free port and assign a suitable station number
-						// TODO: should we have a configuration option to disable automatic assignment?
-						// we assign station numbers at random to reduce the chances of collisions between instances on different PCs. We have no other way to prevent them so hope for the best!
-						struct in_addr localaddr;
-						memcpy(&localaddr, host->h_addr_list[0], sizeof(struct in_addr));
-						
-						EconetListenIP = IN_ADDR(localaddr);
-						S_ADDR(service) = EconetListenIP; // TODO: this will use the first network address of this PC. This might not be useful if there are multiple network adapters but we have no good way to determine which to use in the absence of any user configuration
-						
-						srand((unsigned int)time(0));
-						int r = rand() % 256; // start looking for free stations at a random offset
-						
-						unsigned char s;
-						if (PreferredStationID)
-							s = PreferredStationID; // try to bind the station ID asked for
-						else
-							s = r & 0xff; // the first random offset
-						
-						for (int j = 0; j <= 256; j++)
-						{
-							if (s == 0 || s >= ((PreferredStationID==254)?255:254))
-								continue; // don't take an invalid number
-							
-							service.sin_port = htons(10000+s);
-							if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
-							{
-								EconetListenPort = 10000+s;
-								EconetStationID = s;
-								myaunnet = 0;
-								
-								DebugDisplayTraceF(DebugType::Econet, true,"Econet: automatically assigned random station %d.%d on %s:%d", myaunnet, EconetStationID, IpAddressStr(EconetListenIP), EconetListenPort);
-								
-								break;
-							}
-							
-							s = (j + r) & 0xff;
-						}
-					}
-				}
-
-				if (EconetStationID == 0)
-				{
-					// couldn't even bind a random port
-					EconetError("Econet: Failed to find free station/port to bind to");
-					goto Fail;
-				}
-			}
-		}
-		else
-		{
-			EconetError("Econet: Failed to resolve local IP address");
-			goto Fail;
-		}
+		AllocateNewAddress(); // try to allocate a station number instead
 	}
+	
+	if (!EconetStationID)
+		goto Fail;
 
-	if (DebugEnabled) {
+	//if (DebugEnabled) {
 		DebugDisplayTraceF(DebugType::Econet, true,
 		                   "Econet: Station number set to %d, port %d",
 		                   EconetStationID, EconetListenPort);
-	}
+	//}
 
 	// On Master the station number is read from CMOS so update it
 	if (MachineType == Model::Master128 || MachineType == Model::MasterET)
@@ -759,7 +762,7 @@ newID:
 		goto Fail;
 	}
 	
-	if (htons(service.sin_port) != DEFAULT_AUN_PORT)
+	if (EconetListenPort != DEFAULT_AUN_PORT)
 	{
 		// bind additional BroadcastListenSocket for reception of AUN broadcasts
 		const char val = 1;
@@ -1544,6 +1547,10 @@ bool EconetPoll_real() // return NMI status
 
 				if (TXlast) // TxLast set
 				{
+					// translate translate destination network for local packets
+					if (BeebTx.eh.destnet == 0)
+						BeebTx.eh.destnet = myaunnet;
+					
 					if (DebugEnabled)
 					{
 						DebugDisplayTraceF(DebugType::Econet, true,
@@ -2434,6 +2441,10 @@ bool EconetPoll_real() // return NMI status
 							break;
 						}
 					}
+					
+					// translate packets from the same net number to look local
+					if (BeebRx.eh.srcnet == myaunnet)
+						BeebRx.eh.srcnet = 0;
 				}
 			}
 		}

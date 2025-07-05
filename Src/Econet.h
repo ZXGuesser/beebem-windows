@@ -42,6 +42,8 @@ extern int EconetFlagFillTimeout;
 
 extern unsigned char EconetStationID;
 extern unsigned char myaunnet;
+extern unsigned char PreferredStationID;
+extern unsigned char PreferredNet;
 
 extern char EconetCfgPath[MAX_PATH];
 extern char AUNMapPath[MAX_PATH];

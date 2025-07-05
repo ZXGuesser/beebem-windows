@@ -394,7 +394,7 @@ bool BeebWin::Initialise()
 
 	LoadPreferences();
 	
-	if (EconetStationID)
+	if (PreferredStationID)
 		EconetEnabled = true; // enable Econet automatically if we got a station number with -EcoStn
 
 	// Read disc images path from registry
@@ -5359,7 +5359,7 @@ void BeebWin::ParseCommandLine()
 					}
 					else
 					{
-						EconetStationID = static_cast<unsigned char>(Value);
+						PreferredStationID = static_cast<unsigned char>(Value);
 					}
 				}
 				else
@@ -5377,8 +5377,8 @@ void BeebWin::ParseCommandLine()
 						}
 						else
 						{
-							myaunnet = static_cast<unsigned char>(Value);
-							EconetStationID = static_cast<unsigned char>(Value2);
+							PreferredNet = static_cast<unsigned char>(Value);
+							PreferredStationID = static_cast<unsigned char>(Value2);
 						}
 					}
 				}
