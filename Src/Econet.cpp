@@ -174,7 +174,7 @@ static unsigned int TimeBetweenBytes = DEFAULT_TIME_BETWEEN_BYTES;
 unsigned char EconetStationID = 0; // default Station ID
 unsigned char myaunnet = 0; // what is our local net number
 unsigned char PreferredStationID = 0;
-unsigned char PreferredNet = 0;
+unsigned char PreferredNet = 1;
 static u_short EconetListenPort = 0; // default Listen port
 static unsigned long EconetListenIP = 0x0100007f;
 // IP settings:
@@ -939,7 +939,7 @@ static bool ReadEconetConfigFile()
 					{
 						unsigned char network = (unsigned char)std::stoi(Tokens[1]);
 						// this line defines an entire network
-						if (network >= 253)
+						if (network < 1 || network > 127)
 							throw std::out_of_range ("invalid network");
 							
 						// it is added before any networks from AUNMap so takes precedence
@@ -967,7 +967,7 @@ static bool ReadEconetConfigFile()
 					{
 						unsigned char network = (unsigned char)std::stoi(Tokens[1]);
 						// this line defines an Extended AUN gateway
-						if (network >= 253)
+						if (network > 127)
 							throw std::out_of_range ("invalid network");
 						// a gateway is allowed to specify network zero, in which case it will match all otherwise unknown nets
 						
@@ -992,12 +992,14 @@ static bool ReadEconetConfigFile()
 				}
 				else if (stationsp < NETWORK_TABLE_LENGTH)
 				{
+					unsigned char network = (unsigned char)std::stoi(Tokens[0]);
 					unsigned char station = (unsigned char)std::stoi(Tokens[1]);
 					if (station == 0 || station == 255)
 						throw std::out_of_range ("invalid station"); // not a valid station number
-					
-					stations[stationsp].network = (unsigned char)std::stoi(Tokens[0]);
+					if (network < 1 || network > 127)
+						throw std::out_of_range ("invalid network"); // not a valid network number
 					stations[stationsp].station = station;
+					stations[stationsp].network = network;
 					stations[stationsp].inet_addr = inet_addr(Tokens[2].c_str());
 					stations[stationsp].port = (u_short)std::stoi(Tokens[3]);
 					

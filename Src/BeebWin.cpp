@@ -5364,7 +5364,7 @@ void BeebWin::ParseCommandLine()
 				}
 				else
 				{
-					if (Value < 0 || Value > 254)
+					if (Value < 1 || Value > 127)
 					{
 						Invalid = true;
 					}
