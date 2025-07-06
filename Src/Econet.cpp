@@ -153,6 +153,9 @@ bool EconetEnabled;    // Enable hardware
 bool EconetNMIEnabled; // 68B54 -> NMI enabled. (IC97)
 int EconetTrigger;     // Poll timer
 
+const unsigned int DEFAULT_GATEWAY_TIMEOUT = 600000000; // 5 minutes
+int GatewayTrigger;    // gateway timer
+
 static const unsigned char powers[4] = { 1, 2, 4, 8 };
 
 // Frequency between network actions.
@@ -297,9 +300,18 @@ struct EthernetPacket
 	unsigned int destnet;
 };
 
+struct ExtendedAUNPacket
+{
+	ShorEconetHeader addr;
+	AUNHeader ah;
+	unsigned char buff[ETHERNET_BUFFER_SIZE];
+};
+
 // Buffers used to construct packets for sending out via UDP
 static EthernetPacket EconetRx;
 static EthernetPacket EconetTx;
+
+static EthernetPacket EconetTemp; // temporary packet for discovery and gateway messages
 
 // Buffers used to construct packets sent to/received from BBC micro
 
@@ -600,6 +612,8 @@ bool EconetReset()
 		DebugDisplayTraceF(DebugType::Econet, true, "Econet: Reset (hardware %s)",
 		                   EconetEnabled ? "enabled" : "disabled");
 	}
+	
+	ClearTrigger(GatewayTrigger); // disable gateway keepalives
 
 	// hardware operations:
 	// set RxReset and TxReset
@@ -790,43 +804,41 @@ bool EconetReset()
 
 	EconetStateChanged = true;
 	
-	// send a bridge discovery broadcast to learn of any Pi Econet Bridge gateways on the network.
-	
-	sockaddr_in RecvAddr;
-	RecvAddr.sin_family = AF_INET;
-	S_ADDR(RecvAddr) = INADDR_BROADCAST;
-	RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
-	
-	EthernetPacket tmp;
-	tmp.ah.type = AUNType::Broadcast; // the gateway is listening for an AUN broadcast
-	tmp.ah.cb = 0x10; // control &90 locate gateway
-	tmp.ah.port = 0x9c; // Pi Econet Bridge port
-	tmp.ah.pad = 0;
-	tmp.ah.handle = 0;
-	memset(tmp.buff,0,8);
-	tmp.buff[0] = BEEBEM_ECONET_PORT; // where response is sent
-	
-	if (sendto(SendSocket, (char *)&tmp, sizeof(tmp.ah) + 8, 0,
-	   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
-	{
-		EconetError("Econet: Failed to send bridge discovery broadcast");
-	}
-	
 	if (AutoConfigure)
 	{
+		// send a bridge discovery broadcast to learn of any Pi Econet Bridge gateways on the network.
+		sockaddr_in RecvAddr;
+		RecvAddr.sin_family = AF_INET;
+		S_ADDR(RecvAddr) = INADDR_BROADCAST;
+		RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
+		
+		EconetTemp.ah.type = AUNType::Broadcast; // the gateway is listening for an AUN broadcast
+		EconetTemp.ah.cb = 0x10; // control &90 locate gateway
+		EconetTemp.ah.port = 0x9c; // Pi Econet Bridge port
+		EconetTemp.ah.pad = 0;
+		EconetTemp.ah.handle = 0;
+		memset(EconetTemp.buff,0,8);
+		EconetTemp.buff[0] = BEEBEM_ECONET_PORT; // where response is sent
+		
+		if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
+		   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+		{
+			EconetError("Econet: Failed to send bridge discovery broadcast");
+		}
+	
 		// discover other BeebEm instances by pinging the network
 		// this uses packets conforming to the structure of AUN, but with a
 		// proprietary type which will hopefully be ignored by any existing
 		// AUN code.
-		tmp.ah.type = AUNType::BeebEm;
-		tmp.ah.cb = 0x1f; // control &9f a discovery Ping
-		tmp.ah.port = BEEBEM_ECONET_PORT; // BeebEm reply port
-		tmp.ah.pad = 0;
-		tmp.ah.handle = 0;
-		memset(tmp.buff,0,8);
-		tmp.buff[0] = EconetStationID;
-		tmp.buff[1] = myaunnet;
-		if (sendto(SendSocket, (char *)&tmp, sizeof(tmp.ah) + 8, 0,
+		EconetTemp.ah.type = AUNType::BeebEm;
+		EconetTemp.ah.cb = 0x1f; // control &9f a discovery Ping
+		EconetTemp.ah.port = BEEBEM_ECONET_PORT; // BeebEm reply port
+		EconetTemp.ah.pad = 0;
+		EconetTemp.ah.handle = 0;
+		memset(EconetTemp.buff,0,8);
+		EconetTemp.buff[0] = EconetStationID;
+		EconetTemp.buff[1] = myaunnet;
+		if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
 		   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 		{
 			EconetError("Econet: Failed to send BeebEm ping");
@@ -982,6 +994,8 @@ static bool ReadEconetConfigFile()
 										   gateways[gatewaysp].port);
 						
 						gatewaysp++;
+						
+						SetTrigger(0, GatewayTrigger); // wake up gateways as soon as econet is initialised
 					}
 					else
 					{
@@ -1935,13 +1949,14 @@ bool EconetPoll_real() // return NMI status
 							int sizRcvAdr = sizeof(RecvAddr);
 
 							RetVal = recvfrom(sock, (char *)EconetRx.raw, sizeof(EconetRx.raw) + sizeof(EconetRx.buff), 0, (SOCKADDR *)&RecvAddr, &sizRcvAdr);
-							EconetRx.BytesInBuffer = RetVal;
 							
 							if (sock == BroadcastListenSocket && EconetRx.ah.type != AUNType::Broadcast && EconetRx.ah.type != AUNType::BeebEm)
 								RetVal = 0; // non broadcast/beebem packet seen on broadcast socket - ignore
 							
 							if (S_ADDR(RecvAddr) == EconetListenIP && htons(RecvAddr.sin_port) == EconetListenPort)
 								RetVal = 0; // we sent this broadcast packet - ignore
+							
+							EconetRx.BytesInBuffer = RetVal;
 
 							if (RetVal > 0)
 							{
@@ -2013,7 +2028,7 @@ bool EconetPoll_real() // return NMI status
 										if (S_ADDR(RecvAddr) == gateways[i].inet_addr && htons(RecvAddr.sin_port) == gateways[i].port)
 										{
 											// PiEB gateways use an extended AUN which contains the econet addresses at the start of the packet
-											memcpy(&BeebRx.eh, &EconetRx, sizeof(ShorEconetHeader));
+											memcpy(&BeebRx.eh, &EconetRx, sizeof(BeebRx.eh));
 											
 											// this means the AUN data we want starts four bytes later than usual. This seems terribly inefficient, but lets remove those bytes from the buffer rather than trying to keep track of an offset through all the rest of the code.
 											
@@ -2041,12 +2056,14 @@ bool EconetPoll_real() // return NMI status
 								{
 									if (RetVal == 12) // it might be a bridge gateway response
 									{
-										// if it is then it will be Extended AUN, but everything we need is within the first 8 bytes so just read them out of EconetRx.raw directly
-										if (EconetRx.raw[2]==0 && EconetRx.raw[3]!=0 && EconetRx.raw[4]==0x02 && EconetRx.raw[5]==BEEBEM_ECONET_PORT && (EconetRx.raw[6]|0x80)==0x91 && EconetRx.raw[7]==0) // check it looks like a GW reply should do
+										// if it is then it will be Extended AUN so all the headers are moved
+										ExtendedAUNPacket *rx = (ExtendedAUNPacket*)&EconetRx;
+										
+										if (rx->addr.srcstn==0 && rx->addr.srcnet!=0 && rx->ah.type==AUNType::Unicast && rx->ah.port==BEEBEM_ECONET_PORT && (rx->ah.cb|0x80)==0x91 && rx->ah.pad==0) // check it looks like a GW reply should do
 										{
 											// it does!
-											// EconetRx.raw[0] is our station number on the bridge
-											// EconetRx.raw[1] is our network number on the bridge
+											// rx->addr.deststn is our station number on the bridge
+											// rx->addr.destnet is our network number on the bridge
 											
 											// check we haven't got this gateway defined already
 											bool dupe = false;
@@ -2076,6 +2093,8 @@ bool EconetPoll_real() // return NMI status
 																   IpAddressStr(gateways[gatewaysp].inet_addr),
 																   gateways[gatewaysp].port);
 												gatewaysp++;
+												
+												SetTrigger(0, GatewayTrigger); // start/reset keepalives
 											}
 										}
 									}
@@ -2107,16 +2126,15 @@ bool EconetPoll_real() // return NMI status
 											}
 											
 											// send a Pong packet back to source address
-											EthernetPacket tmp;
-											tmp.ah.type = AUNType::BeebEm;
-											tmp.ah.cb = 0x1e; // control &9e Pong
-											tmp.ah.port = BEEBEM_ECONET_PORT;
-											tmp.ah.pad = 0;
-											tmp.ah.handle = 0;
-											memset(tmp.buff,0,8);
-											tmp.buff[0] = EconetStationID;
-											tmp.buff[1] = myaunnet;
-											if (sendto(SendSocket, (char *)&tmp, sizeof(tmp.ah) + 8, 0,
+											EconetTemp.ah.type = AUNType::BeebEm;
+											EconetTemp.ah.cb = 0x1e; // control &9e Pong
+											EconetTemp.ah.port = BEEBEM_ECONET_PORT;
+											EconetTemp.ah.pad = 0;
+											EconetTemp.ah.handle = 0;
+											memset(EconetTemp.buff,0,8);
+											EconetTemp.buff[0] = EconetStationID;
+											EconetTemp.buff[1] = myaunnet;
+											if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
 											   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 											{
 												EconetError("Econet: Failed to send BeebEm Pong");
@@ -2185,16 +2203,15 @@ bool EconetPoll_real() // return NMI status
 															   (unsigned int)BeebRx.eh.srcnet,
 															   (unsigned int)BeebRx.eh.srcstn);
 														// send a Pong packet back to source address
-														EthernetPacket tmp;
-														tmp.ah.type = AUNType::BeebEm;
-														tmp.ah.cb = 0x1e; // control &9e Pong
-														tmp.ah.port = BEEBEM_ECONET_PORT;
-														tmp.ah.pad = 0;
-														tmp.ah.handle = 0;
-														memset(tmp.buff,0,8);
-														tmp.buff[0] = EconetStationID; // send out network and station number in reply
-														tmp.buff[1] = myaunnet;
-														if (sendto(SendSocket, (char *)&tmp, sizeof(tmp.ah) + 8, 0,
+														EconetTemp.ah.type = AUNType::BeebEm;
+														EconetTemp.ah.cb = 0x1e; // control &9e Pong
+														EconetTemp.ah.port = BEEBEM_ECONET_PORT;
+														EconetTemp.ah.pad = 0;
+														EconetTemp.ah.handle = 0;
+														memset(EconetTemp.buff,0,8);
+														EconetTemp.buff[0] = EconetStationID; // send out network and station number in reply
+														EconetTemp.buff[1] = myaunnet;
+														if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
 														   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 														{
 															EconetError("Econet: Failed to send BeebEm Pong");
@@ -2510,6 +2527,48 @@ bool EconetPoll_real() // return NMI status
 			DebugDisplayTrace(DebugType::Econet, true, "Econet: 4waystage timeout; Set FWS_IDLE");
 			DebugDumpADLC();
 		}
+	}
+	
+	// send Gateway keepalive on timeout
+	if (GatewayTrigger <= TotalCycles)
+	{
+		sockaddr_in RecvAddr;
+		RecvAddr.sin_family = AF_INET;
+		
+		// construct an extended AUN packet on EconetTemp
+		ExtendedAUNPacket *KeepalivePacket = (ExtendedAUNPacket*)&EconetTemp;
+		KeepalivePacket->addr.deststn = 255;
+		KeepalivePacket->addr.destnet = 255;
+		KeepalivePacket->addr.srcstn = 0; // source (left blank)
+		KeepalivePacket->addr.srcnet = 0;
+		KeepalivePacket->ah.type = AUNType::Broadcast;
+		KeepalivePacket->ah.port = 0x9c; // bridge port
+		KeepalivePacket->ah.cb = (0xd0 & 0x7f); // reuse trunk keepalive
+		KeepalivePacket->ah.pad = 0;
+		KeepalivePacket->ah.handle = 0;
+		memset(KeepalivePacket->buff,0,8); // a broadcast has 8 data bytes
+		int KeepaliveLen = 20; // total size to send is 4 + 8 + 8
+		
+		DebugDisplayTrace(DebugType::Econet, true, "Econet: Sending gateway keepalive");
+		
+		for (int i = 0; i < gatewaysp; i++)
+		{
+			// this is rather brute force - send keepalive to every gateway we
+			// know regardless of duplication
+			
+			S_ADDR(RecvAddr) = gateways[i].inet_addr;
+			RecvAddr.sin_port = htons(gateways[i].port);
+			
+			if (sendto(SendSocket, (const char*)KeepalivePacket, KeepaliveLen, 0,
+					   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+			{
+				DebugDisplayTraceF(DebugType::Econet, true, "Econet: Failed to send Gateway keepalive (%s port %u)",
+								   IpAddressStr(S_ADDR(RecvAddr)),
+								   (unsigned int)htons(RecvAddr.sin_port));
+			}
+		}
+		
+		SetTrigger(DEFAULT_GATEWAY_TIMEOUT, GatewayTrigger); // set timeout again
 	}
 
 	// Status bits need changing?
