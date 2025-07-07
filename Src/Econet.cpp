@@ -143,10 +143,12 @@ const unsigned int DEFAULT_TIME_BETWEEN_BYTES = 128;
 const unsigned int DEFAULT_FOUR_WAY_STAGE_TIMEOUT = 500000;
 const bool DEFAULT_MASSAGE_NETWORKS = false;
 const bool DEFAULT_AUTOCONFIGURE = false;
+const bool DEFAULT_FINDGATEWAYS = false;
 
 static unsigned int FourWayStageTimeout = DEFAULT_FOUR_WAY_STAGE_TIMEOUT;
 static bool MassageNetworks = DEFAULT_MASSAGE_NETWORKS; // Massage network numbers on send/receive (add/sub 128)
 static bool AutoConfigure = DEFAULT_AUTOCONFIGURE; // Enable station autoconfiguration and discovery features
+static bool FindGateways = DEFAULT_FINDGATEWAYS; // Enable gateway discovery
 
 bool EconetStateChanged = false;
 bool EconetEnabled;    // Enable hardware
@@ -804,14 +806,14 @@ bool EconetReset()
 
 	EconetStateChanged = true;
 	
-	if (AutoConfigure)
+	sockaddr_in RecvAddr;
+	RecvAddr.sin_family = AF_INET;
+	S_ADDR(RecvAddr) = INADDR_BROADCAST;
+	RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
+	
+	if (FindGateways)
 	{
 		// send a bridge discovery broadcast to learn of any Pi Econet Bridge gateways on the network.
-		sockaddr_in RecvAddr;
-		RecvAddr.sin_family = AF_INET;
-		S_ADDR(RecvAddr) = INADDR_BROADCAST;
-		RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
-		
 		EconetTemp.ah.type = AUNType::Broadcast; // the gateway is listening for an AUN broadcast
 		EconetTemp.ah.cb = 0x10; // control &90 locate gateway
 		EconetTemp.ah.port = 0x9c; // Pi Econet Bridge port
@@ -825,7 +827,10 @@ bool EconetReset()
 		{
 			EconetError("Econet: Failed to send bridge discovery broadcast");
 		}
+	}
 	
+	if (AutoConfigure)
+	{
 		// discover other BeebEm instances by pinging the network
 		// this uses packets conforming to the structure of AUN, but with a
 		// proprietary type which will hopefully be ignored by any existing
@@ -1085,6 +1090,10 @@ static bool ReadEconetConfigFile()
 				else if (StrCaseCmp(Key.c_str(), "AUTOCONFIGURE") == 0)
 				{
 					AutoConfigure = std::stoi(Value) != 0;
+				}
+				else if (StrCaseCmp(Key.c_str(), "FINDGATEWAYS") == 0)
+				{
+					FindGateways = std::stoi(Value) != 0;
 				}
 				else
 				{
@@ -2054,7 +2063,7 @@ bool EconetPoll_real() // return NMI status
 
 								if (!found) // couldn't resolve econet source address
 								{
-									if (RetVal == 12) // it might be a bridge gateway response
+									if (RetVal == 12 && FindGateways) // it might be a bridge gateway response
 									{
 										// if it is then it will be Extended AUN so all the headers are moved
 										ExtendedAUNPacket *rx = (ExtendedAUNPacket*)&EconetRx;
