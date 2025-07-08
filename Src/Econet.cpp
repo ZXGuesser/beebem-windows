@@ -1858,10 +1858,10 @@ bool EconetPoll_real() // return NMI status
 								tmp->addr.srcstn = 0; // source (left blank)
 								tmp->addr.srcnet = 0;
 								memcpy(&tmp->ah, &EconetTx.raw, SendLen); // copy original AUN data
-								SendLen += 4;
 								
 								if (ExtendedAUN)
 								{
+									SendLen += 4;
 									p = (char *)tmp; // transmit this buffer instead of EconetTx
 								}
 								// else a broadcast - we will send this extended AUN packet to the gateway after sending the original packet as a UDP broadcast
@@ -1888,7 +1888,7 @@ bool EconetPoll_real() // return NMI status
 								S_ADDR(RecvAddr) = gateway.inet_addr;
 								RecvAddr.sin_port = htons(gateway.port);
 								
-								if (sendto(SendSocket, p, SendLen, 0,
+								if (sendto(SendSocket, (char *)tmp, SendLen+4, 0,
 										   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 								{
 									EconetError("Econet: Failed to send broadcast to gateway (%s port %u)",
