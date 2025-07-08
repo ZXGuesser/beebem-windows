@@ -350,7 +350,6 @@ struct EconetNet {
 
 struct EconetGateway {
 	unsigned long inet_addr;
-	unsigned char network;
 	u_short port;
 };
 
@@ -365,11 +364,11 @@ const int NETWORK_TABLE_LENGTH = 512; // Total number of hosts we can know about
 const int AUN_TABLE_LENGTH = 128; // number of disparate networks in AUNMap
 static EconetHost stations[NETWORK_TABLE_LENGTH]; // individual stations we know about
 static EconetNet networks[AUN_TABLE_LENGTH]; // AUN networks we know about
-static EconetGateway gateways[AUN_TABLE_LENGTH]; // Extended AUN Gateways we know about
+
+static EconetGateway gateway = { NULL, NULL }; // no gateway address
 
 static int stationsp = 0; // How many individual stations do I know about?
 static int networksp = 0;  // How many networks do I know about?
-static int gatewaysp = 0; // How many gateways do I know about?
 
 
 static unsigned char irqcause;   // flag to indicate cause of irq sr1b7
@@ -815,7 +814,7 @@ bool EconetReset()
 	S_ADDR(RecvAddr) = INADDR_BROADCAST;
 	RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
 	
-	if (FindGateways)
+	if (FindGateways && !gateway.port)
 	{
 		// send a bridge discovery broadcast to learn of any Pi Econet Bridge gateways on the network.
 		EconetTemp.ah.type = AUNType::Broadcast; // the gateway is listening for an AUN broadcast
@@ -948,6 +947,40 @@ static bool ReadEconetConfigFile()
 			Tokens.erase(Tokens.begin()); // remove STATION from the beginning leaving old style 4 token station
 		}
 		
+		if (Tokens.size() == 3)
+		{
+			try
+			{
+				if (StrCaseCmp(Tokens[0].c_str(), "GATEWAY") == 0)
+				{
+					if (gateway.port == NULL) // no gateway configured
+					{
+						gateway.inet_addr = inet_addr(Tokens[1].c_str());
+						gateway.port = (u_short)std::stoi(Tokens[2]);
+						
+						DebugDisplayTraceF(DebugType::Econet, true,
+										   "Econet: ConfigFile Gateway IP %s Port %i",
+										   IpAddressStr(gateway.inet_addr),
+										   gateway.port);
+						
+						SetTrigger(0, GatewayTrigger); // wake up gateway as soon as econet is initialised
+					}
+					else
+					{
+						EconetError("Multiple gateway entries found in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
+						Success = false;
+						break;
+					}
+				}
+			}
+			catch (const std::exception&)
+			{
+				EconetError("Invalid value in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
+				Success = false;
+				break;
+			}
+		}
+		
 		if (Tokens.size() == 4)
 		{
 			try
@@ -978,37 +1011,6 @@ static bool ReadEconetConfigFile()
 					else
 					{
 						EconetError("Too many network entries in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
-						Success = false;
-						break;
-					}
-				}
-				else if (StrCaseCmp(Tokens[0].c_str(), "GATEWAY") == 0)
-				{
-					if (gatewaysp < AUN_TABLE_LENGTH)
-					{
-						unsigned char network = (unsigned char)std::stoi(Tokens[1]);
-						// this line defines an Extended AUN gateway
-						if (network > 127)
-							throw std::out_of_range ("invalid network");
-						// a gateway is allowed to specify network zero, in which case it will match all otherwise unknown nets
-						
-						gateways[gatewaysp].network = network;
-						gateways[gatewaysp].inet_addr = inet_addr(Tokens[2].c_str());
-						gateways[gatewaysp].port = (u_short)std::stoi(Tokens[3]);
-						
-						DebugDisplayTraceF(DebugType::Econet, true,
-										   "Econet: ConfigFile Gateway %i IP %s Port %i",
-										   gateways[gatewaysp].network,
-										   IpAddressStr(gateways[gatewaysp].inet_addr),
-										   gateways[gatewaysp].port);
-						
-						gatewaysp++;
-						
-						SetTrigger(0, GatewayTrigger); // wake up gateways as soon as econet is initialised
-					}
-					else
-					{
-						EconetError("Too many gateway entries in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
 						Success = false;
 						break;
 					}
@@ -1213,11 +1215,14 @@ static bool ReadNetwork()
 	TimeBetweenBytes = DEFAULT_TIME_BETWEEN_BYTES;
 	FourWayStageTimeout = DEFAULT_FOUR_WAY_STAGE_TIMEOUT;
 	MassageNetworks = DEFAULT_MASSAGE_NETWORKS;
+	AutoConfigure = DEFAULT_AUTOCONFIGURE;
+	FindGateways = DEFAULT_FINDGATEWAYS;
 
 	// clear tables
 	stationsp = 0;
 	networksp = 0;
-	gatewaysp = 0;
+	
+	gateway = {NULL,NULL}; // clear gateway address
 
 	if (!ReadEconetConfigFile())
 	{
@@ -1668,21 +1673,14 @@ bool EconetPoll_real() // return NMI status
 						if (!SendMe && BeebTx.eh.destnet != 0 && BeebTx.eh.destnet != 255)
 						{
 							// didn't find the network and it is not for net 0 or 255
-							// search for a gateway which can get packets to this network
-							
-							for (int i = 0; i < gatewaysp; i++)
+							// try to use gateway to get packets to this network
+							if (gateway.port)
 							{
-								if (gateways[i].network == BeebTx.eh.destnet || gateways[i].network == 0)
-								{
-									// A gateway defined with network 0 matches all networks so will send anything we weren't able to find
-									
-									S_ADDR(RecvAddr) = gateways[i].inet_addr;
-									RecvAddr.sin_port = htons(gateways[i].port);
-									
-									ExtendedAUN = true; // we need to send Extended AUN to this port
-									SendMe = true;
-									break;
-								}
+								S_ADDR(RecvAddr) = gateway.inet_addr;
+								RecvAddr.sin_port = htons(gateway.port);
+								
+								ExtendedAUN = true; // we need to send Extended AUN to this port
+								SendMe = true;
 							}
 						}
 					}
@@ -2044,10 +2042,10 @@ bool EconetPoll_real() // return NMI status
 								
 								if (!found && RetVal > 4)
 								{
-									// search source in extended AUN gateways
-									for (int i = 0; i < gatewaysp; i++)
+									// search to see if source is extended AUN gateway
+									if (gateway.port)
 									{
-										if (S_ADDR(RecvAddr) == gateways[i].inet_addr && htons(RecvAddr.sin_port) == gateways[i].port)
+										if (S_ADDR(RecvAddr) == gateway.inet_addr && htons(RecvAddr.sin_port) == gateway.port)
 										{
 											// PiEB gateways use an extended AUN which contains the econet addresses at the start of the packet
 											memcpy(&BeebRx.eh, &EconetRx, sizeof(BeebRx.eh));
@@ -2062,7 +2060,6 @@ bool EconetPoll_real() // return NMI status
 											DebugDisplayTrace(DebugType::Econet, true, str.c_str());
 											
 											found = true;
-											break;
 										}
 									}
 								}
@@ -2087,36 +2084,26 @@ bool EconetPoll_real() // return NMI status
 											// rx->addr.deststn is our station number on the bridge
 											// rx->addr.destnet is our network number on the bridge
 											
-											// check we haven't got this gateway defined already
-											bool dupe = false;
-											for (int i = 0; i < gatewaysp; i++)
+											// check we haven't got a gateway defined already
+											if (!gateway.port)
 											{
-												if (gateways[i].inet_addr == S_ADDR(RecvAddr) && gateways[i].port == htons(RecvAddr.sin_port))
-												{
-													dupe = true; // we already know about this gateway
-													DebugDisplayTraceF(DebugType::Econet, true,
-																	   "Econet: Gateway at %s:%i already defined for net %d",
-																	   IpAddressStr(gateways[i].inet_addr),
-																	   gateways[i].port,
-																	   gateways[i].network);
-													break;
-												}
-											}
-											
-											if (!dupe)
-											{
-												// add it to the list as a catch-all
-												gateways[gatewaysp].network = 0;
-												gateways[gatewaysp].inet_addr = S_ADDR(RecvAddr);
-												gateways[gatewaysp].port = htons(RecvAddr.sin_port);
+												gateway.inet_addr = S_ADDR(RecvAddr);
+												gateway.port = htons(RecvAddr.sin_port);
 												
 												DebugDisplayTraceF(DebugType::Econet, true,
-																   "Econet: Learned about new gateway at %s:%i",
-																   IpAddressStr(gateways[gatewaysp].inet_addr),
-																   gateways[gatewaysp].port);
-												gatewaysp++;
+																   "Econet: Learned about gateway at %s:%i",
+																   IpAddressStr(gateway.inet_addr),
+																   gateway.port);
 												
 												SetTrigger(0, GatewayTrigger); // start/reset keepalives
+											}
+											else if (!(gateway.inet_addr == S_ADDR(RecvAddr) && gateway.port == htons(RecvAddr.sin_port)))
+											{
+												// this response was from a different gateway to the one we already have configured!
+												DebugDisplayTraceF(DebugType::Econet, true,
+																   "Econet: Ignored gateway response from %s:%i",
+																   IpAddressStr(S_ADDR(RecvAddr)),
+																   htons(RecvAddr.sin_port));
 											}
 										}
 									}
@@ -2552,7 +2539,7 @@ bool EconetPoll_real() // return NMI status
 	}
 	
 	// send Gateway keepalive on timeout
-	if (GatewayTrigger <= TotalCycles)
+	if (GatewayTrigger <= TotalCycles && gateway.port)
 	{
 		sockaddr_in RecvAddr;
 		RecvAddr.sin_family = AF_INET;
@@ -2573,21 +2560,15 @@ bool EconetPoll_real() // return NMI status
 		
 		DebugDisplayTrace(DebugType::Econet, true, "Econet: Sending gateway keepalive");
 		
-		for (int i = 0; i < gatewaysp; i++)
+		S_ADDR(RecvAddr) = gateway.inet_addr;
+		RecvAddr.sin_port = htons(gateway.port);
+			
+		if (sendto(SendSocket, (const char*)KeepalivePacket, KeepaliveLen, 0,
+				   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 		{
-			// this is rather brute force - send keepalive to every gateway we
-			// know regardless of duplication
-			
-			S_ADDR(RecvAddr) = gateways[i].inet_addr;
-			RecvAddr.sin_port = htons(gateways[i].port);
-			
-			if (sendto(SendSocket, (const char*)KeepalivePacket, KeepaliveLen, 0,
-					   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
-			{
-				DebugDisplayTraceF(DebugType::Econet, true, "Econet: Failed to send Gateway keepalive (%s port %u)",
-								   IpAddressStr(S_ADDR(RecvAddr)),
-								   (unsigned int)htons(RecvAddr.sin_port));
-			}
+			DebugDisplayTraceF(DebugType::Econet, true, "Econet: Failed to send Gateway keepalive (%s port %u)",
+							   IpAddressStr(S_ADDR(RecvAddr)),
+							   (unsigned int)htons(RecvAddr.sin_port));
 		}
 		
 		SetTrigger(DEFAULT_GATEWAY_TIMEOUT, GatewayTrigger); // set timeout again
