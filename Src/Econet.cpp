@@ -141,6 +141,7 @@ const int DEFAULT_FLAG_FILL_TIMEOUT = 500000;
 const int DEFAULT_SCOUT_ACK_TIMEOUT = 5000;
 const unsigned int DEFAULT_TIME_BETWEEN_BYTES = 128;
 const unsigned int DEFAULT_FOUR_WAY_STAGE_TIMEOUT = 500000;
+const unsigned char DEFAULT_PREFERRED_NET = 1;
 const bool DEFAULT_MASSAGE_NETWORKS = false;
 const bool DEFAULT_AUTOCONFIGURE = false;
 const bool DEFAULT_FINDGATEWAYS = false;
@@ -179,7 +180,7 @@ static unsigned int TimeBetweenBytes = DEFAULT_TIME_BETWEEN_BYTES;
 unsigned char EconetStationID = 0; // default Station ID
 unsigned char myaunnet = 0; // what is our local net number
 unsigned char PreferredStationID = 0;
-unsigned char PreferredNet = 1;
+unsigned char PreferredNet = 0;
 static u_short EconetListenPort = 0; // default Listen port
 static unsigned long EconetListenIP = 0x0100007f;
 // IP settings:
@@ -672,6 +673,9 @@ bool EconetReset()
 	{
 		goto Fail;
 	}
+	
+	if (!PreferredNet)
+		PreferredNet = DEFAULT_PREFERRED_NET; // Config didn't include a DEFAULTNET
 
 	// Create a SOCKET for listening for incoming connection requests.
 	ListenSocket = socket(AF_INET, SOCK_DGRAM, 0);
@@ -1094,6 +1098,15 @@ static bool ReadEconetConfigFile()
 				else if (StrCaseCmp(Key.c_str(), "FINDGATEWAYS") == 0)
 				{
 					FindGateways = std::stoi(Value) != 0;
+				}
+				else if (StrCaseCmp(Key.c_str(), "DEFAULTNET") == 0)
+				{
+					int net = std::stoi(Value);
+					if (net < 1 && net > 127)
+						throw std::out_of_range ("invalid network");
+					
+					if (PreferredNet == 0) // only set if uninitialized
+						PreferredNet = (unsigned char)net;
 				}
 				else
 				{
