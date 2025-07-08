@@ -1838,18 +1838,22 @@ bool EconetPoll_real() // return NMI status
 						if (SendMe)
 						{
 							char *p = (char *)&EconetTx;
-							if (ExtendedAUN)
+							ExtendedAUNPacket *tmp = (ExtendedAUNPacket*)&EconetTemp;
+							if (ExtendedAUN || (IsBroadcastStation(EconetTx.deststn) && gateway.port))
 							{
-								// we need to make a copy of the packet with  additional addressing on the front
-								unsigned char tmp[ETHERNET_BUFFER_SIZE+16];
-								int i = 0;
-								tmp[i++] = BeebTx.eh.deststn;
-								tmp[i++] = BeebTx.eh.destnet;
-								tmp[i++] = 0; // srcstn will be determined by the bridge
-								tmp[i++] = 0; // srcnet will be determined by the bridge
-								memcpy(tmp+i, &EconetTx.raw, SendLen);
+								// we need to make a copy of the packet with additional addressing on the front
+								tmp->addr.deststn = BeebTx.eh.deststn;
+								tmp->addr.destnet = BeebTx.eh.destnet;
+								tmp->addr.srcstn = 0; // source (left blank)
+								tmp->addr.srcnet = 0;
+								memcpy(&tmp->ah, &EconetTx.raw, SendLen); // copy original AUN data
 								SendLen += 4;
-								p = (char *)&tmp; // transmit this buffer instead of EconetTx
+								
+								if (ExtendedAUN)
+								{
+									p = (char *)tmp; // transmit this buffer instead of EconetTx
+								}
+								// else a broadcast - we will send this extended AUN packet to the gateway after sending the original packet as a UDP broadcast
 							}
 							
 							if (!(S_ADDR(RecvAddr) == EconetListenIP && htons(RecvAddr.sin_port) == EconetListenPort)) // never send to ourself
@@ -1865,6 +1869,20 @@ bool EconetPoll_real() // return NMI status
 								std::string str2 = "Econet: Ethernet data:" + BytesToString((unsigned char *)p, SendLen);
 
 								DebugDisplayTrace(DebugType::Econet, true, str2.c_str());
+							}
+							
+							if (IsBroadcastStation(EconetTx.deststn) && gateway.port)
+							{
+								// we want to send a copy of the broadcast to the gateway
+								S_ADDR(RecvAddr) = gateway.inet_addr;
+								RecvAddr.sin_port = htons(gateway.port);
+								
+								if (sendto(SendSocket, p, SendLen, 0,
+										   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+								{
+									EconetError("Econet: Failed to send broadcast to gateway (%s port %u)",
+												IpAddressStr(S_ADDR(RecvAddr)), (unsigned int)htons(RecvAddr.sin_port));
+								}
 							}
 						}
 
