@@ -334,18 +334,26 @@ static EconetPacket BeebRx;
 
 static unsigned char BeebTxCopy[sizeof(LongEconetPacket)];
 
+enum class BroadcastSource {
+	Unknown,
+	Local,
+	Gateway
+};
+
 // Holds data from Econet.cfg file
 struct EconetHost {
 	unsigned char station;
 	unsigned char network;
 	unsigned long inet_addr;
 	u_short port;
+	BroadcastSource broadcasts; // where to accept broadcasts from
 };
 
 struct EconetNet {
 	unsigned long inet_addr;
 	unsigned char network;
 	u_short port; // AUN port or base port from which sequential ports are calculated
+	BroadcastSource broadcasts; // where to accept broadcasts from
 };
 
 struct EconetGateway {
@@ -771,7 +779,7 @@ bool EconetReset()
 
 	// Socket used to send messages.
 	SendSocket = ListenSocket;
-
+	
 	// This call is what allows broadcast packets to be sent:
 	const char broadcast = '1';
 
@@ -1000,6 +1008,7 @@ static bool ReadEconetConfigFile()
 						networks[networksp].network = network;
 						networks[networksp].inet_addr = inet_addr(Tokens[2].c_str());
 						networks[networksp].port = (u_short)std::stoi(Tokens[3]);
+						networks[networksp].broadcasts = BroadcastSource::Unknown;
 						
 						DebugDisplayTraceF(DebugType::Econet, true,
 										   "Econet: ConfigFile Net %i IP %s Port %i",
@@ -1027,6 +1036,7 @@ static bool ReadEconetConfigFile()
 					stations[stationsp].network = network;
 					stations[stationsp].inet_addr = inet_addr(Tokens[2].c_str());
 					stations[stationsp].port = (u_short)std::stoi(Tokens[3]);
+					stations[stationsp].broadcasts = BroadcastSource::Unknown;
 					
 					DebugDisplayTraceF(DebugType::Econet, true,
 									   "Econet: ConfigFile Net %i Stn %i IP %s Port %i",
@@ -1175,8 +1185,9 @@ static bool ReadAUNConfigFile()
 				try
 				{
 					networks[networksp].inet_addr = inet_addr(Tokens[1].c_str()) & 0x00FFFFFF; // stored as lsb..msb ?!?!
-					networks[networksp].network   = (unsigned char)(std::stoi(Tokens[2]));
-					networks[networksp].port      = DEFAULT_AUN_PORT; // always use the default port for proper AUN networks
+					networks[networksp].network    = (unsigned char)(std::stoi(Tokens[2]));
+					networks[networksp].port       = DEFAULT_AUN_PORT; // always use the default port for proper AUN networks
+					networks[networksp].broadcasts = BroadcastSource::Unknown;
 
 					if (DebugEnabled)
 					{
@@ -2024,6 +2035,15 @@ bool EconetPoll_real() // return NMI status
 										BeebRx.eh.srcnet = stations[i].network;
 										BeebRx.eh.srcstn = stations[i].station;
 										found = true;
+										
+										if (IsBroadcastStation(BeebRx.eh.deststn))
+										{
+											// see if a gateway has already sent broadcasts from this station
+											if (stations[i].broadcasts == BroadcastSource::Gateway)
+												found = false; // don't resolve this station
+											else
+												stations[i].broadcasts = BroadcastSource::Local;
+										}
 										break;
 									}
 								}
@@ -2043,7 +2063,6 @@ bool EconetPoll_real() // return NMI status
 												BeebRx.eh.srcnet = networks[i].network;
 												BeebRx.eh.srcstn = (unsigned char) s;
 												found = true;
-												break;
 											}
 											// else must be a different net on the same host
 										}
@@ -2053,6 +2072,18 @@ bool EconetPoll_real() // return NMI status
 											BeebRx.eh.srcnet = networks[i].network;
 											BeebRx.eh.srcstn = (S_ADDR(RecvAddr) & 0xFF000000) >> 24;
 											found = true;
+										}
+										
+										if (found)
+										{
+											if (IsBroadcastStation(BeebRx.eh.deststn))
+											{
+												// see if a gateway has already sent broadcasts from this network
+												if (networks[i].broadcasts == BroadcastSource::Gateway)
+													found = false; // don't resolve this network
+												else
+													networks[i].broadcasts = BroadcastSource::Local;
+											}
 											break;
 										}
 									}
@@ -2061,23 +2092,49 @@ bool EconetPoll_real() // return NMI status
 								if (!found && RetVal > 4)
 								{
 									// search to see if source is extended AUN gateway
-									if (gateway.port)
+									if (S_ADDR(RecvAddr) == gateway.inet_addr && htons(RecvAddr.sin_port) == gateway.port)
 									{
-										if (S_ADDR(RecvAddr) == gateway.inet_addr && htons(RecvAddr.sin_port) == gateway.port)
+										// PiEB gateways use an extended AUN which contains the econet addresses at the start of the packet
+										memcpy(&BeebRx.eh, &EconetRx, sizeof(BeebRx.eh));
+										
+										// this means the AUN data we want starts four bytes later than usual. This seems terribly inefficient, but lets remove those bytes from the buffer rather than trying to keep track of an offset through all the rest of the code.
+										
+										memmove(EconetRx.raw, EconetRx.raw + 4, RetVal - 4);
+										RetVal -= 4; // adjust the length
+										EconetRx.BytesInBuffer = RetVal; // must update this too!
+										
+										std::string str = "EconetPoll: Packet data:" + BytesToString( EconetRx.raw, RetVal);
+										DebugDisplayTrace(DebugType::Econet, true, str.c_str());
+										
+										found = true;
+										
+										if (IsBroadcastStation(BeebRx.eh.deststn))
 										{
-											// PiEB gateways use an extended AUN which contains the econet addresses at the start of the packet
-											memcpy(&BeebRx.eh, &EconetRx, sizeof(BeebRx.eh));
-											
-											// this means the AUN data we want starts four bytes later than usual. This seems terribly inefficient, but lets remove those bytes from the buffer rather than trying to keep track of an offset through all the rest of the code.
-											
-											memmove(EconetRx.raw, EconetRx.raw + 4, RetVal - 4);
-											RetVal -= 4; // adjust the length
-											EconetRx.BytesInBuffer = RetVal; // must update this too!
-											
-											std::string str = "EconetPoll: Packet data:" + BytesToString( EconetRx.raw, RetVal);
-											DebugDisplayTrace(DebugType::Econet, true, str.c_str());
-											
-											found = true;
+											// we want to ignore any broadcasts via the gateway if we will also receive them directly
+											for (int i = 0; i < networksp; i++)
+											{
+												if (networks[i].network == BeebRx.eh.srcnet)
+												{
+													if (networks[i].broadcasts == BroadcastSource::Local)
+														found = false; // don't resolve broadcasts from this net
+													else
+														networks[i].broadcasts = BroadcastSource::Gateway;
+													
+													break;
+												}
+											}
+											for (int i = 0; i < stationsp && found; i++)
+											{
+												if (stations[i].network == BeebRx.eh.srcnet)
+												{
+													if (stations[i].broadcasts == BroadcastSource::Local)
+														found = false; // don't resolve broadcasts from this station
+													else
+														stations[i].broadcasts = BroadcastSource::Gateway;
+													
+													break;
+												}
+											}
 										}
 									}
 								}
@@ -2144,7 +2201,8 @@ bool EconetPoll_real() // return NMI status
 												stations[stationsp].network = BeebRx.eh.srcnet;
 												stations[stationsp].station = BeebRx.eh.srcstn;
 												stations[stationsp].inet_addr = S_ADDR(RecvAddr);
-												stations[stationsp++].port = htons(RecvAddr.sin_port);
+												stations[stationsp].port = htons(RecvAddr.sin_port);
+												stations[stationsp++].broadcasts = BroadcastSource::Local; // must be in the broadcast domain to have received this ping.
 												DebugDisplayTraceF(DebugType::Econet, true,
 															   "Econet: added station %d.%d to host list",
 															   (unsigned int)BeebRx.eh.srcnet,
@@ -2184,7 +2242,8 @@ bool EconetPoll_real() // return NMI status
 												stations[stationsp].network = BeebRx.eh.srcnet;
 												stations[stationsp].station = BeebRx.eh.srcstn;
 												stations[stationsp].inet_addr = S_ADDR(RecvAddr);
-												stations[stationsp++].port = htons(RecvAddr.sin_port);
+												stations[stationsp].port = htons(RecvAddr.sin_port);
+												stations[stationsp++].broadcasts = BroadcastSource::Local; // must be in the broadcast domain to have received our ping.
 												// TODO: If there is already a station with this number in the list from a different host then we won't see this.
 												DebugDisplayTraceF(DebugType::Econet, true,
 															   "Econet: added station %d.%d to host list",
