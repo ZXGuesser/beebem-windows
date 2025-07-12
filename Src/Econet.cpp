@@ -368,10 +368,10 @@ struct NetStn {
 
 static NetStn LastError;
 
-const int NETWORK_TABLE_LENGTH = 512; // Total number of hosts we can know about
-const int AUN_TABLE_LENGTH = 128; // number of disparate networks in AUNMap
-static EconetHost stations[NETWORK_TABLE_LENGTH]; // individual stations we know about
-static EconetNet networks[AUN_TABLE_LENGTH]; // AUN networks we know about
+const int STATIONS_TABLE_LENGTH = 512; // Total number of hosts we can know about
+const int NETWORKS_TABLE_LENGTH = 128; // number of disparate networks in AUNMap
+static EconetHost stations[STATIONS_TABLE_LENGTH]; // individual stations we know about
+static EconetNet networks[NETWORKS_TABLE_LENGTH]; // AUN networks we know about
 
 static EconetGateway gateway = { NULL, NULL }; // no gateway address
 
@@ -454,17 +454,54 @@ static std::string BytesToString(const unsigned char* pData, int Length)
 
 static EconetHost* FindNetworkConfig(unsigned char Station, unsigned char Net)
 {
-	DebugDisplayTraceF(DebugType::Econet, true,"Econet: Look for %d.%d in Econet.cfg", Net, Station);
 	for (int i = 0; i < stationsp; ++i)
 	{
 		if (stations[i].station == Station && stations[i].network == Net)
 		{
-			DebugDisplayTraceF(DebugType::Econet, true,"Econet: Found %d.%d in Econet.cfg", Net, Station);
 			return &stations[i];
 		}
 	}
 
 	return nullptr;
+}
+
+//---------------------------------------------------------------------------
+
+bool AddStation(unsigned char station, unsigned char net, unsigned long address, u_short port, BroadcastSource broadcasts = BroadcastSource::Unknown)
+{
+	// Try to add or replace a station in stations list
+	
+	bool Success = false;
+	EconetHost* s = FindNetworkConfig(station, net);
+	if (s != nullptr)
+	{
+		// station already defined, replace it
+		s->station = station;
+		s->network = net;
+		s->inet_addr = address;
+		s->port = port;
+		DebugDisplayTraceF(DebugType::Econet, true,
+						   "Econet: replaced station %d.%d in host list",
+						   (unsigned int)net,
+						   (unsigned int)station);
+		Success = true;
+	}
+	else if (stationsp < STATIONS_TABLE_LENGTH)
+	{
+		// station unknown, add it
+		stations[stationsp].station = station;
+		stations[stationsp].network = net;
+		stations[stationsp].inet_addr = address;
+		stations[stationsp].port = port;
+		stations[stationsp++].broadcasts = BroadcastSource::Unknown;
+		DebugDisplayTraceF(DebugType::Econet, true,
+						   "Econet: added station %d.%d to host list",
+						   (unsigned int)net,
+						   (unsigned int)station);
+		Success = true;
+	}
+	
+	return Success;
 }
 
 //---------------------------------------------------------------------------
@@ -997,7 +1034,7 @@ static bool ReadEconetConfigFile()
 				if (StrCaseCmp(Tokens[0].c_str(), "NETWORK") == 0)
 				{
 					
-					if (networksp < AUN_TABLE_LENGTH)
+					if (networksp < NETWORKS_TABLE_LENGTH)
 					{
 						unsigned char network = (unsigned char)std::stoi(Tokens[1]);
 						// this line defines an entire network
@@ -1024,7 +1061,7 @@ static bool ReadEconetConfigFile()
 						break;
 					}
 				}
-				else if (stationsp < NETWORK_TABLE_LENGTH)
+				else
 				{
 					unsigned char network = (unsigned char)std::stoi(Tokens[0]);
 					unsigned char station = (unsigned char)std::stoi(Tokens[1]);
@@ -1032,24 +1069,13 @@ static bool ReadEconetConfigFile()
 						throw std::out_of_range ("invalid station"); // not a valid station number
 					if (network < 1 || network > 127)
 						throw std::out_of_range ("invalid network"); // not a valid network number
-					stations[stationsp].station = station;
-					stations[stationsp].network = network;
-					stations[stationsp].inet_addr = inet_addr(Tokens[2].c_str());
-					stations[stationsp].port = (u_short)std::stoi(Tokens[3]);
-					stations[stationsp].broadcasts = BroadcastSource::Unknown;
 					
-					DebugDisplayTraceF(DebugType::Econet, true,
-									   "Econet: ConfigFile Net %i Stn %i IP %s Port %i",
-									   stations[stationsp].network, stations[stationsp].station,
-									   IpAddressStr(stations[stationsp].inet_addr), stations[stationsp].port);
-					
-					stationsp++;
-				}
-				else
-				{
-					EconetError("Too many station entries in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
-					Success = false;
-					break;
+					if (!(AddStation(station, network, inet_addr(Tokens[2].c_str()), (u_short)std::stoi(Tokens[3]))))
+					{
+						EconetError("Too many station entries in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
+						Success = false;
+						break;
+					}
 				}
 			}
 			catch (const std::exception&)
@@ -1180,7 +1206,7 @@ static bool ReadAUNConfigFile()
 
 		if (Tokens.size() == 3 && StrCaseCmp("ADDMAP", Tokens[0].c_str()) == 0)
 		{
-			if (networksp < AUN_TABLE_LENGTH)
+			if (networksp < NETWORKS_TABLE_LENGTH)
 			{
 				try
 				{
@@ -2195,35 +2221,26 @@ bool EconetPoll_real() // return NMI status
 															   (unsigned int)BeebRx.eh.srcnet,
 															   (unsigned int)BeebRx.eh.srcstn);
 											
-											if (stationsp < NETWORK_TABLE_LENGTH)
+											// add this to the list of stations we know about
+											if (AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local)) // must be in the broadcast domain to have received this ping.
 											{
-												// add this to the list of stations we know about
-												stations[stationsp].network = BeebRx.eh.srcnet;
-												stations[stationsp].station = BeebRx.eh.srcstn;
-												stations[stationsp].inet_addr = S_ADDR(RecvAddr);
-												stations[stationsp].port = htons(RecvAddr.sin_port);
-												stations[stationsp++].broadcasts = BroadcastSource::Local; // must be in the broadcast domain to have received this ping.
-												DebugDisplayTraceF(DebugType::Econet, true,
-															   "Econet: added station %d.%d to host list",
-															   (unsigned int)BeebRx.eh.srcnet,
-															   (unsigned int)BeebRx.eh.srcstn);
-												// TODO: If there is already a station with this number in the list from a different host then we won't see this.
+												// send a Pong packet back to source address
+												EconetTemp.ah.type = AUNType::BeebEm;
+												EconetTemp.ah.cb = 0x1e; // control &9e Pong
+												EconetTemp.ah.port = BEEBEM_ECONET_PORT;
+												EconetTemp.ah.pad = 0;
+												EconetTemp.ah.handle = 0;
+												memset(EconetTemp.buff,0,8);
+												EconetTemp.buff[0] = EconetStationID;
+												EconetTemp.buff[1] = myaunnet;
+												if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
+												   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+												{
+													EconetError("Econet: Failed to send BeebEm Pong");
+												}
 											}
-											
-											// send a Pong packet back to source address
-											EconetTemp.ah.type = AUNType::BeebEm;
-											EconetTemp.ah.cb = 0x1e; // control &9e Pong
-											EconetTemp.ah.port = BEEBEM_ECONET_PORT;
-											EconetTemp.ah.pad = 0;
-											EconetTemp.ah.handle = 0;
-											memset(EconetTemp.buff,0,8);
-											EconetTemp.buff[0] = EconetStationID;
-											EconetTemp.buff[1] = myaunnet;
-											if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
-											   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
-											{
-												EconetError("Econet: Failed to send BeebEm Pong");
-											}
+											else
+												DebugDisplayTrace(DebugType::Econet, true, "Econet: Out of room for stations");
 										}
 										else if ((EconetRx.ah.cb | 128) == 0x9e) // BeebEm Pong
 										{
@@ -2236,21 +2253,9 @@ bool EconetPoll_real() // return NMI status
 															   (unsigned int)BeebRx.eh.srcnet,
 															   (unsigned int)BeebRx.eh.srcstn);
 											
-											if (stationsp < NETWORK_TABLE_LENGTH)
-											{
-												// add this to the list of stations we know about
-												stations[stationsp].network = BeebRx.eh.srcnet;
-												stations[stationsp].station = BeebRx.eh.srcstn;
-												stations[stationsp].inet_addr = S_ADDR(RecvAddr);
-												stations[stationsp].port = htons(RecvAddr.sin_port);
-												stations[stationsp++].broadcasts = BroadcastSource::Local; // must be in the broadcast domain to have received our ping.
-												// TODO: If there is already a station with this number in the list from a different host then we won't see this.
-												DebugDisplayTraceF(DebugType::Econet, true,
-															   "Econet: added station %d.%d to host list",
-															   (unsigned int)BeebRx.eh.srcnet,
-															   (unsigned int)BeebRx.eh.srcstn);
-												// TODO: If there is already a station with this number in the list from a different host then we won't see this.
-											}
+											// add this to the list of stations we know about
+											if(!AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local)) // must be in the broadcast domain to have received our ping.
+												DebugDisplayTrace(DebugType::Econet, true, "Econet: Out of room for stations");
 										}
 									}
 									
@@ -2284,10 +2289,13 @@ bool EconetPoll_real() // return NMI status
 													if (BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9f && EconetRx.ah.handle == 0)
 													{
 														// this is a BeebEm Ping used for host discovery from a an address we think we know already
-														// TODO: check the station number hasn't changed and maybe update it?
 														DebugDisplayTraceF(DebugType::Econet, true, "Econet: Received BeebEm Ping from %d.%d ",
 															   (unsigned int)BeebRx.eh.srcnet,
 															   (unsigned int)BeebRx.eh.srcstn);
+														
+														// it might be have changed so, replace it
+														AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local);
+														
 														// send a Pong packet back to source address
 														EconetTemp.ah.type = AUNType::BeebEm;
 														EconetTemp.ah.cb = 0x1e; // control &9e Pong
@@ -2295,23 +2303,22 @@ bool EconetPoll_real() // return NMI status
 														EconetTemp.ah.pad = 0;
 														EconetTemp.ah.handle = 0;
 														memset(EconetTemp.buff,0,8);
-														EconetTemp.buff[0] = EconetStationID; // send out network and station number in reply
+														EconetTemp.buff[0] = EconetStationID; // send our network and station number in reply
 														EconetTemp.buff[1] = myaunnet;
 														if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
 														   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 														{
 															EconetError("Econet: Failed to send BeebEm Pong");
 														}
-														// this was not a real econet packet so ignore it
-														fourwaystage = FourWayStage::WaitForIdle;
 													}
 													else if (BeebRx.BytesInBuffer == 0 && BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9e && EconetRx.ah.handle == 0)
 													{
 														// this is a BeebEm Pong used for host discovery from a an address we think we know already
-														// TODO: check the station number hasn't changed and maybe update it?
 														DebugDisplayTraceF(DebugType::Econet, true, "Econet: BeebEm Pong received from %d.%d",
 															   (unsigned int)BeebRx.eh.srcnet,
 															   (unsigned int)BeebRx.eh.srcstn);
+														// it might be different, replace it
+														AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local); // must be in the broadcast domain to have received our ping.
 													}
 												}
 												
