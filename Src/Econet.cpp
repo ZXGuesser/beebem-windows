@@ -493,7 +493,7 @@ bool AddStation(unsigned char station, unsigned char net, unsigned long address,
 		stations[stationsp].network = net;
 		stations[stationsp].inet_addr = address;
 		stations[stationsp].port = port;
-		stations[stationsp++].broadcasts = BroadcastSource::Unknown;
+		stations[stationsp++].broadcasts = broadcasts;
 		DebugDisplayTraceF(DebugType::Econet, true,
 						   "Econet: added station %d.%d to host list",
 						   (unsigned int)net,
@@ -2221,26 +2221,34 @@ bool EconetPoll_real() // return NMI status
 															   (unsigned int)BeebRx.eh.srcnet,
 															   (unsigned int)BeebRx.eh.srcstn);
 											
-											// add this to the list of stations we know about
-											if (AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local)) // must be in the broadcast domain to have received this ping.
+											if(BeebRx.eh.srcstn == EconetStationID && BeebRx.eh.srcnet == myaunnet)
 											{
-												// send a Pong packet back to source address
-												EconetTemp.ah.type = AUNType::BeebEm;
-												EconetTemp.ah.cb = 0x1e; // control &9e Pong
-												EconetTemp.ah.port = BEEBEM_ECONET_PORT;
-												EconetTemp.ah.pad = 0;
-												EconetTemp.ah.handle = 0;
-												memset(EconetTemp.buff,0,8);
-												EconetTemp.buff[0] = EconetStationID;
-												EconetTemp.buff[1] = myaunnet;
-												if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
-												   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
-												{
-													EconetError("Econet: Failed to send BeebEm Pong");
-												}
+												// Address collision!
+												DebugDisplayTrace(DebugType::Econet, true, "Econet: Address collision!");
+												// broadcast this to everyone so they put us back in their station table
+												S_ADDR(RecvAddr) = INADDR_BROADCAST;
+												RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
 											}
 											else
-												DebugDisplayTrace(DebugType::Econet, true, "Econet: Out of room for stations");
+											{
+												// add this to the list of stations we know about
+												AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local); // must be in the broadcast domain to have received this ping.
+												// send a Pong packet back to source address
+											}
+											
+											EconetTemp.ah.cb = 0x1e; // control &9e Pong
+											EconetTemp.ah.type = AUNType::BeebEm;
+											EconetTemp.ah.port = BEEBEM_ECONET_PORT;
+											EconetTemp.ah.pad = 0;
+											EconetTemp.ah.handle = 0;
+											memset(EconetTemp.buff,0,8);
+											EconetTemp.buff[0] = EconetStationID;
+											EconetTemp.buff[1] = myaunnet;
+											if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
+											   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+											{
+												EconetError("Econet: Failed to send BeebEm Pong");
+											}
 										}
 										else if ((EconetRx.ah.cb | 128) == 0x9e) // BeebEm Pong
 										{
@@ -2252,6 +2260,17 @@ bool EconetPoll_real() // return NMI status
 															   "Econet: Received BeebEm Pong from %d.%d ",
 															   (unsigned int)BeebRx.eh.srcnet,
 															   (unsigned int)BeebRx.eh.srcstn);
+											
+											if (EconetRx.buff[0] == EconetStationID && EconetRx.buff[1] == myaunnet)
+											{
+												// we have caused a collision!
+												EconetStationID = 0;
+												PreferredStationID = 0;
+												
+												EconetError("Econet: Address collision detected.");
+												mainWin->ToggleEconet(); // turn Econet off entirely
+												return false;
+											}
 											
 											// add this to the list of stations we know about
 											if(!AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local)) // must be in the broadcast domain to have received our ping.
@@ -2289,14 +2308,33 @@ bool EconetPoll_real() // return NMI status
 													if (BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9f && EconetRx.ah.handle == 0)
 													{
 														// this is a BeebEm Ping used for host discovery from a an address we think we know already
+														
 														DebugDisplayTraceF(DebugType::Econet, true, "Econet: Received BeebEm Ping from %d.%d ",
 															   (unsigned int)BeebRx.eh.srcnet,
 															   (unsigned int)BeebRx.eh.srcstn);
 														
-														// it might be have changed so, replace it
-														AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local);
+														if (!(BeebRx.eh.srcstn == EconetRx.buff[0] && BeebRx.eh.srcnet == EconetRx.buff[1]))
+														{
+															// address has changed
+															BeebRx.eh.srcstn = EconetRx.buff[0];
+															BeebRx.eh.srcnet = EconetRx.buff[1];
+															
+															if(BeebRx.eh.srcstn == EconetStationID && BeebRx.eh.srcnet == myaunnet)
+															{
+																// Address collision!
+																DebugDisplayTrace(DebugType::Econet, true, "Econet: Address collision!");
+																// broadcast pong to everyone so they put us back in their station table
+																S_ADDR(RecvAddr) = INADDR_BROADCAST;
+																RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
+															}
+															else
+															{
+																// add this to the list of stations we know about
+																AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local); // must be in the broadcast domain to have received this ping.
+																// send a Pong packet back to source address
+															}
+														}
 														
-														// send a Pong packet back to source address
 														EconetTemp.ah.type = AUNType::BeebEm;
 														EconetTemp.ah.cb = 0x1e; // control &9e Pong
 														EconetTemp.ah.port = BEEBEM_ECONET_PORT;
@@ -2314,11 +2352,30 @@ bool EconetPoll_real() // return NMI status
 													else if (BeebRx.BytesInBuffer == 0 && BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9e && EconetRx.ah.handle == 0)
 													{
 														// this is a BeebEm Pong used for host discovery from a an address we think we know already
-														DebugDisplayTraceF(DebugType::Econet, true, "Econet: BeebEm Pong received from %d.%d",
-															   (unsigned int)BeebRx.eh.srcnet,
-															   (unsigned int)BeebRx.eh.srcstn);
-														// it might be different, replace it
-														AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local); // must be in the broadcast domain to have received our ping.
+														if (EconetRx.buff[0] == EconetStationID && EconetRx.buff[1] == myaunnet)
+														{
+															// we have caused a collision!
+															EconetStationID = 0;
+															PreferredStationID = 0;
+															
+															EconetError("Econet: Address collision detected.");
+															mainWin->ToggleEconet(); // turn Econet off entirely
+															return false;
+														}
+														else
+														{
+															BeebRx.eh.srcstn = EconetRx.buff[0];
+															BeebRx.eh.srcnet = EconetRx.buff[1];
+															
+															DebugDisplayTraceF(DebugType::Econet, true, "Econet: BeebEm Pong received from %d.%d",
+																   (unsigned int)BeebRx.eh.srcnet,
+																   (unsigned int)BeebRx.eh.srcstn);
+															
+															// it might be different, replace it
+															AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local); // must be in the broadcast domain to have received our ping.
+															
+															// TODO: remove old station somehow if number changed
+														}
 													}
 												}
 												
