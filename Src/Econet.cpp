@@ -779,7 +779,7 @@ bool EconetReset()
 			
 			if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) != 0)
 			{
-				EconetError("Econet: Failed to bind to port %d (error %ld)", EconetListenPort, GetLastSocketError());
+				EconetError("Econet: Failed to bind to address %s:%d", IpAddressStr(EconetListenIP), EconetListenPort);
 				EconetStationID = 0;
 				myaunnet = 0;
 				AllocateNewAddress(); // try to allocate a station number instead
