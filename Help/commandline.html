@@ -123,7 +123,7 @@
 
         <tr>
           <td><span class="cmd">-EcoStn &lt;station&gt;</span></td>
-          <td>Econet station number</td>
+          <td>Econet station number with optional network number</td>
         </tr>
 
         <tr>
@@ -259,6 +259,14 @@
       <blockquote>
         <code>BeebEm -KbdCmd "OSCLI\s2\STAPE\s2\S\nPAGE=3584\nCH.\s22\S\n" test.uef</code>
       </blockquote>
+      
+      <p>
+        Run BeebEm as Econet station 254 and load the level 1 Econet server:
+      </p>
+
+      <blockquote>
+        <code>BeebEm -EcoStn 254 -KbdCmd "CH.\s2FS2\S\n" econet_level_1_utils.ssd</code>
+      </blockquote>
 
       <h2>Command Line Parameter Notes</h2>
 
@@ -283,6 +291,14 @@
         default.
       </p>
 
+      <p>
+        The <span class="cmd">-EcoStn</span> option can be specified with or
+        without a network number. For example <span class="cmd">-EcoStn 4.123</span>
+        selects station 123 on net 4, while <span class="cmd">-EcoStn 55</span>
+        configures BeebEm as station 55 on the default net number (specified in
+        the <span class="file">Econet.cfg</span> file).
+      </p>
+      
       <p>
         If a disk image or a state file name is passed to BeebEm on the command
         line it will be run automatically (but see <span

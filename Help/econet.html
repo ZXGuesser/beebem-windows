@@ -40,10 +40,9 @@
       <h1>Econet Support</h1>
 
       <p>
-        BeebEm emulates an Econet network. This allows multiple instances of
-        BeebEm to communicate with other. BeebEm also supports the AUN Econet
-        protocols that enable BeebEm to communicate with other AUN compatible
-        machines.
+        BeebEm emulates an Econet network using AUN compatible protocols.
+        This allows multiple instances of BeebEm to communicate with other, and
+        with other AUN compatible software and machines.
       </p>
 
       <p>
@@ -55,37 +54,41 @@
 
       <p>
         Each machine attached to an Econet has a station number (between 1 and
-        254) associated with it. An Econet may also have a file server attached
-        to it (special station number 254).
+        254) associated with it, and each Econet has a net number (between 1 and 
+        127). BeebEm allows instances to be defined on different nets and
+        transparently routes packets between them as if the two networks were
+        connected via an Econet bridge.
       </p>
 
       <p>
         BeebEm emulates an Econet using IP datagrams. Each station on the
-        network needs a unique IP address and port number combination. Each
-        instance of BeebEm needs to know the address and port number of the
-        other instances on the network, this information is configured in the
+        network needs a unique IP address and port number combination and each
+        instance of BeebEm also needs to know the address and port number of
+        the other instances on the network.
+      </p>
+      
+      <p>
+        BeebEm is able to assign itself an address and identify other instances on
+        the network using an automatic host discovery protocol. However everything
+        can still be configured manually using the 
         <span class="file">Econet.cfg</span> and
         <span class="file">AUNMap</span> files.
       </p>
 
       <p>
         The default <span class="file">Econet.cfg</span> file has been set up to
-        enable AUN mode. Read the notes in the <span
-        class="file">Econet.cfg</span> and <span class="file">AUNMap</span>
-        files for more information on configuring AUN mode.
+        enable automatic configuration and and gateway discovery. Read the notes
+        in the <span class="file">Econet.cfg</span> file for more information.
       </p>
 
       <p>
-        If you just want to run a few instances of BeebEm on a single PC then
-        the simplest way to is to edit the <span class="file">Econet.cfg</span>
-        file and disable AUN mode (set AUNMODE to 0) and uncomment the example
-        network configuration for IP addresses 127.0.0.1 (near the end of <span
-        class="file">Econet.cfg</span>). With this configured the first 5
-        instances of BeebEm run on a single PC will get allocated unique station
-        and port numbers. The first instance will be allocated a station number
-        254 (file server) and next 4 will be allocated station numbers 101 to
-        104. See the notes in <span class="file">Econet.cfg</span> for more
-        details.
+        The simplest way to get started is to enable automatic configuration in 
+        <span class="file">Econet.cfg</span> which will assign a random station
+        number to each new instance of BeebEm.
+        <br>
+        To specify a specific number to start an instance on station 254 for a
+        file server, use the <a href="commandline.html">-EcoStn</a> option
+        <code>-EcoStn 254</code>.
       </p>
 
       <p>
@@ -107,9 +110,9 @@
       </p>
 
       <p>
-        To run the level 1 server, load the <span
-        class="file">econet_level_1_utils.ssd</span> disk image and run the file
-        server by typing <span class="cmd">CH."FS"</span>.
+        To run the level 1 server, load the <span class="file">econet_level_1_utils.ssd</span>
+        disk image on station 254, and run the file server by typing
+        <span class="cmd">CH."FS"</span>.
       </p>
 
       <p>
@@ -120,9 +123,9 @@
         <li>Number of files per user - enter <span class="cmd">3</span></li>
         <li>Manual configuration - enter <span class="cmd">Y</span></li>
         <li>Directory for first station - enter <span class="cmd">A</span></li>
-        <li>Station number - enter <span class="cmd">101</span></li>
+        <li>Station number - just press <kbd>Enter</kbd></li>
         <li>Directory for second station - enter <span class="cmd">B</span></li>
-        <li>Station number - enter <span class="cmd">102</span></li>
+        <li>Station number - just press <kbd>Enter</kbd></li>
         <li>Directory for third station - just press <kbd>Enter</kbd></li>
       </ul>
 
@@ -172,6 +175,14 @@
         <span class="file">Econet.cfg</span>. Setting this value too low
         will cause Econet commands to fail, hang, or command output to contain
         garbage or blank lines.
+      </p>
+      <p>
+        The automatic host discovery protocol uses packets which are based on
+        the AUN protocol but have an invalid AUN packet type. This may cause
+        issues when used on a network with original AUN hardware and disrupts
+        Econet emulation in older versions of BeebEm. All automated address
+        configuration can be disabled by deactivating the <span
+        class="cmd">AUTOCONFIGURE</span> setting in <span class="file">Econet.cfg</span>
       </p>
     </main>
 
