@@ -2151,7 +2151,7 @@ bool EconetPoll_real() // return NMI status
 											}
 											for (int i = 0; i < stationsp && found; i++)
 											{
-												if (stations[i].network == BeebRx.eh.srcnet)
+												if (stations[i].network == BeebRx.eh.srcnet && stations[i].station == BeebRx.eh.srcstn)
 												{
 													if (stations[i].broadcasts == BroadcastSource::Local)
 														found = false; // don't resolve broadcasts from this station
@@ -2264,8 +2264,8 @@ bool EconetPoll_real() // return NMI status
 											if (EconetRx.buff[0] == EconetStationID && EconetRx.buff[1] == myaunnet)
 											{
 												// we have caused a collision!
+												PreferredStationID = (rand() % 253) + 1;
 												EconetStationID = 0;
-												PreferredStationID = 0;
 												
 												EconetError("Econet: Address collision detected.");
 												mainWin->ToggleEconet(); // turn Econet off entirely
@@ -2310,28 +2310,26 @@ bool EconetPoll_real() // return NMI status
 														// this is a BeebEm Ping used for host discovery from a an address we think we know already
 														
 														DebugDisplayTraceF(DebugType::Econet, true, "Econet: Received BeebEm Ping from %d.%d ",
-															   (unsigned int)BeebRx.eh.srcnet,
-															   (unsigned int)BeebRx.eh.srcstn);
+															   (unsigned int)EconetRx.buff[1],
+															   (unsigned int)EconetRx.buff[0]);
 														
-														if (!(BeebRx.eh.srcstn == EconetRx.buff[0] && BeebRx.eh.srcnet == EconetRx.buff[1]))
+														if(EconetRx.buff[0] == EconetStationID && EconetRx.buff[1] == myaunnet)
 														{
-															// address has changed
-															BeebRx.eh.srcstn = EconetRx.buff[0];
-															BeebRx.eh.srcnet = EconetRx.buff[1];
-															
-															if(BeebRx.eh.srcstn == EconetStationID && BeebRx.eh.srcnet == myaunnet)
+															// Address collision!
+															DebugDisplayTrace(DebugType::Econet, true, "Econet: Address collision!");
+															// broadcast pong to everyone so they put us back in their station table
+															S_ADDR(RecvAddr) = INADDR_BROADCAST;
+															RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
+														}
+														else if (EconetRx.buff[0] != BeebRx.eh.srcstn || EconetRx.buff[1] != BeebRx.eh.srcnet)
+														{
+															// station number of this host has changed - try to update it
+															EconetHost* ptr = FindNetworkConfig(BeebRx.eh.srcstn, BeebRx.eh.srcnet);
+															if (ptr != nullptr)
 															{
-																// Address collision!
-																DebugDisplayTrace(DebugType::Econet, true, "Econet: Address collision!");
-																// broadcast pong to everyone so they put us back in their station table
-																S_ADDR(RecvAddr) = INADDR_BROADCAST;
-																RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
-															}
-															else
-															{
-																// add this to the list of stations we know about
-																AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local); // must be in the broadcast domain to have received this ping.
-																// send a Pong packet back to source address
+																ptr->station = EconetRx.buff[0];
+																ptr->network = EconetRx.buff[1];
+																DebugDisplayTrace(DebugType::Econet, true, "Econet: updated station number");
 															}
 														}
 														
@@ -2355,8 +2353,8 @@ bool EconetPoll_real() // return NMI status
 														if (EconetRx.buff[0] == EconetStationID && EconetRx.buff[1] == myaunnet)
 														{
 															// we have caused a collision!
+															PreferredStationID = (rand() % 253) + 1;
 															EconetStationID = 0;
-															PreferredStationID = 0;
 															
 															EconetError("Econet: Address collision detected.");
 															mainWin->ToggleEconet(); // turn Econet off entirely
@@ -2364,17 +2362,21 @@ bool EconetPoll_real() // return NMI status
 														}
 														else
 														{
-															BeebRx.eh.srcstn = EconetRx.buff[0];
-															BeebRx.eh.srcnet = EconetRx.buff[1];
-															
 															DebugDisplayTraceF(DebugType::Econet, true, "Econet: BeebEm Pong received from %d.%d",
-																   (unsigned int)BeebRx.eh.srcnet,
-																   (unsigned int)BeebRx.eh.srcstn);
+																   (unsigned int)EconetRx.buff[1],
+																   (unsigned int)EconetRx.buff[0]);
 															
-															// it might be different, replace it
-															AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local); // must be in the broadcast domain to have received our ping.
-															
-															// TODO: remove old station somehow if number changed
+															if (EconetRx.buff[0] != BeebRx.eh.srcstn || EconetRx.buff[1] != BeebRx.eh.srcnet)
+															{
+																// station number of this host has changed - try to update it
+																EconetHost* ptr = FindNetworkConfig(BeebRx.eh.srcstn, BeebRx.eh.srcnet);
+																if (ptr != nullptr)
+																{
+																	ptr->station = EconetRx.buff[0];
+																	ptr->network = EconetRx.buff[1];
+																	DebugDisplayTrace(DebugType::Econet, true, "Econet: updated station number");
+																}
+															}
 														}
 													}
 												}
