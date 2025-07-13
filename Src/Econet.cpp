@@ -36,7 +36,8 @@ Boston, MA  02110-1301, USA.
 #include <fstream>
 #include <string>
 #include <vector>
-#include <time.h>
+#include <ctime>
+#include <algorithm>
 
 #include "Econet.h"
 #include "6502core.h"
@@ -609,20 +610,35 @@ static void AllocateNewAddress(){
 				EconetListenIP = IN_ADDR(localaddr);
 				S_ADDR(service) = EconetListenIP; // TODO: this will use the first network address of this PC. This might not be useful if there are multiple network adapters but we have no good way to determine which to use in the absence of any user configuration
 				
-				srand((unsigned int)time(0));
-				int r = rand() % 256; // start looking for free stations at a random offset
+				// create randomly shuffled pool of all free (unconfigured) station numbers in our net
+				
+				std::vector<unsigned char> numbers;
+				for (unsigned char i = 0; i < 255; i++) numbers.push_back(i); // vector of numbers 0-254
+				numbers[254] = 0; // mark out station 254 so it can never be automatically assigned
+				for (int i = 0; i < stationsp; i++)
+				{
+					if (stations[i].network == PreferredNet)
+						numbers[stations[i].station] = 0; // mark out any configured station numbers in net
+				}
+				numbers[PreferredStationID] = 0; // mark out preferred station number
+				
+				for (int j = (int)numbers.size() - 1; j >= 0; j--)
+				{
+					if (numbers[j] == 0)
+						numbers.erase(numbers.begin() + j); // remove all the marked out numbers
+				}
+				
+				std::srand((unsigned int)std::time(0));
+				std::random_shuffle(numbers.begin(), numbers.end()); // shuffle remaining station numbers
 				
 				unsigned char s;
 				if (PreferredStationID)
-					s = PreferredStationID; // try to bind the station ID asked for
+					s = PreferredStationID; // try to bind the station ID asked for before picking randomly
 				else
-					s = r & 0xff; // the first random offset
+					s = numbers[0];
 				
-				for (int j = 0; j <= 256; j++)
+				for (int j = 0; j < (int)numbers.size();)
 				{
-					if (s == 0 || s >= ((PreferredStationID==254)?255:254))
-						continue; // don't take an invalid number
-					
 					service.sin_port = htons(10000+(PreferredNet << 8)+s);
 					if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
 					{
@@ -635,7 +651,7 @@ static void AllocateNewAddress(){
 						break;
 					}
 					
-					s = (j + r) & 0xff;
+					s = numbers[++j]; // the next number in the shuffled vector
 				}
 			}
 
@@ -780,9 +796,10 @@ bool EconetReset()
 			if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) != 0)
 			{
 				EconetError("Econet: Failed to bind to address %s:%d", IpAddressStr(EconetListenIP), EconetListenPort);
+				PreferredStationID = 0; // clear this so we don't try to allocate it again
 				EconetStationID = 0;
 				myaunnet = 0;
-				AllocateNewAddress(); // try to allocate a station number instead
+				AllocateNewAddress(); // try to allocate a different station number instead
 			}
 		}
 		else
