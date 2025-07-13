@@ -410,6 +410,13 @@ static int EconetFourWayTrigger;
 static MC6854 ADLC;
 static MC6854 ADLCtemp;
 
+// Bridges/Gateways doing dynamic AUN address translation might respond to
+// WhatNet queries with nets that differ from the net we have been configured
+// with. This causes all sorts of issues so we try to intercept the WhatNet
+// response and fudge the value. For this we need to track which port the
+// query requested the response be sent to.
+int whatnetport = -1; // invalid value when not expecting a WhatNet response
+
 //---------------------------------------------------------------------------
 
 static bool ReadNetwork();
@@ -677,6 +684,7 @@ bool EconetReset()
 	}
 	
 	ClearTrigger(GatewayTrigger); // disable gateway keepalives
+	whatnetport = -1; // clear WhatNet reply port state
 
 	// hardware operations:
 	// set RxReset and TxReset
@@ -1817,6 +1825,12 @@ bool EconetPoll_real() // return NMI status
 								DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (broadcast snt)");
 								SendMe = true; // send packet ...
 								SendLen = sizeof(EconetTx.ah) + 8;
+								
+								if (EconetTx.ah.port == 0x9c && EconetTx.ah.cb == (0x82 & 0x7f))
+								{
+									whatnetport = EconetTx.buff[6]; // where the reply will be sent
+									DebugDisplayTraceF(DebugType::Econet, true, "Econet: Sent WhatNet query with port &%x", whatnetport);
+								}
 							}
 							else if (EconetTx.ah.port == 0 && (EconetTx.ah.cb < (0x82 & 0x7f) || EconetTx.ah.cb >(0x85 & 0x7f)))
 							{
@@ -2472,7 +2486,16 @@ bool EconetPoll_real() // return NMI status
 														BeebRx.BytesInBuffer = j;
 													}
 
-													else BeebRx.BytesInBuffer = sizeof(BeebRx.eh);
+													else
+													{
+														if (EconetRx.ah.port == whatnetport && EconetRx.ah.cb == 0x80)
+														{
+															DebugDisplayTrace(DebugType::Econet, true, "Econet: Got WhatNet reply");
+															whatnetport = -1;
+															EconetRx.buff[0] = myaunnet; // fudge whatnet reply
+														}
+														BeebRx.BytesInBuffer = sizeof(BeebRx.eh);
+													}
 													fourwaystage = FourWayStage::ScoutReceived;
 													//if (DebugEnabled)
 														DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_SCOUTRCVD");
