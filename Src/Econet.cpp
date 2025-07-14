@@ -1772,6 +1772,9 @@ bool EconetPoll_real() // return NMI status
 						// OK. Lets do AUN ...
 						// The beeb has given us a packet .. what is it?
 						SendMe = false;
+						
+						EconetTx.destnet = BeebTx.eh.destnet;
+						EconetTx.deststn = BeebTx.eh.deststn;
 
 						switch (fourwaystage)
 						{
@@ -1807,9 +1810,7 @@ bool EconetPoll_real() // return NMI status
 							EconetTx.ah.port = (unsigned int)BeebTx.eh.port;
 							EconetTx.ah.pad = 0;
 							EconetTx.ah.handle = (ec_sequence += 4);
-
-							EconetTx.destnet = BeebTx.eh.destnet; //30JUN
-							EconetTx.deststn = BeebTx.eh.deststn;
+							
 							// j = 0;
 							for (unsigned int k = 6; k < BeebTx.Pointer; k++, j++) {
 								EconetTx.buff[j] = BeebTx.buff[k];
@@ -1951,6 +1952,9 @@ bool EconetPoll_real() // return NMI status
 									EconetError("Econet: Failed to send broadcast to gateway (%s port %u)",
 												IpAddressStr(S_ADDR(RecvAddr)), (unsigned int)htons(RecvAddr.sin_port));
 								}
+								
+								std::string str2 = "Econet: Gateway broadcast ethernet data:" + BytesToString((unsigned char *)p, SendLen+4);
+								DebugDisplayTrace(DebugType::Econet, true, str2.c_str());
 							}
 						}
 
