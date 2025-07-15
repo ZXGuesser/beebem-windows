@@ -895,11 +895,18 @@ bool EconetReset()
 		memset(EconetTemp.buff,0,8);
 		EconetTemp.buff[0] = BEEBEM_ECONET_PORT; // where response is sent
 		
-		if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
-		   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+		// this is crude, but sometimes the gateway request broadcast can get lost so spam them out
+		bool err = false;
+		for (int i=0; i<3; i++)
 		{
-			EconetError("Econet: Failed to send bridge discovery broadcast");
+			if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
+			   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+			{
+				err = true;
+			}
 		}
+		if (err)
+			EconetError("Econet: Failed to send bridge discovery broadcast");
 	}
 	
 	if (AutoConfigure)
@@ -921,6 +928,9 @@ bool EconetReset()
 		{
 			EconetError("Econet: Failed to send BeebEm ping");
 		}
+		
+		// TODO: these might get lost like the gateway broadcasts, but multiple
+		// pings will result in multiple pongs without a bit more cleverness
 	}
 
 	return true;
