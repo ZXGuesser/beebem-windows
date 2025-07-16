@@ -158,7 +158,12 @@ bool EconetNMIEnabled; // 68B54 -> NMI enabled. (IC97)
 int EconetTrigger;     // Poll timer
 
 const unsigned int DEFAULT_GATEWAY_TIMEOUT = 300; // 5 minutes
-time_t GatewayTimeout;    // gateway timer - system time not emulation trigger
+time_t GatewayTimeout;  // gateway timer - system time not emulation trigger
+
+const unsigned int ANNOUNCE_TIMEOUT = 15;
+time_t AnnounceTimeout = 0; // beebem host announcement timer - system time not emulation trigger
+uint32_t AnnounceHandle;    // sequence number for host announcements
+const unsigned int HOST_TIMEOUT = 60; // how long since last ping before hosts can be replaced
 
 static const unsigned char powers[4] = { 1, 2, 4, 8 };
 
@@ -341,13 +346,14 @@ enum class BroadcastSource {
 	Gateway
 };
 
-// Holds data from Econet.cfg file
+// Holds data from Econet.cfg file or a host we have discovered
 struct EconetHost {
 	unsigned char station;
 	unsigned char network;
 	unsigned long inet_addr;
 	u_short port;
 	BroadcastSource broadcasts; // where to accept broadcasts from
+	time_t timeout;
 };
 
 struct EconetNet {
@@ -488,6 +494,7 @@ bool AddStation(unsigned char station, unsigned char net, unsigned long address,
 		s->network = net;
 		s->inet_addr = address;
 		s->port = port;
+		s->timeout = time(NULL) + HOST_TIMEOUT;
 		DebugDisplayTraceF(DebugType::Econet, true,
 						   "Econet: replaced station %d.%d in host list",
 						   (unsigned int)net,
@@ -501,7 +508,8 @@ bool AddStation(unsigned char station, unsigned char net, unsigned long address,
 		stations[stationsp].network = net;
 		stations[stationsp].inet_addr = address;
 		stations[stationsp].port = port;
-		stations[stationsp++].broadcasts = broadcasts;
+		stations[stationsp].broadcasts = broadcasts;
+		stations[stationsp++].timeout = time(NULL) + HOST_TIMEOUT;
 		DebugDisplayTraceF(DebugType::Econet, true,
 						   "Econet: added station %d.%d to host list",
 						   (unsigned int)net,
@@ -538,6 +546,7 @@ static void EconetCloseSockets()
 
 static void AllocateNewAddress(){
 	// Find an available station number.
+	
 	char localhost[256];
 	hostent *host;
 	
@@ -573,6 +582,8 @@ static void AllocateNewAddress(){
 							EconetStationID = stations[i].station;
 							myaunnet = stations[i].network;
 						}
+						else
+							AnnounceHandle = 0; // reset station announcement sequence number
 					}
 				}
 			}
@@ -603,6 +614,8 @@ static void AllocateNewAddress(){
 							
 							DebugDisplayTraceF(DebugType::Econet, true,"Econet: Automatically assigned station %d.%d using AUNMap", myaunnet, EconetStationID);
 						}
+						else
+							AnnounceHandle = 0; // reset station announcement sequence number
 					}
 				}
 			}
@@ -640,9 +653,14 @@ static void AllocateNewAddress(){
 				
 				unsigned char s;
 				if (PreferredStationID)
+				{
 					s = PreferredStationID; // try to bind the station ID asked for before picking randomly
+				}
 				else
+				{
 					s = numbers[0];
+					AnnounceHandle = 0; // reset station announcement sequence number
+				}
 				
 				for (int j = 0; j < (int)numbers.size();)
 				{
@@ -657,7 +675,7 @@ static void AllocateNewAddress(){
 						
 						break;
 					}
-					
+					AnnounceHandle = 0; // reset station announcement sequence number
 					s = numbers[++j]; // the next number in the shuffled vector
 				}
 			}
@@ -683,7 +701,6 @@ bool EconetReset()
 		                   EconetEnabled ? "enabled" : "disabled");
 	}
 	
-	GatewayTimeout = 0; // disable gateway keepalives
 	whatnetport = -1; // clear WhatNet reply port state
 
 	// hardware operations:
@@ -786,6 +803,10 @@ bool EconetReset()
 		PreferredStationID = EconetStationID;
 		PreferredNet = myaunnet;
 	}
+	else
+	{
+		AnnounceHandle = 0; // reset announce packet sequence number
+	}
 	
 	if (PreferredStationID)
 	{
@@ -807,6 +828,7 @@ bool EconetReset()
 				PreferredStationID = 0; // clear this so we don't try to allocate it again
 				EconetStationID = 0;
 				myaunnet = 0;
+				AnnounceHandle = 0; // reset station announcement sequence number
 				AllocateNewAddress(); // try to allocate a different station number instead
 			}
 		}
@@ -879,14 +901,14 @@ bool EconetReset()
 
 	EconetStateChanged = true;
 	
-	sockaddr_in RecvAddr;
-	RecvAddr.sin_family = AF_INET;
-	S_ADDR(RecvAddr) = INADDR_BROADCAST;
-	RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
-	
 	if (FindGateways && !gateway.port)
 	{
 		// send a bridge discovery broadcast to learn of any Pi Econet Bridge gateways on the network.
+		sockaddr_in RecvAddr;
+		RecvAddr.sin_family = AF_INET;
+		S_ADDR(RecvAddr) = INADDR_BROADCAST;
+		RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
+		
 		EconetTemp.ah.type = AUNType::Broadcast; // the gateway is listening for an AUN broadcast
 		EconetTemp.ah.cb = 0x10; // control &90 locate gateway
 		EconetTemp.ah.port = 0x9c; // Pi Econet Bridge port
@@ -909,29 +931,8 @@ bool EconetReset()
 			EconetError("Econet: Failed to send bridge discovery broadcast");
 	}
 	
-	if (AutoConfigure)
-	{
-		// discover other BeebEm instances by pinging the network
-		// this uses packets conforming to the structure of AUN, but with a
-		// proprietary type which will hopefully be ignored by any existing
-		// AUN code.
-		EconetTemp.ah.type = AUNType::BeebEm;
-		EconetTemp.ah.cb = 0x1f; // control &9f a discovery Ping
-		EconetTemp.ah.port = BEEBEM_ECONET_PORT; // BeebEm reply port
-		EconetTemp.ah.pad = 0;
-		EconetTemp.ah.handle = 0;
-		memset(EconetTemp.buff,0,8);
-		EconetTemp.buff[0] = EconetStationID;
-		EconetTemp.buff[1] = myaunnet;
-		if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
-		   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
-		{
-			EconetError("Econet: Failed to send BeebEm ping");
-		}
-		
-		// TODO: these might get lost like the gateway broadcasts, but multiple
-		// pings will result in multiple pongs without a bit more cleverness
-	}
+	if (AutoConfigure && AnnounceHandle==0)
+		time(&AnnounceTimeout); // start up regular announce pings
 
 	return true;
 
@@ -2253,7 +2254,7 @@ bool EconetPoll_real() // return NMI status
 											}
 										}
 									}
-									if (RetVal == 16 && EconetRx.ah.port == BEEBEM_ECONET_PORT && EconetRx.ah.type == AUNType::BeebEm && AutoConfigure) // it might be a discovery packet from an unknown station
+									if (RetVal == 16 && EconetRx.ah.port == BEEBEM_ECONET_PORT && EconetRx.ah.type == AUNType::BeebEm && AutoConfigure) // it might be an address announce packet from an unknown station
 									{
 										if ((EconetRx.ah.cb | 128) == 0x9f) // BeebEm Ping
 										{
@@ -2270,56 +2271,28 @@ bool EconetPoll_real() // return NMI status
 											{
 												// Address collision!
 												DebugDisplayTrace(DebugType::Econet, true, "Econet: Address collision!");
-												// broadcast this to everyone so they put us back in their station table
-												S_ADDR(RecvAddr) = INADDR_BROADCAST;
-												RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
+												if (EconetRx.ah.handle >= AnnounceHandle)
+												{
+													// they have had the address longer than us
+													// relinquish the address
+													PreferredStationID = (rand() % 253) + 1;
+													EconetStationID = 0;
+													
+													EconetError("Econet: Address collision detected.");
+													mainWin->ToggleEconet(); // turn Econet off entirely
+													return false;
+												}
 											}
 											else
 											{
-												// add this to the list of stations we know about
-												AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local); // must be in the broadcast domain to have received this ping.
-												// send a Pong packet back to source address
+												EconetHost* ptr = FindNetworkConfig(BeebRx.eh.srcstn, BeebRx.eh.srcnet);
+												if (ptr == nullptr || ptr->timeout < time(NULL))
+												{
+													// station is new or stale
+													if(!AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local)) // must be in the broadcast domain to have received this ping.
+														DebugDisplayTrace(DebugType::Econet, true, "Econet: Out of room for stations");
+												}
 											}
-											
-											EconetTemp.ah.cb = 0x1e; // control &9e Pong
-											EconetTemp.ah.type = AUNType::BeebEm;
-											EconetTemp.ah.port = BEEBEM_ECONET_PORT;
-											EconetTemp.ah.pad = 0;
-											EconetTemp.ah.handle = 0;
-											memset(EconetTemp.buff,0,8);
-											EconetTemp.buff[0] = EconetStationID;
-											EconetTemp.buff[1] = myaunnet;
-											if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
-											   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
-											{
-												EconetError("Econet: Failed to send BeebEm Pong");
-											}
-										}
-										else if ((EconetRx.ah.cb | 128) == 0x9e) // BeebEm Pong
-										{
-											// this is a reply to a BeebEm discovery ping we sent out
-											BeebRx.eh.srcstn = EconetRx.buff[0];
-											BeebRx.eh.srcnet = EconetRx.buff[1];
-											
-											DebugDisplayTraceF(DebugType::Econet, true,
-															   "Econet: Received BeebEm Pong from %d.%d ",
-															   (unsigned int)BeebRx.eh.srcnet,
-															   (unsigned int)BeebRx.eh.srcstn);
-											
-											if (EconetRx.buff[0] == EconetStationID && EconetRx.buff[1] == myaunnet)
-											{
-												// we have caused a collision!
-												PreferredStationID = (rand() % 253) + 1;
-												EconetStationID = 0;
-												
-												EconetError("Econet: Address collision detected.");
-												mainWin->ToggleEconet(); // turn Econet off entirely
-												return false;
-											}
-											
-											// add this to the list of stations we know about
-											if(!AddStation(BeebRx.eh.srcstn, BeebRx.eh.srcnet, S_ADDR(RecvAddr), htons(RecvAddr.sin_port), BroadcastSource::Local)) // must be in the broadcast domain to have received our ping.
-												DebugDisplayTrace(DebugType::Econet, true, "Econet: Out of room for stations");
 										}
 									}
 									
@@ -2347,57 +2320,23 @@ bool EconetPoll_real() // return NMI status
 										switch (EconetRx.ah.type)
 										{
 											case AUNType::BeebEm:
-												// catch some proprietary packets used for network discovery
-												if (AutoConfigure)
+												// catch proprietary packets used for network discovery
+												if (BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9f && AutoConfigure)
 												{
-													if (BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9f && EconetRx.ah.handle == 0)
+													// this is a BeebEm Ping used for host discovery from a an address we think we know already
+													
+													DebugDisplayTraceF(DebugType::Econet, true, "Econet: Received BeebEm Ping from %d.%d ",
+														   (unsigned int)EconetRx.buff[1],
+														   (unsigned int)EconetRx.buff[0]);
+													
+													if(EconetRx.buff[0] == EconetStationID && EconetRx.buff[1] == myaunnet)
 													{
-														// this is a BeebEm Ping used for host discovery from a an address we think we know already
-														
-														DebugDisplayTraceF(DebugType::Econet, true, "Econet: Received BeebEm Ping from %d.%d ",
-															   (unsigned int)EconetRx.buff[1],
-															   (unsigned int)EconetRx.buff[0]);
-														
-														if(EconetRx.buff[0] == EconetStationID && EconetRx.buff[1] == myaunnet)
+														// Address collision!
+														DebugDisplayTrace(DebugType::Econet, true, "Econet: Address collision!");
+														if (EconetRx.ah.handle >= AnnounceHandle)
 														{
-															// Address collision!
-															DebugDisplayTrace(DebugType::Econet, true, "Econet: Address collision!");
-															// broadcast pong to everyone so they put us back in their station table
-															S_ADDR(RecvAddr) = INADDR_BROADCAST;
-															RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
-														}
-														else if (EconetRx.buff[0] != BeebRx.eh.srcstn || EconetRx.buff[1] != BeebRx.eh.srcnet)
-														{
-															// station number of this host has changed - try to update it
-															EconetHost* ptr = FindNetworkConfig(BeebRx.eh.srcstn, BeebRx.eh.srcnet);
-															if (ptr != nullptr)
-															{
-																ptr->station = EconetRx.buff[0];
-																ptr->network = EconetRx.buff[1];
-																DebugDisplayTrace(DebugType::Econet, true, "Econet: updated station number");
-															}
-														}
-														
-														EconetTemp.ah.type = AUNType::BeebEm;
-														EconetTemp.ah.cb = 0x1e; // control &9e Pong
-														EconetTemp.ah.port = BEEBEM_ECONET_PORT;
-														EconetTemp.ah.pad = 0;
-														EconetTemp.ah.handle = 0;
-														memset(EconetTemp.buff,0,8);
-														EconetTemp.buff[0] = EconetStationID; // send our network and station number in reply
-														EconetTemp.buff[1] = myaunnet;
-														if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
-														   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
-														{
-															EconetError("Econet: Failed to send BeebEm Pong");
-														}
-													}
-													else if (BeebRx.BytesInBuffer == 0 && BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9e && EconetRx.ah.handle == 0)
-													{
-														// this is a BeebEm Pong used for host discovery from a an address we think we know already
-														if (EconetRx.buff[0] == EconetStationID && EconetRx.buff[1] == myaunnet)
-														{
-															// we have caused a collision!
+															// they have had the address longer than us
+															// relinquish the address
 															PreferredStationID = (rand() % 253) + 1;
 															EconetStationID = 0;
 															
@@ -2405,23 +2344,30 @@ bool EconetPoll_real() // return NMI status
 															mainWin->ToggleEconet(); // turn Econet off entirely
 															return false;
 														}
-														else
+													}
+													else if (EconetRx.buff[0] != BeebRx.eh.srcstn || EconetRx.buff[1] != BeebRx.eh.srcnet)
+													{
+														// station number of this host has changed for some reason
+														EconetHost* ptr = FindNetworkConfig(BeebRx.eh.srcstn, BeebRx.eh.srcnet);
+														if (ptr != nullptr)
 														{
-															DebugDisplayTraceF(DebugType::Econet, true, "Econet: BeebEm Pong received from %d.%d",
-																   (unsigned int)EconetRx.buff[1],
-																   (unsigned int)EconetRx.buff[0]);
-															
-															if (EconetRx.buff[0] != BeebRx.eh.srcstn || EconetRx.buff[1] != BeebRx.eh.srcnet)
+															if (ptr->timeout < time(NULL))
 															{
-																// station number of this host has changed - try to update it
-																EconetHost* ptr = FindNetworkConfig(BeebRx.eh.srcstn, BeebRx.eh.srcnet);
-																if (ptr != nullptr)
-																{
-																	ptr->station = EconetRx.buff[0];
-																	ptr->network = EconetRx.buff[1];
-																	DebugDisplayTrace(DebugType::Econet, true, "Econet: updated station number");
-																}
+																// host is stale - replace it
+																ptr->station = EconetRx.buff[0];
+																ptr->network = EconetRx.buff[1];
+																ptr->timeout = time(NULL)+HOST_TIMEOUT;
+																DebugDisplayTrace(DebugType::Econet, true, "Econet: updated station number");
 															}
+														}
+													}
+													else
+													{
+														EconetHost* ptr = FindNetworkConfig(BeebRx.eh.srcstn, BeebRx.eh.srcnet);
+														if (ptr != nullptr)
+														{
+															// update timeout
+															ptr->timeout = time(NULL)+HOST_TIMEOUT;
 														}
 													}
 												}
@@ -2769,6 +2715,35 @@ bool EconetPoll_real() // return NMI status
 		}
 		
 		GatewayTimeout = time(NULL) + DEFAULT_GATEWAY_TIMEOUT; // set timeout again
+	}
+	
+	// send host announce pings if timeout value has been passed
+	if (AnnounceTimeout <= time(NULL) && AutoConfigure)
+	{
+		// Announce our address other BeebEm instances by pinging the network
+		// this uses packets conforming to the structure of AUN, but with a
+		// proprietary type which will hopefully be ignored by any existing
+		// AUN code.
+		sockaddr_in RecvAddr;
+		RecvAddr.sin_family = AF_INET;
+		S_ADDR(RecvAddr) = INADDR_BROADCAST;
+		RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
+		
+		EconetTemp.ah.type = AUNType::BeebEm;
+		EconetTemp.ah.cb = 0x1f; // control &9f a discovery Ping
+		EconetTemp.ah.port = BEEBEM_ECONET_PORT; // BeebEm reply port
+		EconetTemp.ah.pad = 0;
+		EconetTemp.ah.handle = AnnounceHandle++; // sequence number
+		memset(EconetTemp.buff,0,8);
+		EconetTemp.buff[0] = EconetStationID;
+		EconetTemp.buff[1] = myaunnet;
+		if (sendto(SendSocket, (char *)&EconetTemp, sizeof(EconetTemp.ah) + 8, 0,
+		   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+		{
+			EconetError("Econet: Failed to send BeebEm ping");
+		}
+		
+		AnnounceTimeout = time(NULL) + ANNOUNCE_TIMEOUT; // set timeout again
 	}
 
 	// Status bits need changing?
