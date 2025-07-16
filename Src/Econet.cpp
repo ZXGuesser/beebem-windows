@@ -157,8 +157,8 @@ bool EconetEnabled;    // Enable hardware
 bool EconetNMIEnabled; // 68B54 -> NMI enabled. (IC97)
 int EconetTrigger;     // Poll timer
 
-const unsigned int DEFAULT_GATEWAY_TIMEOUT = 600000000; // 5 minutes
-int GatewayTrigger;    // gateway timer
+const unsigned int DEFAULT_GATEWAY_TIMEOUT = 300; // 5 minutes
+time_t GatewayTimeout;    // gateway timer - system time not emulation trigger
 
 static const unsigned char powers[4] = { 1, 2, 4, 8 };
 
@@ -683,7 +683,7 @@ bool EconetReset()
 		                   EconetEnabled ? "enabled" : "disabled");
 	}
 	
-	ClearTrigger(GatewayTrigger); // disable gateway keepalives
+	GatewayTimeout = 0; // disable gateway keepalives
 	whatnetport = -1; // clear WhatNet reply port state
 
 	// hardware operations:
@@ -1043,7 +1043,7 @@ static bool ReadEconetConfigFile()
 										   IpAddressStr(gateway.inet_addr),
 										   gateway.port);
 						
-						SetTrigger(0, GatewayTrigger); // wake up gateway as soon as econet is initialised
+						time(&GatewayTimeout); // wake up gateway as soon as econet is initialised
 					}
 					else
 					{
@@ -2241,7 +2241,7 @@ bool EconetPoll_real() // return NMI status
 																   IpAddressStr(gateway.inet_addr),
 																   gateway.port);
 												
-												SetTrigger(0, GatewayTrigger); // start/reset keepalives
+												time(&GatewayTimeout); // start/reset keepalives
 											}
 											else if (!(gateway.inet_addr == S_ADDR(RecvAddr) && gateway.port == htons(RecvAddr.sin_port)))
 											{
@@ -2735,8 +2735,8 @@ bool EconetPoll_real() // return NMI status
 		}
 	}
 	
-	// send Gateway keepalive on timeout
-	if (GatewayTrigger <= TotalCycles && gateway.port)
+	// send Gateway keepalive if timeout value has been passed
+	if (GatewayTimeout < time(NULL) && gateway.port)
 	{
 		sockaddr_in RecvAddr;
 		RecvAddr.sin_family = AF_INET;
@@ -2768,7 +2768,7 @@ bool EconetPoll_real() // return NMI status
 							   (unsigned int)htons(RecvAddr.sin_port));
 		}
 		
-		SetTrigger(DEFAULT_GATEWAY_TIMEOUT, GatewayTrigger); // set timeout again
+		GatewayTimeout = time(NULL) + DEFAULT_GATEWAY_TIMEOUT; // set timeout again
 	}
 
 	// Status bits need changing?
