@@ -2108,7 +2108,7 @@ bool EconetPoll_real() // return NMI status
 										BeebRx.eh.srcstn = stations[i].station;
 										found = true;
 										
-										if (IsBroadcastStation(BeebRx.eh.deststn))
+										if (EconetRx.ah.type == AUNType::Broadcast)
 										{
 											// see if a gateway has already sent broadcasts from this station
 											if (stations[i].broadcasts == BroadcastSource::Gateway)
@@ -2148,7 +2148,7 @@ bool EconetPoll_real() // return NMI status
 										
 										if (found)
 										{
-											if (IsBroadcastStation(BeebRx.eh.deststn))
+											if (EconetRx.ah.type == AUNType::Broadcast)
 											{
 												// see if a gateway has already sent broadcasts from this network
 												if (networks[i].broadcasts == BroadcastSource::Gateway)
