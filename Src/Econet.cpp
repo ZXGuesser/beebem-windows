@@ -2038,6 +2038,7 @@ bool EconetPoll_real() // return NMI status
 					    fourwaystage == FourWayStage::ImmediateSent ||
 					    fourwaystage == FourWayStage::DataSent)
 					{
+						Getnewpacket:
 						// Try and get another packet from network
 						// Check if packet is waiting without blocking
 						fd_set ReadFds;
@@ -2045,22 +2046,19 @@ bool EconetPoll_real() // return NMI status
 						int RetVal = 0;
 						SOCKET sock = ListenSocket;
 						
-						if (BroadcastListenSocket != INVALID_SOCKET)
+						// check the main listen socket
+						FD_ZERO(&ReadFds);
+						FD_SET(ListenSocket, &ReadFds);
+						RetVal = select((int)ListenSocket + 1, &ReadFds, NULL, NULL, &TimeOut);
+						
+						if (!RetVal && BroadcastListenSocket != INVALID_SOCKET)
 						{
-							// check if BroadcastListenSocket has a packet
+							// nothing on main listen socket, check if BroadcastListenSocket has a packet
 							FD_ZERO(&ReadFds);
 							FD_SET(BroadcastListenSocket, &ReadFds);
 							RetVal = select((int)BroadcastListenSocket + 1, &ReadFds, NULL, NULL, &TimeOut);
 							if (RetVal > 0)
 								sock = BroadcastListenSocket; // switch to use socket
-						}
-						
-						if (!RetVal)
-						{
-							// nothing on BroadcastListenSocket, check the main listen socket
-							FD_ZERO(&ReadFds);
-							FD_SET(ListenSocket, &ReadFds);
-							RetVal = select((int)ListenSocket + 1, &ReadFds, NULL, NULL, &TimeOut);
 						}
 
 						if (RetVal > 0)
@@ -2297,7 +2295,7 @@ bool EconetPoll_real() // return NMI status
 									}
 									
 									DebugDisplayTrace(DebugType::Econet, true, "Econet: Packet ignored");
-									BeebRx.BytesInBuffer = 0; // ignore the packet
+									goto Getnewpacket; // go back and look for another packet
 								}
 								else
 								{
@@ -2308,8 +2306,64 @@ bool EconetPoll_real() // return NMI status
 														   (unsigned int)BeebRx.eh.srcnet,
 														   (unsigned int)BeebRx.eh.srcstn);
 									}
-
-									// TODO - many of these copies can use memcpy()
+									
+									if (EconetRx.ah.type == AUNType::BeebEm)
+									{
+										// catch proprietary packets used for network discovery
+										// This has no effect on the FourWayStage state, so can be handled at any time
+										if (EconetRx.ah.port == BEEBEM_ECONET_PORT && (EconetRx.ah.cb | 128) == 0x9f && AutoConfigure)
+										{
+											// this is a BeebEm Ping used for host discovery from a an address we think we know already
+											
+											DebugDisplayTraceF(DebugType::Econet, true, "Econet: Received BeebEm Ping from %d.%d ",
+												   (unsigned int)EconetRx.buff[1],
+												   (unsigned int)EconetRx.buff[0]);
+											
+											if(EconetRx.buff[0] == EconetStationID && EconetRx.buff[1] == myaunnet)
+											{
+												// Address collision!
+												DebugDisplayTrace(DebugType::Econet, true, "Econet: Address collision!");
+												if (EconetRx.ah.handle >= AnnounceHandle)
+												{
+													// they have had the address longer than us
+													// relinquish the address
+													PreferredStationID = (rand() % 253) + 1;
+													EconetStationID = 0;
+													
+													EconetError("Econet: Address collision detected.");
+													mainWin->ToggleEconet(); // turn Econet off entirely
+													return false;
+												}
+											}
+											else if (EconetRx.buff[0] != BeebRx.eh.srcstn || EconetRx.buff[1] != BeebRx.eh.srcnet)
+											{
+												// station number of this host has changed for some reason
+												EconetHost* ptr = FindNetworkConfig(BeebRx.eh.srcstn, BeebRx.eh.srcnet);
+												if (ptr != nullptr)
+												{
+													if (ptr->timeout < time(NULL))
+													{
+														// host is stale - replace it
+														ptr->station = EconetRx.buff[0];
+														ptr->network = EconetRx.buff[1];
+														ptr->timeout = time(NULL)+HOST_TIMEOUT;
+														DebugDisplayTrace(DebugType::Econet, true, "Econet: updated station number");
+													}
+												}
+											}
+											else
+											{
+												EconetHost* ptr = FindNetworkConfig(BeebRx.eh.srcstn, BeebRx.eh.srcnet);
+												if (ptr != nullptr)
+												{
+													// update timeout
+													ptr->timeout = time(NULL)+HOST_TIMEOUT;
+												}
+											}
+										}
+										goto Getnewpacket; // go back and look for a real Econet packet
+									}
+									
 									switch (fourwaystage)
 									{
 									case FourWayStage::Idle:
@@ -2319,63 +2373,6 @@ bool EconetPoll_real() // return NMI status
 
 										switch (EconetRx.ah.type)
 										{
-											case AUNType::BeebEm:
-												// catch proprietary packets used for network discovery
-												if (BeebRx.eh.port == BEEBEM_ECONET_PORT && BeebRx.eh.cb == 0x9f && AutoConfigure)
-												{
-													// this is a BeebEm Ping used for host discovery from a an address we think we know already
-													
-													DebugDisplayTraceF(DebugType::Econet, true, "Econet: Received BeebEm Ping from %d.%d ",
-														   (unsigned int)EconetRx.buff[1],
-														   (unsigned int)EconetRx.buff[0]);
-													
-													if(EconetRx.buff[0] == EconetStationID && EconetRx.buff[1] == myaunnet)
-													{
-														// Address collision!
-														DebugDisplayTrace(DebugType::Econet, true, "Econet: Address collision!");
-														if (EconetRx.ah.handle >= AnnounceHandle)
-														{
-															// they have had the address longer than us
-															// relinquish the address
-															PreferredStationID = (rand() % 253) + 1;
-															EconetStationID = 0;
-															
-															EconetError("Econet: Address collision detected.");
-															mainWin->ToggleEconet(); // turn Econet off entirely
-															return false;
-														}
-													}
-													else if (EconetRx.buff[0] != BeebRx.eh.srcstn || EconetRx.buff[1] != BeebRx.eh.srcnet)
-													{
-														// station number of this host has changed for some reason
-														EconetHost* ptr = FindNetworkConfig(BeebRx.eh.srcstn, BeebRx.eh.srcnet);
-														if (ptr != nullptr)
-														{
-															if (ptr->timeout < time(NULL))
-															{
-																// host is stale - replace it
-																ptr->station = EconetRx.buff[0];
-																ptr->network = EconetRx.buff[1];
-																ptr->timeout = time(NULL)+HOST_TIMEOUT;
-																DebugDisplayTrace(DebugType::Econet, true, "Econet: updated station number");
-															}
-														}
-													}
-													else
-													{
-														EconetHost* ptr = FindNetworkConfig(BeebRx.eh.srcstn, BeebRx.eh.srcnet);
-														if (ptr != nullptr)
-														{
-															// update timeout
-															ptr->timeout = time(NULL)+HOST_TIMEOUT;
-														}
-													}
-												}
-												
-												// not a real econet packet - ignore it
-												fourwaystage = FourWayStage::WaitForIdle;
-												break;
-												
 											case AUNType::Broadcast:
 												if (BeebRx.eh.port == 0x9c && EconetRx.ah.handle == 0)
 												{
@@ -2473,23 +2470,29 @@ bool EconetPoll_real() // return NMI status
 										break;
 
 									case FourWayStage::ImmediateSent:  // it should be reply to an immediate instruction
-										// TODO  check that it is!!!   Example scenario where it will not
-										// be - *STATIONs poll sends packet to itself... packet we get
-										// here is the one we just sent out..!!!
+										// (or an Ack for immediates &86 and &87?)
 										// I'm pretty sure that real econet can't send to itself..
 										// must be for us.
 										BeebRx.eh.deststn = EconetStationID;
 										BeebRx.eh.destnet = 0;
-
-										j = 4;
-										for (unsigned int i = 0; i < RetVal - sizeof(EconetRx.ah); i++, j++) {
-											BeebRx.buff[j] = EconetRx.buff[i];
+										if (EconetRx.ah.type == AUNType::ImmReply)
+										{
+											j = 4;
+											for (unsigned int i = 0; i < RetVal - sizeof(EconetRx.ah); i++, j++) {
+												BeebRx.buff[j] = EconetRx.buff[i];
+											}
+											BeebRx.BytesInBuffer = j;
+											fourwaystage = FourWayStage::WaitForIdle;
+											//if (DebugEnabled)
+												DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (ack received from remote AUN server)");
 										}
-										BeebRx.BytesInBuffer = j;
+										else
+										{
+											// packet wasn't an immediate reply so throw it away
+											DebugDisplayTrace(DebugType::Econet, true, "Econet: Unexpected packet dropped");
+											BeebRx.BytesInBuffer = 0;
+										}
 										BeebRx.Pointer = 0;
-										fourwaystage = FourWayStage::WaitForIdle;
-										//if (DebugEnabled)
-											DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (ack received from remote AUN server)");
 										break;
 
 									case FourWayStage::DataSent:
@@ -2504,18 +2507,23 @@ bool EconetPoll_real() // return NMI status
 											// construct a final ack for the beeb
 
 											BeebRx.BytesInBuffer = 4;
-											BeebRx.Pointer = 0;
+											fourwaystage = FourWayStage::WaitForIdle;
 											//if (DebugEnabled)
 												DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (aun ack rxd)");
-											fourwaystage = FourWayStage::WaitForIdle;
-											break;
-										} // else unexpected packet - ignore it.TODO: queue it?
+										} 
+										else
+										{
+											DebugDisplayTrace(DebugType::Econet, true, "Econet: Unexpected packet dropped");
+											BeebRx.BytesInBuffer = 0;
+										}
+										BeebRx.Pointer = 0;
+										break;
 
 									default: // erm, what are we doing here?
 										// ignore packet
 										fourwaystage = FourWayStage::WaitForIdle;
 										//if (DebugEnabled)
-											DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (ack received from remote AUN server)");
+											DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (invalid state)");
 										break;
 									}
 
