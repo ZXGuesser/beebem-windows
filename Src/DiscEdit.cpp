@@ -218,7 +218,7 @@ bool dfs_export_file(const char *szDiscFile,
 
 		// Export the data
 		int sector = attr->startSector;
-		int len = attr->length;
+		size_t len = (size_t)attr->length;
 		int offset;
 		int track;
 
@@ -246,10 +246,10 @@ bool dfs_export_file(const char *szDiscFile,
 			}
 
 			// Read next sector
-			int n = len < DFS_SECTOR_SIZE ? len : DFS_SECTOR_SIZE;
+			size_t n = len < DFS_SECTOR_SIZE ? len : DFS_SECTOR_SIZE;
 
 			if (fseek(discfd, offset, SEEK_SET) != 0 ||
-			    fread(buffer, 1, (size_t)n, discfd) != n)
+			    fread(buffer, 1, n, discfd) != n)
 			{
 				sprintf(szErrStr, "Failed to read data from:\n  %s", szDiscFile);
 				success = false;
@@ -257,7 +257,7 @@ bool dfs_export_file(const char *szDiscFile,
 			else
 			{
 				// Export to file
-				if (fwrite(buffer, 1, (size_t)n, filefd) != n)
+				if (fwrite(buffer, 1, n, filefd) != n)
 				{
 					sprintf(szErrStr, "Failed to write data to:\n  %s", szLocalFileName);
 					success = false;
@@ -433,25 +433,27 @@ bool dfs_import_file(const char *szDiscFile,
 
 	if (success)
 	{
-		// Determine file len?
-		if (fileLen == -1)
-		{
-			filefd = fopen(filename, "rb");
+		// Determine file len
+		filefd = fopen(filename, "rb");
 
-			if (filefd == NULL)
-			{
-				sprintf(szErrStr, "Failed to open file:\n  %s", filename);
-				success = false;
-			}
-			else
-			{
-				fseek(filefd, 0, SEEK_END);
-				fileLen = ftell(filefd);
-				fclose(filefd);
-			}
+		if (filefd == NULL)
+		{
+			sprintf(szErrStr, "Failed to open file:\n  %s", filename);
+			success = false;
+		}
+		else
+		{
+			fseek(filefd, 0, SEEK_END);
+			fileLen = ftell(filefd);
+			fclose(filefd);
 		}
 
-		if (fileLen >= 0x80000)
+		if (fileLen < 0)
+		{
+			sprintf(szErrStr, "Failed to determine file length:\n  %s", filename);
+			success = false;
+		}
+		else if (fileLen >= 0x80000)
 		{
 			sprintf(szErrStr, "File too large to import:\n  %s", filename);
 			success = false;
@@ -535,7 +537,7 @@ bool dfs_import_file(const char *szDiscFile,
 		else
 		{
 			int sector = startSector;
-			int len = fileLen;
+			size_t len = (size_t)fileLen;
 
 			while (success && len > 0)
 			{
@@ -557,9 +559,9 @@ bool dfs_import_file(const char *szDiscFile,
 				// Read next sector
 				memset(buffer, 0, DFS_SECTOR_SIZE);
 
-				int n = len < DFS_SECTOR_SIZE ? len : DFS_SECTOR_SIZE;
+				size_t n = len < DFS_SECTOR_SIZE ? len : DFS_SECTOR_SIZE;
 
-				if (fread(buffer, 1, (size_t)n, filefd) != n)
+				if (fread(buffer, 1, n, filefd) != n)
 				{
 					sprintf(szErrStr, "Failed to read data from:\n  %s", filename);
 					success = false;
