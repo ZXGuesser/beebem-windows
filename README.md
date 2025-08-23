@@ -4,7 +4,7 @@ BeebEm for Microsoft Windows
 BeebEm is a BBC Micro and Master Series emulator. It enables you to run BBC Micro software on your PC. BeebEm was first developed for Unix systems in 1994 by [Dave Gilbert](http://www.treblig.org/) and was then ported to Microsoft Windows. BeebEm should work on most PC systems running Windows XP or later.
 
 <p align="center">
-  <a href="https://github.com/stardot/beebem-windows"><img src="BeebEm.png" alt="BeebEm" width="642" height="564" /></a>
+  <a href="https://codeberg.org/chrisn/beebem-windows"><img src="BeebEm.png" alt="BeebEm" width="642" height="564" /></a>
 </p>
 
 The hardware emulated by BeebEm is that of a standard BBC Micro Model B, a Model B with IntegraB board, Model B Plus or Master 128. Optional 65C02 and other types of second processor are also emulated. The emulation is accurate enough to run most software.
@@ -12,14 +12,14 @@ The hardware emulated by BeebEm is that of a standard BBC Micro Model B, a Model
 Installing
 ----------
 
-Binaries are available from the [Releases page](https://github.com/stardot/beebem-windows/releases/) in GitHub or from [Mike Wyatt's BeebEm homepage](http://www.mkw.me.uk/beebem).
+Binaries are available from the [Releases page](https://codeberg.org/chrisn/beebem-windows/releases/) in GitHub or from [Mike Wyatt's BeebEm homepage](http://www.mkw.me.uk/beebem).
 
 For more information on how to use BeebEm, see the BeebEm help at Help\index.html.
 
 Compiling
 ---------
 
-The source code for BeebEm is available at https://github.com/stardot/beebem-windows.
+The source code for BeebEm is available at https://codeberg.org/chrisn/beebem-windows.
 
 If you want to compile BeebEm yourself then you will need Microsoft Visual Studio 2019 or later (the free VS2019 Community edition will compile BeebEm). The following project files are included:
 
