@@ -5182,6 +5182,8 @@ void BeebWin::ReleaseMouse()
 	UpdateWindowTitle();
 }
 
+/*****************************************************************************/
+
 void BeebWin::OpenUserKeyboardDialog()
 {
 	// Pause the emulator if not already paused.
