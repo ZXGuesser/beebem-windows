@@ -396,7 +396,7 @@ unsigned char SerialULARead()
 		                   "Serial: Read serial ULA %02X", (int)SerialULA.Control);
 	}
 
-	// See https://github.com/stardot/beebem-windows/issues/47
+	// See https://codeberg.org/chrisn/beebem-windows/issues/47
 	return SerialULA.Control;
 }
 

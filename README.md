@@ -12,7 +12,7 @@ The hardware emulated by BeebEm is that of a standard BBC Micro Model B, a Model
 Installing
 ----------
 
-Binaries are available from the [Releases page](https://codeberg.org/chrisn/beebem-windows/releases/) in GitHub or from [Mike Wyatt's BeebEm homepage](http://www.mkw.me.uk/beebem).
+Binaries are available from the [Releases page](https://codeberg.org/chrisn/beebem-windows/releases/) in Codeberg or from [Mike Wyatt's BeebEm homepage](http://www.mkw.me.uk/beebem).
 
 For more information on how to use BeebEm, see the BeebEm help at Help\index.html.
 
