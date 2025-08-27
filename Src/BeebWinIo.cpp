@@ -1800,7 +1800,7 @@ void BeebWin::ImportDiscFiles(int menuId)
 		// 8271 controller
 		if (DiscInfo[Drive].Type == DiscType::FSD)
 		{
-			Report(MessageType::Warning, "Import to FSD disc not supported");
+			Report(MessageType::Warning, "Import to FSD discs is not supported");
 			return;
 		}
 	}
@@ -1810,7 +1810,7 @@ void BeebWin::ImportDiscFiles(int menuId)
 		if (DiscInfo[Drive].Type != DiscType::SSD && DiscInfo[Drive].Type != DiscType::DSD)
 		{
 			// ADFS - not currently supported
-			Report(MessageType::Error, "Import to ADFS disc not supported");
+			Report(MessageType::Error, "Import to ADFS discs is not supported");
 			return;
 		}
 	}
