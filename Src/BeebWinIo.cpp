@@ -227,7 +227,7 @@ bool BeebWin::ReadDisc(int Drive, bool bCheckForPrefs)
 			{
 				if (NativeFDC)
 				{
-					LoadFSDDiscImage(FileName, Drive);
+					Load8271DiscImage(FileName, Drive, 0, DiscType::FSD);
 					SetDiscWriteProtect(Drive, true);
 				}
 				else
@@ -1731,7 +1731,7 @@ void BeebWin::ExportDiscFiles(int menuId)
 		// 8271 controller
 		if (DiscInfo[Drive].Type == DiscType::FSD)
 		{
-			Report(MessageType::Warning, "Export from FSD disc not supported");
+			Report(MessageType::Warning, "Export from FSD discs is not supported");
 			return;
 		}
 	}
@@ -1741,7 +1741,7 @@ void BeebWin::ExportDiscFiles(int menuId)
 		if (DiscInfo[Drive].Type != DiscType::SSD && DiscInfo[Drive].Type != DiscType::DSD)
 		{
 			// ADFS - not currently supported
-			Report(MessageType::Warning, "Export from ADFS disc not supported");
+			Report(MessageType::Warning, "Export from ADFS discs is not supported");
 			return;
 		}
 	}
