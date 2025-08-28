@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=BeebEm
-AppVerName=BeebEm V4.19
+AppVerName=BeebEm V4.20
 AppPublisher=Mike Wyatt
 AppPublisherURL=http://www.mkw.me.uk/beebem/index.html
 AppSupportURL=http://www.mkw.me.uk/beebem/index.html
@@ -14,7 +14,7 @@ OutputDir=Release
 OutputBaseFilename=BeebEm
 Compression=lzma
 SolidCompression=yes
-VersionInfoVersion=4.19.0.0
+VersionInfoVersion=4.20.0.0
 ChangesAssociations=yes
 
 [Registry]

@@ -1,7 +1,7 @@
 BeebEm Change History
 =====================
 
-Unreleased changes
+Version 4.20 (28 August 2025)
 ------------
 
 Contributors: Chris Needham, Mauro Varischetti, Bill Carr, Daniel Beardsmore,
