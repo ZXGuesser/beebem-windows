@@ -1718,11 +1718,11 @@ bool EconetPoll_real() // return NMI status
 					}
 					else
 					{
-						if ((LastError.network != BeebTx.eh.destnet) && (LastError.station != BeebTx.eh.deststn))
+						if (LastError.network != BeebTx.eh.destnet && LastError.station != BeebTx.eh.deststn)
 						{
 							if (AUNMode)
 							{
-								EconetError("Econet: Station %d.%d not found in AUN Map or Econet.cfg",
+								EconetError("Econet: Station %d.%d not found in AUNMap or Econet.cfg",
 								            (unsigned int)BeebTx.eh.destnet,
 								            (unsigned int)BeebTx.eh.deststn);
 							}
