@@ -28,6 +28,8 @@ Andrew Hague
     commands. These currently only work under Master series emulation.
   - Fixed CTS status bit.
   - Fixed broadcast packet destination to be 255.255.
+  - An error is now reported when an sending to an Econet address has not been
+    configured in AUNMap or Econet.cfg.
 * Added Master ET support.
 * ROM config files (e.g., Roms.cfg) can now include comments. Note that
   files with comments are not backwards compatible with older BeebEm
