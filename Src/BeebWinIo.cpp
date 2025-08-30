@@ -998,30 +998,30 @@ void BeebWin::CaptureVideo()
 		}
 
 		// Create DIB for AVI frames
-		m_Avibmi = m_bmi;
+		m_AviBitmapInfo = m_BitmapInfo;
 
 		if (m_VideoCaptureResolution == VideoCaptureResolution::Display)
 		{
 			// Must be multiple of 4
-			m_Avibmi.bmiHeader.biWidth = m_XWinSize & (~3);
-			m_Avibmi.bmiHeader.biHeight = m_YWinSize;
+			m_AviBitmapInfo.Header.biWidth = m_XWinSize & (~3);
+			m_AviBitmapInfo.Header.biHeight = m_YWinSize;
 		}
 		else if (m_VideoCaptureResolution == VideoCaptureResolution::_640x512)
 		{
-			m_Avibmi.bmiHeader.biWidth = 640;
-			m_Avibmi.bmiHeader.biHeight = 512;
+			m_AviBitmapInfo.Header.biWidth = 640;
+			m_AviBitmapInfo.Header.biHeight = 512;
 		}
 		else
 		{
-			m_Avibmi.bmiHeader.biWidth = 320;
-			m_Avibmi.bmiHeader.biHeight = 256;
+			m_AviBitmapInfo.Header.biWidth = 320;
+			m_AviBitmapInfo.Header.biHeight = 256;
 		}
 
-		m_Avibmi.bmiHeader.biSizeImage = m_Avibmi.bmiHeader.biWidth * m_Avibmi.bmiHeader.biHeight;
+		m_AviBitmapInfo.Header.biSizeImage = m_AviBitmapInfo.Header.biWidth * m_AviBitmapInfo.Header.biHeight;
 
 		m_AviDC = CreateCompatibleDC(nullptr);
 		m_AviDIB = CreateDIBSection(m_AviDC,
-		                            (BITMAPINFO *)&m_Avibmi,
+		                            (BITMAPINFO*)&m_AviBitmapInfo,
 		                            DIB_RGB_COLORS,
 		                            (void**)&m_AviScreen,
 		                            nullptr,
@@ -1040,7 +1040,7 @@ void BeebWin::CaptureVideo()
 
 			HRESULT hr = aviWriter->Initialise(FileName,
 			                                   wfp,
-			                                   &m_Avibmi,
+			                                   &m_AviBitmapInfo,
 			                                   (int)(50 / (m_AviFrameSkip + 1)));
 
 			if (FAILED(hr))
@@ -2288,17 +2288,17 @@ void BeebWin::CaptureBitmap(int SourceX,
 	}
 
 	// Capture the bitmap
-	bmiData Capturebmi = m_bmi;
-	Capturebmi.bmiHeader.biWidth  = BitmapWidth;
-	Capturebmi.bmiHeader.biHeight = BitmapHeight;
-	Capturebmi.bmiHeader.biSizeImage = Capturebmi.bmiHeader.biWidth * Capturebmi.bmiHeader.biHeight;
+	BitmapInfo CaptureBitmapInfo = m_BitmapInfo;
+	CaptureBitmapInfo.Header.biWidth = BitmapWidth;
+	CaptureBitmapInfo.Header.biHeight = BitmapHeight;
+	CaptureBitmapInfo.Header.biSizeImage = CaptureBitmapInfo.Header.biWidth * CaptureBitmapInfo.Header.biHeight;
 
 	HDC CaptureDC = CreateCompatibleDC(nullptr);
 
-	char *CaptureScreen = nullptr;
+	char* CaptureScreen = nullptr;
 
 	HBITMAP CaptureDIB = CreateDIBSection(CaptureDC,
-	                                      (BITMAPINFO *)&Capturebmi,
+	                                      (BITMAPINFO*)&CaptureBitmapInfo,
 	                                      DIB_RGB_COLORS,
 	                                      (void**)&CaptureScreen,
 	                                      nullptr,

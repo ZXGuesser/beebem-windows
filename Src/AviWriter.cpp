@@ -53,14 +53,16 @@ AviWriter::AviWriter() :
 /*--------------------------------------------------------------------------*/
 
 HRESULT AviWriter::Initialise(const CHAR *pszFileName,
-                              const WAVEFORMATEX *WaveFormat,
-                              const bmiData *BitmapFormat,
+                              const WAVEFORMATEX *pWaveFormat,
+                              const BitmapInfo *pBitmapFormat,
                               int fps)
 {
-	if (WaveFormat)
-		m_WaveFormat = *WaveFormat;
+	if (pWaveFormat != nullptr)
+	{
+		m_WaveFormat = *pWaveFormat;
+	}
 
-	m_BitmapFormat = *BitmapFormat;
+	m_BitmapFormat = *pBitmapFormat;
 
 	DeleteFile(pszFileName);
 	HRESULT hr = AVIFileOpen(&m_pAviFile,
@@ -68,7 +70,7 @@ HRESULT AviWriter::Initialise(const CHAR *pszFileName,
 	                         OF_WRITE | OF_CREATE,
 	                         NULL);
 
-	if (SUCCEEDED(hr) && WaveFormat)
+	if (SUCCEEDED(hr) && pWaveFormat != nullptr)
 	{
 		AVISTREAMINFO StreamInfo;
 		memset(&StreamInfo, 0, sizeof(AVISTREAMINFO));
@@ -84,7 +86,7 @@ HRESULT AviWriter::Initialise(const CHAR *pszFileName,
 		hr = AVIFileCreateStream(m_pAviFile, &m_pAudioStream, &StreamInfo);
 	}
 
-	if (SUCCEEDED(hr) && WaveFormat)
+	if (SUCCEEDED(hr) && pWaveFormat != nullptr)
 	{
 		hr = AVIStreamSetFormat(m_pAudioStream,
 		                        0,
@@ -101,30 +103,30 @@ HRESULT AviWriter::Initialise(const CHAR *pszFileName,
 		StreamInfo.dwScale = 1;
 		StreamInfo.dwRate = fps;
 		StreamInfo.dwSampleSize = 0;
-		StreamInfo.dwSuggestedBufferSize = m_BitmapFormat.bmiHeader.biSizeImage;
+		StreamInfo.dwSuggestedBufferSize = m_BitmapFormat.Header.biSizeImage;
 		StreamInfo.dwQuality = (DWORD)-1;
 		StreamInfo.rcFrame.left = 0;
 		StreamInfo.rcFrame.top = 0;
-		StreamInfo.rcFrame.right = m_BitmapFormat.bmiHeader.biWidth;
-		StreamInfo.rcFrame.bottom = m_BitmapFormat.bmiHeader.biHeight;
+		StreamInfo.rcFrame.right = m_BitmapFormat.Header.biWidth;
+		StreamInfo.rcFrame.bottom = m_BitmapFormat.Header.biHeight;
 		strcpy(&StreamInfo.szName[0], "BeebEm Video Capture");
 
 		hr = AVIFileCreateStream(m_pAviFile, &m_pVideoStream, &StreamInfo);
 	}
 
-	bmiData outputData = m_BitmapFormat;
-	outputData.bmiHeader.biCompression = BI_RLE8;
+	BitmapInfo OutputInfo = m_BitmapFormat;
+	OutputInfo.Header.biCompression = BI_RLE8;
 
 	if (SUCCEEDED(hr))
 	{
 		hr = AVIStreamSetFormat(m_pVideoStream,
 		                        0,
-		                        (void*)&outputData,
-		                        outputData.bmiHeader.biSize +
-		                        outputData.bmiHeader.biClrUsed * sizeof(RGBQUAD));
+		                        (void*)&OutputInfo,
+		                        OutputInfo.Header.biSize +
+		                        OutputInfo.Header.biClrUsed * sizeof(RGBQUAD));
 	}
 
-	m_BitmapOutputFormat = BitmapFormat->bmiHeader;
+	m_BitmapOutputFormat = pBitmapFormat->Header;
 	m_BitmapOutputFormat.biCompression = BI_RLE8;
 
 	m_videoCompressor = ICOpen(mmioFOURCC('V', 'I', 'D', 'C'),
@@ -133,9 +135,9 @@ HRESULT AviWriter::Initialise(const CHAR *pszFileName,
 
 	if (m_videoCompressor)
 	{
-		m_videoBufferSize = ICCompressGetSize(m_videoCompressor, &BitmapFormat->bmiHeader, &m_BitmapOutputFormat);
+		m_videoBufferSize = ICCompressGetSize(m_videoCompressor, &pBitmapFormat->Header, &m_BitmapOutputFormat);
 		m_videoBuffer = malloc(m_videoBufferSize);
-		m_lastVideoFrame = malloc(BitmapFormat->bmiHeader.biSizeImage);
+		m_lastVideoFrame = malloc(pBitmapFormat->Header.biSizeImage);
 		if (!m_videoBuffer || !m_lastVideoFrame)
 			hr = E_OUTOFMEMORY;
 	}
@@ -258,18 +260,18 @@ HRESULT AviWriter::WriteVideo(BYTE *pBuffer)
 	                          keyFrame ? ICCOMPRESS_KEYFRAME : 0,
 	                          &m_BitmapOutputFormat,
 	                          m_videoBuffer,
-	                          &m_BitmapFormat.bmiHeader,
+	                          &m_BitmapFormat.Header,
 	                          pBuffer,
 	                          0,
 	                          &flags,
 	                          m_nFrame,
 	                          m_videoBufferSize,
 	                          0,
-	                          keyFrame ? 0 : &m_BitmapFormat.bmiHeader,
+	                          keyFrame ? 0 : &m_BitmapFormat.Header,
 	                          keyFrame ? 0 : m_lastVideoFrame);
 
 	// Save the frame for next time
-	memcpy(m_lastVideoFrame, pBuffer, m_BitmapFormat.bmiHeader.biSizeImage);
+	memcpy(m_lastVideoFrame, pBuffer, m_BitmapFormat.Header.biSizeImage);
 
 	if (result)
 		return E_FAIL;

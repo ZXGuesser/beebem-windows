@@ -39,8 +39,8 @@ public:
 
 	// Open file
 	HRESULT Initialise(const CHAR *psFileName,
-	                   const WAVEFORMATEX *WaveFormat,
-	                   const bmiData *BitmapFormat,
+	                   const WAVEFORMATEX *pWaveFormat,
+	                   const BitmapInfo *pBitmapFormat,
 	                   int fps);
 	void Close(void);
 
@@ -55,7 +55,7 @@ private:
 	PAVISTREAM m_pCompressedAudioStream;
 	LONG m_nSampleSize;
 
-	bmiData m_BitmapFormat;
+	BitmapInfo m_BitmapFormat;
 	BITMAPINFOHEADER m_BitmapOutputFormat;
 	PAVISTREAM m_pVideoStream;
 	HIC m_videoCompressor;

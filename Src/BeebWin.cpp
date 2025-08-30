@@ -189,7 +189,7 @@ BeebWin::BeebWin()
 	m_hOldObj = nullptr;
 	m_hDCBitmap = nullptr;
 	m_hBitmap = nullptr;
-	ZeroMemory(&m_bmi, sizeof(m_bmi));
+	ZeroMemory(&m_BitmapInfo, sizeof(m_BitmapInfo));
 	m_MonitorType = MonitorType::RGB;
 	m_screen = nullptr;
 	m_screen_blur = nullptr;
@@ -342,7 +342,7 @@ BeebWin::BeebWin()
 	m_BitmapCaptureFormat = BitmapCaptureFormat::Bmp;
 
 	// Video capture
-	ZeroMemory(&m_Avibmi, sizeof(m_Avibmi));
+	ZeroMemory(&m_AviBitmapInfo, sizeof(m_AviBitmapInfo));
 	m_AviDIB = nullptr;
 	m_AviDC = nullptr;
 	m_AviScreen = nullptr;
@@ -1117,29 +1117,17 @@ void BeebWin::CreateBitmap()
 
 	m_hDCBitmap = CreateCompatibleDC(nullptr);
 
-	m_bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-	m_bmi.bmiHeader.biWidth = 800;
-	m_bmi.bmiHeader.biHeight = -512;
-	m_bmi.bmiHeader.biPlanes = 1;
-	m_bmi.bmiHeader.biBitCount = 8;
-	m_bmi.bmiHeader.biXPelsPerMeter = 0;
-	m_bmi.bmiHeader.biYPelsPerMeter = 0;
-	m_bmi.bmiHeader.biCompression = BI_RGB;
-	m_bmi.bmiHeader.biSizeImage = 800*512;
-	m_bmi.bmiHeader.biClrUsed = 68;
-	m_bmi.bmiHeader.biClrImportant = 68;
-
-	#ifdef USE_PALETTE
-
-	__int16 *pInts = (__int16 *)&m_bmi.bmiColors[0];
-
-	for(int i=0; i<12; i++)
-		pInts[i] = i;
-
-	m_hBitmap = CreateDIBSection(m_hDCBitmap, (BITMAPINFO *)&m_bmi, DIB_PAL_COLORS,
-	                             (void**)&m_screen, NULL,0);
-
-	#else
+	m_BitmapInfo.Header.biSize          = sizeof(BITMAPINFOHEADER);
+	m_BitmapInfo.Header.biWidth         = 800;
+	m_BitmapInfo.Header.biHeight        = -512; // A top-down bitmap with the origin at the upper left corner.
+	m_BitmapInfo.Header.biPlanes        = 1; // Must be 1.
+	m_BitmapInfo.Header.biBitCount      = 8; // 8 bits per pixel.
+	m_BitmapInfo.Header.biCompression   = BI_RGB; // Uncompressed RGB.
+	m_BitmapInfo.Header.biSizeImage     = 800 * 512; // Image size, in bytes.
+	m_BitmapInfo.Header.biXPelsPerMeter = 0;
+	m_BitmapInfo.Header.biYPelsPerMeter = 0;
+	m_BitmapInfo.Header.biClrUsed       = 68; // Number of used colours in the colour table
+	m_BitmapInfo.Header.biClrImportant  = 68;
 
 	for (int i = 0; i < 64; ++i)
 	{
@@ -1170,29 +1158,27 @@ void BeebWin::CreateBitmap()
 			}
 		}
 
-		m_bmi.bmiColors[i].rgbRed   = (BYTE) (r * m_BlurIntensities[i >> 3] / 100.0 * 255);
-		m_bmi.bmiColors[i].rgbGreen = (BYTE) (g * m_BlurIntensities[i >> 3] / 100.0 * 255);
-		m_bmi.bmiColors[i].rgbBlue  = (BYTE) (b * m_BlurIntensities[i >> 3] / 100.0 * 255);
-		m_bmi.bmiColors[i].rgbReserved = 0;
+		m_BitmapInfo.Colors[i].rgbRed      = (BYTE)(r * m_BlurIntensities[i >> 3] / 100.0 * 255);
+		m_BitmapInfo.Colors[i].rgbGreen    = (BYTE)(g * m_BlurIntensities[i >> 3] / 100.0 * 255);
+		m_BitmapInfo.Colors[i].rgbBlue     = (BYTE)(b * m_BlurIntensities[i >> 3] / 100.0 * 255);
+		m_BitmapInfo.Colors[i].rgbReserved = 0;
 	}
 
 	// Red Leds - left is dark, right is lit.
-	m_bmi.bmiColors[LED_COL_BASE].rgbRed=80;		m_bmi.bmiColors[LED_COL_BASE+1].rgbRed=255;
-	m_bmi.bmiColors[LED_COL_BASE].rgbGreen=0;		m_bmi.bmiColors[LED_COL_BASE+1].rgbGreen=0;
-	m_bmi.bmiColors[LED_COL_BASE].rgbBlue=0;		m_bmi.bmiColors[LED_COL_BASE+1].rgbBlue=0;
-	m_bmi.bmiColors[LED_COL_BASE].rgbReserved=0;	m_bmi.bmiColors[LED_COL_BASE+1].rgbReserved=0;
+	m_BitmapInfo.Colors[LED_COL_BASE].rgbRed      = 80;  m_BitmapInfo.Colors[LED_COL_BASE + 1].rgbRed = 255;
+	m_BitmapInfo.Colors[LED_COL_BASE].rgbGreen    = 0;   m_BitmapInfo.Colors[LED_COL_BASE + 1].rgbGreen = 0;
+	m_BitmapInfo.Colors[LED_COL_BASE].rgbBlue     = 0;   m_BitmapInfo.Colors[LED_COL_BASE + 1].rgbBlue = 0;
+	m_BitmapInfo.Colors[LED_COL_BASE].rgbReserved = 0;   m_BitmapInfo.Colors[LED_COL_BASE + 1].rgbReserved = 0;
 	// Green Leds - left is dark, right is lit.
-	m_bmi.bmiColors[LED_COL_BASE+2].rgbRed=0;		m_bmi.bmiColors[LED_COL_BASE+3].rgbRed=0;
-	m_bmi.bmiColors[LED_COL_BASE+2].rgbGreen=80;	m_bmi.bmiColors[LED_COL_BASE+3].rgbGreen=255;
-	m_bmi.bmiColors[LED_COL_BASE+2].rgbBlue=0;		m_bmi.bmiColors[LED_COL_BASE+3].rgbBlue=0;
-	m_bmi.bmiColors[LED_COL_BASE+2].rgbReserved=0;	m_bmi.bmiColors[LED_COL_BASE+3].rgbReserved=0;
+	m_BitmapInfo.Colors[LED_COL_BASE + 2].rgbRed      = 0;  m_BitmapInfo.Colors[LED_COL_BASE + 3].rgbRed = 0;
+	m_BitmapInfo.Colors[LED_COL_BASE + 2].rgbGreen    = 80; m_BitmapInfo.Colors[LED_COL_BASE + 3].rgbGreen = 255;
+	m_BitmapInfo.Colors[LED_COL_BASE + 2].rgbBlue     = 0;  m_BitmapInfo.Colors[LED_COL_BASE + 3].rgbBlue = 0;
+	m_BitmapInfo.Colors[LED_COL_BASE + 2].rgbReserved = 0;  m_BitmapInfo.Colors[LED_COL_BASE + 3].rgbReserved=0;
 
-	m_hBitmap = CreateDIBSection(m_hDCBitmap, (BITMAPINFO *)&m_bmi, DIB_RGB_COLORS,
+	m_hBitmap = CreateDIBSection(m_hDCBitmap, (BITMAPINFO *)&m_BitmapInfo, DIB_RGB_COLORS,
 	                             (void**)&m_screen, NULL,0);
 
-	#endif
-
-	m_screen_blur = (char *)calloc(m_bmi.bmiHeader.biSizeImage,1);
+	m_screen_blur = (char *)calloc(m_BitmapInfo.Header.biSizeImage,1);
 
 	m_hOldObj = SelectObject(m_hDCBitmap, m_hBitmap);
 

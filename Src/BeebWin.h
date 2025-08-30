@@ -69,10 +69,10 @@ union SixteenUChars
 	EightByteType eightbytes[2];
 };
 
-struct bmiData
+struct BitmapInfo
 {
-	BITMAPINFOHEADER bmiHeader;
-	RGBQUAD bmiColors[256];
+	BITMAPINFOHEADER Header;
+	RGBQUAD Colors[256];
 };
 
 struct LEDType
@@ -666,7 +666,7 @@ public:
 	HGDIOBJ m_hOldObj;
 	HDC m_hDCBitmap;
 	HGDIOBJ m_hBitmap;
-	bmiData m_bmi;
+	BitmapInfo m_BitmapInfo;
 	MonitorType m_MonitorType;
 	char* m_screen;
 	char* m_screen_blur;
@@ -800,7 +800,7 @@ public:
 	BitmapCaptureFormat m_BitmapCaptureFormat;
 
 	// Video capture
-	bmiData m_Avibmi;
+	BitmapInfo m_AviBitmapInfo;
 	HBITMAP m_AviDIB;
 	HDC m_AviDC;
 	char* m_AviScreen;

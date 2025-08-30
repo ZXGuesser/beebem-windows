@@ -1005,7 +1005,11 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 
 	if (aviWriter != nullptr)
 	{
-		StretchBlt(m_AviDC, 0, 0, m_Avibmi.bmiHeader.biWidth, m_Avibmi.bmiHeader.biHeight,
+		StretchBlt(m_AviDC,
+		           0,
+		           0,
+		           m_AviBitmapInfo.Header.biWidth,
+		           m_AviBitmapInfo.Header.biHeight,
 		           m_hDCBitmap, 0, StartY,
 		           TeletextEnabled ? 552 : ActualScreenWidth,
 		           TeletextEnabled ? TeletextLines : NLines,
