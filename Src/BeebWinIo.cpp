@@ -1377,7 +1377,7 @@ bool BeebWin::LoadFDC(char *DLLName, bool Save)
 		DLLName = FDCDLL;
 	}
 
-	if (strcmp(DLLName, "None") != 0)
+	if (StrCaseCmp(DLLName, "None") != 0)
 	{
 		char DLLPath[MAX_PATH];
 		strcpy(DLLPath, DLLName);
