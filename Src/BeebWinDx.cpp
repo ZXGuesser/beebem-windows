@@ -809,16 +809,22 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 	// Do motion blur
 	if (m_MotionBlur != 0)
 	{
-		char j;
+		char PaletteOffset;
 
 		if (m_MotionBlur == 2)
-			j = 32;
+		{
+			PaletteOffset = 32;
+		}
 		else if (m_MotionBlur == 4)
-			j = 16;
+		{
+			PaletteOffset = 16;
+		}
 		else // blur 8 frames
-			j = 8;
+		{
+			PaletteOffset = 8;
+		}
 
-		for (int i = 0; i < 800*512; ++i)
+		for (int i = 0; i < 800 * 512; ++i)
 		{
 			if (m_screen[i] != 0)
 			{
@@ -826,14 +832,16 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 			}
 			else if (m_screen_blur[i] != 0)
 			{
-				m_screen_blur[i] += j;
+				m_screen_blur[i] += PaletteOffset;
 
 				if (m_screen_blur[i] > 63)
+				{
 					m_screen_blur[i] = 0;
+				}
 			}
 		}
 
-		memcpy(m_screen, m_screen_blur, 800*512);
+		memcpy(m_screen, m_screen_blur, 800 * 512);
 	}
 
 	if (m_DisplayRenderer == DisplayRendererType::GDI)
