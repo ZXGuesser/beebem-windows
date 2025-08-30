@@ -1137,22 +1137,18 @@ void BeebWin::CreateBitmap()
 			}
 		}
 
-		m_BitmapInfo.Colors[i].rgbRed      = (BYTE)(r * m_BlurIntensities[i >> 3] / 100.0 * 255);
-		m_BitmapInfo.Colors[i].rgbGreen    = (BYTE)(g * m_BlurIntensities[i >> 3] / 100.0 * 255);
-		m_BitmapInfo.Colors[i].rgbBlue     = (BYTE)(b * m_BlurIntensities[i >> 3] / 100.0 * 255);
-		m_BitmapInfo.Colors[i].rgbReserved = 0;
+		m_BitmapInfo.Colors[i] = { (BYTE)(b * m_BlurIntensities[i >> 3] / 100.0 * 255),
+		                           (BYTE)(g * m_BlurIntensities[i >> 3] / 100.0 * 255),
+		                           (BYTE)(r * m_BlurIntensities[i >> 3] / 100.0 * 255),
+		                           0 };
 	}
 
 	// Red Leds - left is dark, right is lit.
-	m_BitmapInfo.Colors[LED_COL_BASE].rgbRed      = 80;  m_BitmapInfo.Colors[LED_COL_BASE + 1].rgbRed = 255;
-	m_BitmapInfo.Colors[LED_COL_BASE].rgbGreen    = 0;   m_BitmapInfo.Colors[LED_COL_BASE + 1].rgbGreen = 0;
-	m_BitmapInfo.Colors[LED_COL_BASE].rgbBlue     = 0;   m_BitmapInfo.Colors[LED_COL_BASE + 1].rgbBlue = 0;
-	m_BitmapInfo.Colors[LED_COL_BASE].rgbReserved = 0;   m_BitmapInfo.Colors[LED_COL_BASE + 1].rgbReserved = 0;
+	m_BitmapInfo.Colors[LED_COL_BASE]     = { 0, 0,  80, 0 }; // blue, green, red, reserved
+	m_BitmapInfo.Colors[LED_COL_BASE + 1] = { 0, 0, 255, 0 };
 	// Green Leds - left is dark, right is lit.
-	m_BitmapInfo.Colors[LED_COL_BASE + 2].rgbRed      = 0;  m_BitmapInfo.Colors[LED_COL_BASE + 3].rgbRed = 0;
-	m_BitmapInfo.Colors[LED_COL_BASE + 2].rgbGreen    = 80; m_BitmapInfo.Colors[LED_COL_BASE + 3].rgbGreen = 255;
-	m_BitmapInfo.Colors[LED_COL_BASE + 2].rgbBlue     = 0;  m_BitmapInfo.Colors[LED_COL_BASE + 3].rgbBlue = 0;
-	m_BitmapInfo.Colors[LED_COL_BASE + 2].rgbReserved = 0;  m_BitmapInfo.Colors[LED_COL_BASE + 3].rgbReserved=0;
+	m_BitmapInfo.Colors[LED_COL_BASE + 2] = { 0,  80, 0, 0 };
+	m_BitmapInfo.Colors[LED_COL_BASE + 3] = { 0, 255, 0, 0 };
 
 	m_hBitmap = CreateDIBSection(m_hDCBitmap,
 	                             (BITMAPINFO *)&m_BitmapInfo,
