@@ -391,7 +391,8 @@ public:
 
 	void UpdateOptionsMenu();
 	void FlashWindow();
-	void CreateBitmap(void);
+	void CreateBitmap();
+	void ReleaseBitmap();
 	void InitMenu();
 	void SetMonitorType(MonitorType Type);
 	void UpdateMonitorMenu();

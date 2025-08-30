@@ -645,15 +645,7 @@ BeebWin::~BeebWin()
 		SelectObject(m_hDCBitmap, m_hOldObj);
 	}
 
-	if (m_hBitmap != nullptr)
-	{
-		DeleteObject(m_hBitmap);
-	}
-
-	if (m_hDCBitmap != nullptr)
-	{
-		DeleteDC(m_hDCBitmap);
-	}
+	ReleaseBitmap();
 
 	Gdiplus::GdiplusShutdown(m_gdiplusToken);
 
@@ -1100,20 +1092,7 @@ void BeebWin::DestroySprowCoPro()
 
 void BeebWin::CreateBitmap()
 {
-	if (m_hBitmap != nullptr)
-	{
-		DeleteObject(m_hBitmap);
-	}
-
-	if (m_hDCBitmap != nullptr)
-	{
-		DeleteDC(m_hDCBitmap);
-	}
-
-	if (m_screen_blur != nullptr)
-	{
-		free(m_screen_blur);
-	}
+	ReleaseBitmap();
 
 	m_hDCBitmap = CreateCompatibleDC(nullptr);
 
@@ -1175,8 +1154,12 @@ void BeebWin::CreateBitmap()
 	m_BitmapInfo.Colors[LED_COL_BASE + 2].rgbBlue     = 0;  m_BitmapInfo.Colors[LED_COL_BASE + 3].rgbBlue = 0;
 	m_BitmapInfo.Colors[LED_COL_BASE + 2].rgbReserved = 0;  m_BitmapInfo.Colors[LED_COL_BASE + 3].rgbReserved=0;
 
-	m_hBitmap = CreateDIBSection(m_hDCBitmap, (BITMAPINFO *)&m_BitmapInfo, DIB_RGB_COLORS,
-	                             (void**)&m_screen, NULL,0);
+	m_hBitmap = CreateDIBSection(m_hDCBitmap,
+	                             (BITMAPINFO *)&m_BitmapInfo,
+	                             DIB_RGB_COLORS,
+	                             (void**)&m_screen,
+	                             nullptr, // hSection
+	                             0); // Offset (ignored)
 
 	m_screen_blur = (char *)calloc(m_BitmapInfo.Header.biSizeImage,1);
 
@@ -1186,6 +1169,28 @@ void BeebWin::CreateBitmap()
 	{
 		Report(MessageType::Error,
 		       "Cannot select the screen bitmap\nTry running in a 256 colour mode");
+	}
+}
+
+void BeebWin::ReleaseBitmap()
+{
+	if (m_hBitmap != nullptr)
+	{
+		DeleteObject(m_hBitmap);
+		m_hBitmap = nullptr;
+		m_screen = nullptr; // Freed when m_hBitmap is deleted
+	}
+
+	if (m_hDCBitmap != nullptr)
+	{
+		DeleteDC(m_hDCBitmap);
+		m_hDCBitmap = nullptr;
+	}
+
+	if (m_screen_blur != nullptr)
+	{
+		free(m_screen_blur);
+		m_screen_blur = nullptr;
 	}
 }
 
