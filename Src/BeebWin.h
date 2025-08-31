@@ -72,7 +72,7 @@ union SixteenUChars
 struct BitmapInfo
 {
 	BITMAPINFOHEADER Header;
-	RGBQUAD Colors[68]; // 8 colours * 8 blue intensities + 4 colours for LEDs
+	RGBQUAD Colors[68]; // 8 colours * 8 blur intensities + 4 colours for LEDs
 };
 
 struct LEDType

@@ -29,10 +29,6 @@ Boston, MA  02110-1301, USA.
 
 extern int VideoTriggerCount;
 
-extern unsigned char VideoULA_ControlReg;
-extern unsigned char VideoULA_Palette[16];
-
-extern unsigned char CRTCControlReg;
 extern unsigned char CRTC_HorizontalTotal;     /* R0 */
 extern unsigned char CRTC_HorizontalDisplayed; /* R1 */
 extern unsigned char CRTC_HorizontalSyncPos;   /* R2 */
@@ -51,8 +47,13 @@ extern unsigned char CRTC_CursorPosHigh;       /* R14 */
 extern unsigned char CRTC_CursorPosLow;        /* R15 */
 extern unsigned char CRTC_LightPenHigh;        /* R16 */
 extern unsigned char CRTC_LightPenLow;         /* R17 */
+
 extern unsigned int ActualScreenWidth;
 extern long ScreenAdjust;
+
+extern bool TeletextEnabled;
+extern char TeletextStyle;
+extern bool TeletextHalfMode;
 
 bool BuildMode7Font(const char *filename);
 void RedoMPTR(void);
@@ -65,8 +66,6 @@ void VideoDoScanLine(void);
 void VideoGetText(char *text, int line);
 void VideoLightPenStrobe();
 
-extern bool TeletextEnabled;
-
 #define VideoPoll(ncycles) if ((VideoTriggerCount)<=TotalCycles) VideoDoScanLine();
 
 // Allow enough lines for all modes.
@@ -75,7 +74,5 @@ extern bool TeletextEnabled;
 
 void SaveVideoUEF(FILE *SUEF);
 void LoadVideoUEF(FILE *SUEF, int Version);
-extern char TeletextStyle;
-extern bool TeletextHalfMode;
 
 #endif

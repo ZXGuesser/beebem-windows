@@ -42,14 +42,6 @@ Boston, MA  02110-1301, USA.
 #include "SysVia.h"
 #include "UefState.h"
 
-/* Bit assignments in control reg:
-   0 - Flash colour (0=first colour, 1=second)
-   1 - Teletext select (0=on chip serialiser, 1=teletext)
- 2,3 - Bytes per line (2,3=1,1 is 80, 1,0=40, 0,1=20, 0,0=10)
-   4 - CRTC Clock chip select (0 = low frequency, 1= high frequency)
- 5,6 - Cursor width in bytes (0,0 = 1 byte, 0,1=not defined, 1,0=2, 1,1=4)
-   7 - Master cursor width (if set causes large cursor)
-*/
 EightUChars FastTable[256];
 SixteenUChars FastTableDWidth[256]; /* For mode 4,5,6 */
 bool FastTable_Valid = false;
@@ -57,33 +49,42 @@ bool FastTable_Valid = false;
 typedef void (*LineRoutinePtr)();
 LineRoutinePtr LineRoutine;
 
-// Translates middle bits of VideoULA_ControlReg to number of colours
+// Translates the VIDEOULA_CRTC_CLOCK_RATE_SELECT and VIDEOULA_CHARS_PER_LINE
+// bits of VideoULA_ControlReg to number of colours
 static const int NColsLookup[] = {
 	16, 4, 2, 0 /* Not supported 16? */, 0, 16, 4, 2 // Based on AUG 379
 };
 
-unsigned char VideoULA_ControlReg=0x9c;
-unsigned char VideoULA_Palette[16];
+// Bit assignments in Video ULA control register
+constexpr unsigned char VIDEOULA_FLASH_COLOUR_SELECT    = 0x01; // Flash colour (0=first colour, 1=second)
+constexpr unsigned char VIDEOULA_TELETEXT_SELECT        = 0x02; // Teletext select (0=on chip serialiser, 1=teletext)
+constexpr unsigned char VIDEOULA_CHARS_PER_LINE         = 0x0C; // Bytes per line (2,3=1,1 is 80, 1,0=40, 0,1=20, 0,0=10)
+constexpr unsigned char VIDEOULA_CRTC_CLOCK_RATE_SELECT = 0x10; // CRTC Clock chip select (0 = low frequency, 1 = high frequency)
+constexpr unsigned char VIDEOULA_CURSOR_WIDTH           = 0x60; // Cursor width in bytes (0,0 = 1 byte, 0,1=not defined, 1,0=2, 1,1=4)
+constexpr unsigned char VIDEOULA_MASTER_CURSOR_SIZE     = 0x80; // Master cursor width (if set causes large cursor)
 
-unsigned char CRTCControlReg=0;
-unsigned char CRTC_HorizontalTotal=127;     /* R0 */
-unsigned char CRTC_HorizontalDisplayed=80;  /* R1 */
-unsigned char CRTC_HorizontalSyncPos=98;    /* R2 */
-unsigned char CRTC_SyncWidth=0x28;          /* R3 - top 4 bits are Vertical (in scan lines) and bottom 4 are horizontal in characters */
-unsigned char CRTC_VerticalTotal=38;        /* R4 */
-unsigned char CRTC_VerticalTotalAdjust=0;   /* R5 */
-unsigned char CRTC_VerticalDisplayed=32;    /* R6 */
-unsigned char CRTC_VerticalSyncPos=34;      /* R7 */
-unsigned char CRTC_InterlaceAndDelay=0;     /* R8 - 0,1 are interlace modes, 4,5 display blanking delay, 6,7 cursor blanking delay */
-unsigned char CRTC_ScanLinesPerChar=7;      /* R9 */
-unsigned char CRTC_CursorStart=0;           /* R10 */
-unsigned char CRTC_CursorEnd=0;             /* R11 */
-unsigned char CRTC_ScreenStartHigh=6;       /* R12 */
-unsigned char CRTC_ScreenStartLow=0;        /* R13 */
-unsigned char CRTC_CursorPosHigh=0;         /* R14 */
-unsigned char CRTC_CursorPosLow=0;          /* R15 */
-unsigned char CRTC_LightPenHigh=0;          /* R16 */
-unsigned char CRTC_LightPenLow=0;           /* R17 */
+static unsigned char VideoULA_ControlReg = 0x9C;
+static unsigned char VideoULA_Palette[16];
+
+static unsigned char CRTCControlReg = 0;
+unsigned char CRTC_HorizontalTotal = 127;     // R0
+unsigned char CRTC_HorizontalDisplayed = 80;  // R1
+unsigned char CRTC_HorizontalSyncPos = 98;    // R2
+unsigned char CRTC_SyncWidth = 0x28;          // R3 - top 4 bits are Vertical (in scan lines) and bottom 4 are horizontal in characters
+unsigned char CRTC_VerticalTotal = 38;        // R4
+unsigned char CRTC_VerticalTotalAdjust = 0;   // R5
+unsigned char CRTC_VerticalDisplayed = 32;    // R6
+unsigned char CRTC_VerticalSyncPos = 34;      // R7
+unsigned char CRTC_InterlaceAndDelay = 0;     // R8 - 0,1 are interlace modes, 4,5 display blanking delay, 6,7 cursor blanking delay
+unsigned char CRTC_ScanLinesPerChar = 7;      // R9
+unsigned char CRTC_CursorStart = 0;           // R10
+unsigned char CRTC_CursorEnd = 0;             // R11
+unsigned char CRTC_ScreenStartHigh = 6;       // R12
+unsigned char CRTC_ScreenStartLow = 0;        // R13
+unsigned char CRTC_CursorPosHigh = 0;         // R14
+unsigned char CRTC_CursorPosLow = 0;          // R15
+unsigned char CRTC_LightPenHigh = 0;          // R16
+unsigned char CRTC_LightPenLow = 0;           // R17
 
 unsigned int ActualScreenWidth=640;
 long ScreenAdjust=0; // Mode 7 Defaults.
@@ -323,7 +324,7 @@ static void DoFastTable16() {
 
       if (tmp > 7) {
         tmp &= 7;
-        if (VideoULA_ControlReg & 1) tmp ^= 7;
+        if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp ^= 7;
       }
 
       FastTable[bplvtotal].data[0] =
@@ -335,7 +336,7 @@ static void DoFastTable16() {
 
       if (tmp > 7) {
         tmp &= 7;
-        if (VideoULA_ControlReg & 1) tmp ^= 7;
+        if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp ^= 7;
       }
 
       FastTable[bplvtotal].data[4] =
@@ -365,7 +366,7 @@ static void DoFastTable16XStep8() {
 
       if (tmp > 7) {
         tmp &= 7;
-        if (VideoULA_ControlReg & 1) tmp ^= 7;
+        if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp ^= 7;
       }
 
       FastTableDWidth[bplvtotal].data[0] =
@@ -381,7 +382,7 @@ static void DoFastTable16XStep8() {
 
       if (tmp > 7) {
         tmp &= 7;
-        if (VideoULA_ControlReg & 1) tmp ^= 7;
+        if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp ^= 7;
       }
 
       FastTableDWidth[bplvtotal].data[8] =
@@ -410,7 +411,7 @@ static void DoFastTable4() {
 
     if (tmp>7) {
       tmp&=7;
-      if (VideoULA_ControlReg & 1) tmp^=7;
+      if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp^=7;
     }
 
     FastTable[beebpixv].data[0] =
@@ -425,7 +426,7 @@ static void DoFastTable4() {
 
     if (tmp>7) {
       tmp&=7;
-      if (VideoULA_ControlReg & 1) tmp^=7;
+      if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp^=7;
     }
 
     FastTable[beebpixv].data[2] =
@@ -440,7 +441,7 @@ static void DoFastTable4() {
 
     if (tmp>7) {
       tmp&=7;
-      if (VideoULA_ControlReg & 1) tmp^=7;
+      if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp^=7;
     }
 
     FastTable[beebpixv].data[4] =
@@ -455,7 +456,7 @@ static void DoFastTable4() {
 
     if (tmp>7) {
       tmp&=7;
-      if (VideoULA_ControlReg & 1) tmp^=7;
+      if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp^=7;
     }
 
     FastTable[beebpixv].data[6] =
@@ -477,7 +478,7 @@ static void DoFastTable4XStep4() {
 
     if (tmp>7) {
       tmp&=7;
-      if (VideoULA_ControlReg & 1) tmp^=7;
+      if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp^=7;
     }
 
     FastTableDWidth[beebpixv].data[0] =
@@ -494,7 +495,7 @@ static void DoFastTable4XStep4() {
 
     if (tmp > 7) {
       tmp &= 7;
-      if (VideoULA_ControlReg & 1) tmp ^= 7;
+      if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp ^= 7;
     }
 
     FastTableDWidth[beebpixv].data[4] =
@@ -511,7 +512,7 @@ static void DoFastTable4XStep4() {
 
     if (tmp > 7) {
       tmp &= 7;
-      if (VideoULA_ControlReg & 1) tmp ^= 7;
+      if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp ^= 7;
     }
 
     FastTableDWidth[beebpixv].data[8] =
@@ -528,7 +529,7 @@ static void DoFastTable4XStep4() {
 
     if (tmp > 7) {
       tmp &= 7;
-      if (VideoULA_ControlReg & 1) tmp ^= 7;
+      if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp ^= 7;
     }
 
     FastTableDWidth[beebpixv].data[12] =
@@ -558,7 +559,7 @@ static void DoFastTable2() {
 
       if (tmp > 7) {
         tmp &= 7;
-        if (VideoULA_ControlReg & 1) tmp ^= 7;
+        if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp ^= 7;
       }
 
       FastTable[beebpixv].data[pix] = tmp;
@@ -585,7 +586,7 @@ static void DoFastTable2XStep2() {
 
       if (tmp > 7) {
         tmp &= 7;
-        if (VideoULA_ControlReg & 1) tmp ^= 7;
+        if (VideoULA_ControlReg & VIDEOULA_FLASH_COLOUR_SELECT) tmp ^= 7;
       }
 
       FastTableDWidth[beebpixv].data[pix * 2] =
@@ -600,38 +601,65 @@ static void DoFastTable2XStep2() {
    The fast table accelerates the translation of beeb video memory
    values into X pixel values */
 
-static void DoFastTable() {
-  if ((CRTC_HorizontalDisplayed & 3) == 0) {
-    LineRoutine = (VideoULA_ControlReg & 0x10) ? LowLevelDoScanLineNarrow : LowLevelDoScanLineWide;
+static void DoFastTable()
+{
+  if ((CRTC_HorizontalDisplayed & 3) == 0)
+  {
+    if (VideoULA_ControlReg & VIDEOULA_CRTC_CLOCK_RATE_SELECT)
+    {
+      LineRoutine = LowLevelDoScanLineNarrow;
+    }
+    else
+    {
+      LineRoutine = LowLevelDoScanLineWide;
+	}
   }
-  else {
-    LineRoutine = (VideoULA_ControlReg & 0x10) ? LowLevelDoScanLineNarrowNot4Bytes : LowLevelDoScanLineWideNot4Bytes;
+  else
+  {
+    if (VideoULA_ControlReg & VIDEOULA_CRTC_CLOCK_RATE_SELECT)
+    {
+      LineRoutine = LowLevelDoScanLineNarrowNot4Bytes;
+    }
+    else
+    {
+      LineRoutine = LowLevelDoScanLineWideNot4Bytes;
+	}
   }
 
   // What happens next depends on the number of colours
-  switch (NColsLookup[(VideoULA_ControlReg & 0x1c) >> 2]) {
+  switch (NColsLookup[(VideoULA_ControlReg & (VIDEOULA_CRTC_CLOCK_RATE_SELECT | VIDEOULA_CHARS_PER_LINE)) >> 2])
+  {
     case 2:
-      if (VideoULA_ControlReg & 0x10) {
+      if (VideoULA_ControlReg & VIDEOULA_CRTC_CLOCK_RATE_SELECT)
+      {
         DoFastTable2();
-      } else {
+      }
+      else
+      {
         DoFastTable2XStep2();
       }
       FastTable_Valid = true;
       break;
 
     case 4:
-      if (VideoULA_ControlReg & 0x10) {
+      if (VideoULA_ControlReg & VIDEOULA_CRTC_CLOCK_RATE_SELECT)
+      {
         DoFastTable4();
-      } else {
+      }
+      else
+      {
         DoFastTable4XStep4();
       }
       FastTable_Valid = true;
       break;
 
     case 16:
-      if (VideoULA_ControlReg & 0x10) {
+      if (VideoULA_ControlReg & VIDEOULA_CRTC_CLOCK_RATE_SELECT)
+      {
         DoFastTable16();
-      } else {
+      }
+      else
+      {
         DoFastTable16XStep8();
       }
       FastTable_Valid = true;
@@ -693,7 +721,7 @@ static void VideoStartOfFrame()
 
   VideoState.Addr = VideoState.StartAddr = CRTC_ScreenStartLow + (CRTC_ScreenStartHigh << 8);
 
-  VideoState.IsTeletext = (VideoULA_ControlReg & 2) != 0;
+  VideoState.IsTeletext = (VideoULA_ControlReg & VIDEOULA_TELETEXT_SELECT) != 0;
 
   if (VideoState.IsTeletext) {
     // O aye. this is the mode 7 flash section is it? Modified for corrected flash settings - Richard Gellman
@@ -710,11 +738,11 @@ static void VideoStartOfFrame()
   {
     const int InterlaceMultiplier = (CRTC_InterlaceAndDelay & 1) ? 2 : 1;
 
-    IncTrigger((InterlaceMultiplier * (CRTC_HorizontalTotal + 1) * ((VideoULA_ControlReg & 16) ? 1 : 2)), VideoTriggerCount);
+    IncTrigger((InterlaceMultiplier * (CRTC_HorizontalTotal + 1) * ((VideoULA_ControlReg & VIDEOULA_CRTC_CLOCK_RATE_SELECT) ? 1 : 2)), VideoTriggerCount);
   }
   else
   {
-    IncTrigger(((CRTC_HorizontalTotal + 1) * ((VideoULA_ControlReg & 16) ? 1 : 2)), VideoTriggerCount);
+    IncTrigger(((CRTC_HorizontalTotal + 1) * ((VideoULA_ControlReg & VIDEOULA_CRTC_CLOCK_RATE_SELECT) ? 1 : 2)), VideoTriggerCount);
   }
 }
 
@@ -1164,7 +1192,7 @@ void VideoDoScanLine(void) {
       VideoState.DoCA1Int = true;
     } else {
       // RTW- set timer till the next scanline update (this is now nice and simple)
-      IncTrigger((CRTC_HorizontalTotal+1)*((VideoULA_ControlReg & 16)?1:2),VideoTriggerCount);
+      IncTrigger((CRTC_HorizontalTotal + 1) * ((VideoULA_ControlReg & VIDEOULA_CRTC_CLOCK_RATE_SELECT) ? 1 : 2), VideoTriggerCount);
     }
   } else {
     /* Non teletext. */
@@ -1270,7 +1298,7 @@ void VideoDoScanLine(void) {
 	{
       // Increment VideoTriggerCount by the number of 2MHz cycles until another
       // scanline needs doing.
-      IncTrigger((CRTC_HorizontalTotal + 1) * ((VideoULA_ControlReg & 16) ? 1 : 2), VideoTriggerCount);
+      IncTrigger((CRTC_HorizontalTotal + 1) * ((VideoULA_ControlReg & VIDEOULA_CRTC_CLOCK_RATE_SELECT) ? 1 : 2), VideoTriggerCount);
     }
   } /* Teletext if */
 }
@@ -1478,16 +1506,19 @@ void VideoULAWrite(int Address, unsigned char Value) {
     //fprintf(crtclog,"Pallette written to at line %d\n",VideoState.PixmapLine);
   } else {
     unsigned char oldValue = VideoULA_ControlReg;
-    VideoULA_ControlReg=Value;
+    VideoULA_ControlReg = Value;
     FastTable_Valid = false; /* Could be more selective and only do it if no.of.cols bit changes */
     // DebugTrace("Palette reg %d now has value %02X\n", (Value & 0xf0) >> 4, (Value & 0xf) ^ 7);
     /* cerr << "VidULA Ctrl reg write " << hex << Value << "\n"; */
     // Adjust HSyncModifier
-    if (VideoULA_ControlReg & 16) HSyncModifier=8; else HSyncModifier=16;
-    if (VideoULA_ControlReg & 2) HSyncModifier=12;
+    if (VideoULA_ControlReg & VIDEOULA_CRTC_CLOCK_RATE_SELECT) HSyncModifier = 8; else HSyncModifier = 16;
+    if (VideoULA_ControlReg & VIDEOULA_TELETEXT_SELECT) HSyncModifier = 12;
     // number of pixels per CRTC character (on our screen)
-    TeletextEnabled = (Value & 2) != 0;
-    if ((Value&2)^(oldValue&2)) { ScreenAdjust=0; }
+    TeletextEnabled = (Value & VIDEOULA_TELETEXT_SELECT) != 0;
+    if ((Value & VIDEOULA_TELETEXT_SELECT) ^ (oldValue & VIDEOULA_TELETEXT_SELECT))
+    {
+      ScreenAdjust = 0;
+    }
     AdjustVideo();
   }
 }
@@ -1510,7 +1541,7 @@ static void VideoAddCursor()
 	int CurStart, CurEnd;
 
 	/* Check if cursor has been hidden */
-	if ((VideoULA_ControlReg & 0xe0) == 0 ||
+	if ((VideoULA_ControlReg & (VIDEOULA_MASTER_CURSOR_SIZE | VIDEOULA_CURSOR_WIDTH)) == 0 ||
 	    (CRTC_CursorStart & 0x60) == 0x20 ||
 	    (CRTC_InterlaceAndDelay & 0xc0) == 0xc0 ||
 	    !CursorOnState)
@@ -1519,10 +1550,14 @@ static void VideoAddCursor()
 	}
 
 	/* Use clock bit and cursor bits to work out size */
-	if (VideoULA_ControlReg & 0x80)
-		CurSize = CurSizes[(VideoULA_ControlReg & 0x70) >> 4] * 8;
+	if (VideoULA_ControlReg & VIDEOULA_MASTER_CURSOR_SIZE)
+	{
+		CurSize = CurSizes[(VideoULA_ControlReg & (VIDEOULA_CRTC_CLOCK_RATE_SELECT | VIDEOULA_CURSOR_WIDTH)) >> 4] * 8;
+	}
 	else
+	{
 		CurSize = 2 * 8; /* Mode 7 */
+	}
 
 	if (VideoState.IsTeletext)
 	{
@@ -1707,9 +1742,9 @@ void LoadVideoUEF(FILE *SUEF, int Version)
 
 	VideoInit();
 
-	TeletextEnabled = (VideoULA_ControlReg & 2) != 0;
-	if (VideoULA_ControlReg & 16) HSyncModifier=8; else HSyncModifier=16;
-	if (VideoULA_ControlReg & 2) HSyncModifier=12;
+	TeletextEnabled = (VideoULA_ControlReg & VIDEOULA_TELETEXT_SELECT) != 0;
+	if (VideoULA_ControlReg & VIDEOULA_CRTC_CLOCK_RATE_SELECT) HSyncModifier = 8; else HSyncModifier = 16;
+	if (VideoULA_ControlReg & VIDEOULA_TELETEXT_SELECT) HSyncModifier = 12;
 
 	if (Version >= 13)
 	{
