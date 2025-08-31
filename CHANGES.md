@@ -46,7 +46,7 @@ Andrew Hague
   - Improved tape input data carrier detect emulation.
   - Tape state is now preserved when loading and saving savestate files,
     for both UEF and CSW files. Saving state is disabled while the tape
-	is recording.
+    is recording.
   - Fixed loading CSW files from the command line.
   - Fixed recording (appending) to existing tape image files.
 * Improved serial port emulation, and fixed data loss when using
@@ -76,7 +76,7 @@ Andrew Hague
     to connect to.
   - The emulated teletext adapter now continues to update its state at the
     correct frame rate so that teletext sockets are serviced correctly when
-	a source is disabled.
+    a source is disabled.
 * The "Freeze when inactive" option is now automatically switched off
   when opening the Debugger window, to ensure the emulation keeps running
   while the Debugger window is active.

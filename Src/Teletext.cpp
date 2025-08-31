@@ -382,25 +382,25 @@ void TeletextAdapterUpdate()
         case TTXFIELD: // transition to FSYNC state
             // (SAA5030 FS goes high around 40us after the true field sync point)
             TeletextState = TTXFSYNC;
-            
+
             if (IsTeletextChannelOpen(TeletextChannel))
             {
                 TeletextStatus |= 0x10; // latch FSYNC
             }
-            
+
             // DEW goes high approximately 290us after FSYNC on an even field, or 320us after FSYNC on an odd field
             IncTrigger((TeletextCurrentField&1)?640:580, TeletextAdapterTrigger); // wait appropriately depending on field
             break;
 
         case TTXFSYNC: // transition to DEW state
             TeletextState = TTXDEW;
-            
+
             if (IsTeletextChannelOpen(TeletextChannel))
             {
                 TeletextStatus &= 0xBF;
                 TeletextStatus |= ((TeletextStatus & 0x80) >> 1); // latch INT into DOR
             }
-            
+
             // the DEW signal remains high for 17 video lines (17 * 128 cycles)
             IncTrigger(2176, TeletextAdapterTrigger); // wait for approximately 17 video lines
 
@@ -598,7 +598,7 @@ void TeletextAdapterUpdate()
 
         case TTXDEW: // transition to field state
             TeletextState = TTXFIELD;
-            
+
             if (IsTeletextChannelOpen(TeletextChannel))
             {
                 TeletextStatus |= 0x80; // latch INT
@@ -606,7 +606,7 @@ void TeletextAdapterUpdate()
                 if (TeletextInts)
                     intStatus |= 1 << teletext; // raise the interrupt
             }
-            
+
             // FSYNC raises every 20000us. Field duration is 40000 cycles minus 17 lines of DEW and the delay between start of FSYNC and DEW
             // even: 40000 - ((128 * 17) - 640) = 37244
             // odd:  40000 - ((128 * 17) - 580) = 37184
