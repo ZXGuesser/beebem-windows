@@ -129,3 +129,19 @@ int StrCaseCmp(const char *str1, const char *str2)
 }
 
 /****************************************************************************/
+
+// Returns a pointer to the end of the string.
+
+char *StrCopy(char *pDest, const char *pSrc)
+{
+	while (*pSrc != '\0')
+	{
+		*pDest++ = *pSrc++;
+	}
+
+	*pDest = '\0';
+
+	return pDest;
+}
+
+/****************************************************************************/

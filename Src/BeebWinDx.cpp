@@ -31,10 +31,12 @@ Boston, MA  02110-1301, USA.
 #include "6502core.h"
 #include "AviWriter.h"
 #include "DebugTrace.h"
+#include "Econet.h"
 #include "Ext1770.h"
 #include "Main.h"
 #include "Messages.h"
 #include "Resource.h"
+#include "StringUtils.h"
 
 #define DEBUG_DX9
 
@@ -1082,7 +1084,7 @@ void BeebWin::DisplayClientAreaText(HDC hDC)
 		}
 		else
 		{
-			sprintf(fps, "Paused");
+			strcpy(fps, "Paused");
 		}
 
 		SetBkMode(hDC, TRANSPARENT);
@@ -1107,7 +1109,7 @@ void BeebWin::DisplayFDCBoardInfo(HDC hDC, int x, int y)
 
 /****************************************************************************/
 
-static const char* pszReleaseCaptureMessage = "(Press Ctrl+Alt to release mouse)";
+static const char* pszReleaseCaptureMessage = "  (Press Ctrl+Alt to release mouse)";
 
 bool BeebWin::ShouldDisplayTiming() const
 {
@@ -1118,15 +1120,23 @@ void BeebWin::DisplayTiming()
 {
 	if (ShouldDisplayTiming())
 	{
-		if (m_MouseCaptured)
+		char* psz = m_szTitle;
+
+		psz = StrCopy(psz, WindowTitle);
+
+		if (IsPaused())
 		{
-			sprintf(m_szTitle, "%s  Speed: %2.2f  fps: %2d  %s",
-			        WindowTitle, m_RelativeSpeed, (int)m_FramesPerSecond, pszReleaseCaptureMessage);
+			psz = StrCopy(psz, "  Paused");
 		}
 		else
 		{
-			sprintf(m_szTitle, "%s  Speed: %2.2f  fps: %2d",
-			        WindowTitle, m_RelativeSpeed, (int)m_FramesPerSecond);
+			psz += sprintf(psz, "  Speed: %2.2f  fps: %2d",
+			               m_RelativeSpeed, (int)m_FramesPerSecond);
+		}
+
+		if (m_MouseCaptured)
+		{
+			psz = StrCopy(psz, pszReleaseCaptureMessage);
 		}
 
 		SetWindowText(m_hWnd, m_szTitle);
@@ -1141,14 +1151,18 @@ void BeebWin::UpdateWindowTitle()
 	}
 	else
 	{
+		char* psz = m_szTitle;
+
+		psz = StrCopy(psz, WindowTitle);
+
+		if (IsPaused())
+		{
+			psz = StrCopy(psz, "  Paused");
+		}
+
 		if (m_MouseCaptured)
 		{
-			sprintf(m_szTitle, "%s  %s",
-			        WindowTitle, pszReleaseCaptureMessage);
-		}
-		else
-		{
-			strcpy(m_szTitle, WindowTitle);
+			psz = StrCopy(psz, pszReleaseCaptureMessage);
 		}
 
 		SetWindowText(m_hWnd, m_szTitle);
