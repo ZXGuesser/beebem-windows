@@ -75,6 +75,9 @@ struct BitmapInfo
 	RGBQUAD Colors[68]; // 8 colours * 8 blur intensities + 4 colours for LEDs
 };
 
+constexpr int BEEBEM_BITMAP_WIDTH  = 800;
+constexpr int BEEBEM_BITMAP_HEIGHT = 512;
+
 struct LEDType
 {
 	bool ShiftLock;
@@ -266,41 +269,46 @@ public:
 		UpdateLines(m_hDC, StartY, NLines);
 	}
 
-	void doHorizLine(int Colour, int y, int sx, int width) {
-		if (TeletextEnabled) y/=TeletextStyle;
-		int d = (y*800)+sx+ScreenAdjust+(TeletextEnabled?36:0);
-		if ((d+width)>(500*800)) return;
-		if (d<0) return;
-		memset(m_screen+d, Colour, width);
+	void doHorizLine(int Colour, int y, int sx, int width)
+	{
+		if (TeletextEnabled) y /= TeletextStyle;
+		int d = (y * BEEBEM_BITMAP_WIDTH) + sx + ScreenAdjust + (TeletextEnabled ? 36 : 0);
+		if ((d + width) > (500 * BEEBEM_BITMAP_WIDTH)) return;
+		if (d < 0) return;
+		memset(m_screen + d, Colour, width);
 	}
 
-	void doInvHorizLine(int Colour, int y, int sx, int width) {
-		if (TeletextEnabled) y/=TeletextStyle;
-		int d = (y*800)+sx+ScreenAdjust+(TeletextEnabled?36:0);
+	void doInvHorizLine(int Colour, int y, int sx, int width)
+	{
+		if (TeletextEnabled) y /= TeletextStyle;
+		int d = (y * BEEBEM_BITMAP_WIDTH) + sx + ScreenAdjust + (TeletextEnabled ? 36 : 0);
 		char *vaddr;
-		if ((d+width)>(500*800)) return;
-		if (d<0) return;
-		vaddr=m_screen+d;
-		for (int n = 0; n < width; n++) *(vaddr+n) ^= Colour;
+		if ((d + width) > (500 * BEEBEM_BITMAP_WIDTH)) return;
+		if (d < 0) return;
+		vaddr = m_screen + d;
+		for (int n = 0; n < width; n++) *(vaddr + n) ^= Colour;
 	}
 
-	void doUHorizLine(int Colour, int y, int sx, int width) {
+	void doUHorizLine(int Colour, int y, int sx, int width)
+	{
 		if (TeletextEnabled) y /= TeletextStyle;
 		if (y > 500) return;
-		memset(m_screen + (y * 800) + sx, Colour, width);
+		memset(m_screen + (y * BEEBEM_BITMAP_WIDTH) + sx, Colour, width);
 	}
 
-	EightUChars *GetLinePtr(int y) {
-		int d = (y * 800) + ScreenAdjust;
-		if (d > MAX_VIDEO_SCAN_LINES * 800)
-			return (EightUChars *)(m_screen + MAX_VIDEO_SCAN_LINES * 800);
+	EightUChars *GetLinePtr(int y)
+	{
+		int d = (y * BEEBEM_BITMAP_WIDTH) + ScreenAdjust;
+		if (d > MAX_VIDEO_SCAN_LINES * BEEBEM_BITMAP_WIDTH)
+			return (EightUChars *)(m_screen + MAX_VIDEO_SCAN_LINES * BEEBEM_BITMAP_WIDTH);
 		return (EightUChars *)(m_screen + d);
 	}
 
-	SixteenUChars *GetLinePtr16(int y) {
-		int d = (y * 800) + ScreenAdjust;
-		if (d > MAX_VIDEO_SCAN_LINES * 800)
-			return (SixteenUChars *)(m_screen + MAX_VIDEO_SCAN_LINES * 800);
+	SixteenUChars *GetLinePtr16(int y)
+	{
+		int d = (y * BEEBEM_BITMAP_WIDTH) + ScreenAdjust;
+		if (d > MAX_VIDEO_SCAN_LINES * BEEBEM_BITMAP_WIDTH)
+			return (SixteenUChars *)(m_screen + MAX_VIDEO_SCAN_LINES * BEEBEM_BITMAP_WIDTH);
 		return (SixteenUChars *)(m_screen + d);
 	}
 

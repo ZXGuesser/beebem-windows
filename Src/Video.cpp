@@ -1139,13 +1139,21 @@ void VideoDoScanLine(void) {
       VideoState.DoCA1Int = false;
     }
 
-    /* Clear the next 20 scan lines */
-    if (!FrameNum) {
-      if (VScreenAdjust>0 && VideoState.PixmapLine==0)
-        for (l=-VScreenAdjust; l<0; ++l)
-          mainWin->doHorizLine(0, l, -36, 800);
-      for (l=0; l<20 && VideoState.PixmapLine+l<512; ++l)
-        mainWin->doHorizLine(0, VideoState.PixmapLine+l, -36, 800);
+    // Clear the next 20 scan lines
+    if (FrameNum == 0)
+    {
+      if (VScreenAdjust > 0 && VideoState.PixmapLine == 0)
+      {
+        for (l = -VScreenAdjust; l < 0; ++l)
+        {
+          mainWin->doHorizLine(0, l, -36, BEEBEM_BITMAP_WIDTH);
+        }
+      }
+
+      for (l = 0; l < 20 && VideoState.PixmapLine + l < BEEBEM_BITMAP_HEIGHT; ++l)
+      {
+        mainWin->doHorizLine(0, VideoState.PixmapLine + l, -36, BEEBEM_BITMAP_WIDTH);
+      }
     }
 
     // RTW - Mode 7 emulation is rather broken, as we should be plotting it line-by-line instead
@@ -1178,9 +1186,11 @@ void VideoDoScanLine(void) {
       if (!FrameNum) {
         VideoAddCursor();
         VideoAddLEDs();
-        // Clear rest of screen below virtical total
-        for (l=VideoState.PixmapLine; l<500/TeletextStyle; ++l)
-          mainWin->doHorizLine(0, l, -36, 800);
+        // Clear rest of screen below vertical total
+        for (l = VideoState.PixmapLine; l < 500 / TeletextStyle; ++l)
+        {
+          mainWin->doHorizLine(0, l, -36, BEEBEM_BITMAP_WIDTH);
+        }
 
         mainWin->UpdateLines(0, 500 / TeletextStyle);
       }
@@ -1224,9 +1234,11 @@ void VideoDoScanLine(void) {
       VideoState.VSyncState=(CRTC_SyncWidth>>4);
     }
 
-    /* Clear the scan line */
-    if (!FrameNum)
-      memset(mainWin->GetLinePtr(VideoState.PixmapLine),0,800);
+    // Clear the scan line
+    if (FrameNum == 0)
+    {
+      memset(mainWin->GetLinePtr(VideoState.PixmapLine), 0, BEEBEM_BITMAP_WIDTH);
+    }
 
     // RTW - changed so we are even able to plot vertical total adjust region if CRTC_VerticalDisplayed is high enough
     if (VideoState.CharLine<CRTC_VerticalDisplayed) {
@@ -1307,8 +1319,8 @@ void VideoDoScanLine(void) {
 void AdjustVideo() {
   ActualScreenWidth = CRTC_HorizontalDisplayed * HSyncModifier;
 
-  if (ActualScreenWidth > 800) {
-    ActualScreenWidth = 800;
+  if (ActualScreenWidth > BEEBEM_BITMAP_WIDTH) {
+    ActualScreenWidth = BEEBEM_BITMAP_WIDTH;
   }
   else if (ActualScreenWidth < 640) {
     ActualScreenWidth = 640;
@@ -1320,7 +1332,7 @@ void AdjustVideo() {
                ((HSyncModifier == 8) ? 2 : 1);
   if (TeletextEnabled) HStart += 2;
   if (HStart < 0) HStart = 0;
-  ScreenAdjust = HStart * HSyncModifier + (VScreenAdjust > 0 ? VScreenAdjust * 800 : 0);
+  ScreenAdjust = HStart * HSyncModifier + (VScreenAdjust > 0 ? VScreenAdjust * BEEBEM_BITMAP_WIDTH : 0);
 }
 
 /*-------------------------------------------------------------------------------------------------------------*/

@@ -324,8 +324,8 @@ HRESULT BeebWin::InitSurfaces()
 		ddsd.ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;
 	}
 
-	ddsd.dwWidth = 800;
-	ddsd.dwHeight = 512;
+	ddsd.dwWidth  = BEEBEM_BITMAP_WIDTH;
+	ddsd.dwHeight = BEEBEM_BITMAP_HEIGHT;
 
 	hResult = m_DD2->CreateSurface(&ddsd, &m_DDSOne, nullptr);
 
@@ -552,11 +552,11 @@ HRESULT BeebWin::InitDX9()
 	m_pVB->Unlock();
 
 	// Set up matrices
-	//D3DXMatrixOrthoOffCenterLH(&Ortho2D, 0.0f, 800.0f, -512.0f, 0.0f, 0.0f, 1.0f);
+	//D3DXMatrixOrthoOffCenterLH(&Ortho2D, 0.0f, (float)BEEBEM_BITMAP_WIDTH, -(float)BEEBEM_BITMAP_HEIGHT, 0.0f, 0.0f, 1.0f);
 	D3DXMatrixIdentity(&Ortho2D);
 	// float l = 0.0f;
-	float r = 800.0f;
-	float b = -512.0f;
+	float r = (float)BEEBEM_BITMAP_WIDTH;
+	float b = -(float)BEEBEM_BITMAP_HEIGHT;
 	float t = 0.0f;
 	float zn = 0.0f;
 	float zf = 1.0f;
@@ -576,8 +576,8 @@ HRESULT BeebWin::InitDX9()
 	// Identity matrix will fill window with our texture
 	D3DXMatrixIdentity(&m_TextureMatrix);
 
-	hResult = m_pd3dDevice->CreateTexture(800,
-	                                      512,
+	hResult = m_pd3dDevice->CreateTexture(BEEBEM_BITMAP_WIDTH,
+	                                      BEEBEM_BITMAP_HEIGHT,
 	                                      1, // Levels
 	                                      0, // Usage
 	                                      D3DFMT_X8R8G8B8,
@@ -824,7 +824,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 			PaletteOffset = 8;
 		}
 
-		for (int i = 0; i < 800 * 512; ++i)
+		for (int i = 0; i < BEEBEM_BITMAP_WIDTH * BEEBEM_BITMAP_HEIGHT; ++i)
 		{
 			if (m_screen[i] != 0)
 			{
@@ -841,7 +841,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 			}
 		}
 
-		memcpy(m_screen, m_screen_blur, 800 * 512);
+		memcpy(m_screen, m_screen_blur, BEEBEM_BITMAP_WIDTH * BEEBEM_BITMAP_HEIGHT);
 	}
 
 	if (m_DisplayRenderer == DisplayRendererType::GDI)
@@ -894,7 +894,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 
 				if (SUCCEEDED(hResult))
 				{
-					BitBlt(hdc, 0, 0, 800, NLines, m_hDCBitmap, 0, StartY, SRCCOPY);
+					BitBlt(hdc, 0, 0, BEEBEM_BITMAP_WIDTH, NLines, m_hDCBitmap, 0, StartY, SRCCOPY);
 					DisplayClientAreaText(hdc);
 					pSurface->ReleaseDC(hdc);
 
@@ -902,10 +902,11 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 					int width  = TeletextEnabled ? 552 : ActualScreenWidth;
 					int height = TeletextEnabled ? TeletextLines : NLines;
 					// D3DXMatrixScaling(&m_TextureMatrix,
-					//                   800.0f / (float)width, 512.0f / (float)height, 1.0f);
+					//                   (float)BEEBEM_BITMAP_WIDTH / (float)width,
+					//                   (float)BEEBEM_BITMAP_HEIGHT / (float)height, 1.0f);
 					D3DMatrixIdentity(&m_TextureMatrix);
-					m_TextureMatrix._11 = 800.0f / (float)width;
-					m_TextureMatrix._22 = 512.0f / (float)height;
+					m_TextureMatrix._11 = (float)BEEBEM_BITMAP_WIDTH  / (float)width;
+					m_TextureMatrix._22 = (float)BEEBEM_BITMAP_HEIGHT / (float)height;
 
 					if (m_FullScreen && m_MaintainAspectRatio)
 					{
@@ -913,12 +914,12 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 						if (m_XRatioAdj > 0.0f)
 						{
 							m_TextureMatrix._11 *= m_XRatioAdj;
-							m_TextureMatrix._41 = m_XRatioCrop * 800.0f;
+							m_TextureMatrix._41 = m_XRatioCrop * (float)BEEBEM_BITMAP_WIDTH;
 						}
 						else if (m_YRatioAdj > 0.0f)
 						{
 							m_TextureMatrix._22 *= m_YRatioAdj;
-							m_TextureMatrix._42 = m_YRatioCrop * -512.0f;
+							m_TextureMatrix._42 = m_YRatioCrop * -(float)BEEBEM_BITMAP_HEIGHT;
 						}
 					}
 				}
@@ -955,7 +956,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 
 			if (SUCCEEDED(hResult))
 			{
-				BitBlt(hdc, 0, 0, 800, NLines, m_hDCBitmap, 0, StartY, SRCCOPY);
+				BitBlt(hdc, 0, 0, BEEBEM_BITMAP_WIDTH, NLines, m_hDCBitmap, 0, StartY, SRCCOPY);
 				DisplayClientAreaText(hdc);
 				m_DDS2One->ReleaseDC(hdc);
 
@@ -1202,8 +1203,8 @@ void BeebWin::UpdateSmoothing()
 			ddsd.ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;
 		}
 
-		ddsd.dwWidth = 800;
-		ddsd.dwHeight = 512;
+		ddsd.dwWidth  = BEEBEM_BITMAP_WIDTH;
+		ddsd.dwHeight = BEEBEM_BITMAP_HEIGHT;
 
 		HRESULT hResult = m_DD2->CreateSurface(&ddsd, &m_DDSOne, NULL);
 

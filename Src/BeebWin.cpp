@@ -1097,12 +1097,12 @@ void BeebWin::CreateBitmap()
 	m_hDCBitmap = CreateCompatibleDC(nullptr);
 
 	m_BitmapInfo.Header.biSize          = sizeof(BITMAPINFOHEADER);
-	m_BitmapInfo.Header.biWidth         = 800;
-	m_BitmapInfo.Header.biHeight        = -512; // A top-down bitmap with the origin at the upper left corner.
+	m_BitmapInfo.Header.biWidth         = BEEBEM_BITMAP_WIDTH;
+	m_BitmapInfo.Header.biHeight        = -BEEBEM_BITMAP_HEIGHT; // A top-down bitmap with the origin at the upper left corner.
 	m_BitmapInfo.Header.biPlanes        = 1; // Must be 1.
 	m_BitmapInfo.Header.biBitCount      = 8; // 8 bits per pixel.
 	m_BitmapInfo.Header.biCompression   = BI_RGB; // Uncompressed RGB.
-	m_BitmapInfo.Header.biSizeImage     = 800 * 512; // Image size, in bytes.
+	m_BitmapInfo.Header.biSizeImage     = BEEBEM_BITMAP_WIDTH * BEEBEM_BITMAP_HEIGHT; // Image size, in bytes.
 	m_BitmapInfo.Header.biXPelsPerMeter = 0;
 	m_BitmapInfo.Header.biYPelsPerMeter = 0;
 	m_BitmapInfo.Header.biClrUsed       = 68; // Number of used colours in the colour table
