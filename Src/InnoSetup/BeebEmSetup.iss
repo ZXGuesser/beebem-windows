@@ -104,12 +104,6 @@ Name: desktopicon;      Description: {cm:CreateDesktopIcon};     GroupDescriptio
 Name: quicklaunchicon;  Description: {cm:CreateQuickLaunchIcon}; GroupDescription: {cm:AdditionalIcons}; Flags: unchecked
 Name: fileassociations; Description: "Create file associations"; GroupDescription: "File Associations";  Flags: unchecked
 
-[InstallDelete]
-Name: {app}\msvcp80.dll; Type: files
-Name: {app}\msvcr80.dll; Type: files
-Name: {app}\Documents;   Type: filesandordirs
-Name: {app}\Hardware;    Type: filesandordirs
-
 [Dirs]
 Name: {userdocs}\BeebEm
 Name: {userdocs}\BeebEm\BeebState; Flags: uninsneveruninstall
