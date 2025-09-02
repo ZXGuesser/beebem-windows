@@ -1142,69 +1142,38 @@ bool BeebWin::ShouldDisplayTiming() const
 	return m_ShowSpeedAndFPS && (m_DisplayRenderer == DisplayRendererType::GDI || !m_FullScreen);
 }
 
-void BeebWin::DisplayTiming()
+void BeebWin::UpdateWindowTitle()
 {
+	char* psz = m_szTitle;
+
+	psz = StrCopy(psz, WindowTitle);
+
+	if (IsPaused())
+	{
+		psz = StrCopy(psz, "  Paused");
+	}
+
 	if (ShouldDisplayTiming())
 	{
-		char* psz = m_szTitle;
-
-		psz = StrCopy(psz, WindowTitle);
-
-		if (IsPaused())
-		{
-			psz = StrCopy(psz, "  Paused");
-		}
-		else
+		if (!IsPaused())
 		{
 			psz += sprintf(psz, "  Speed: %2.2f  fps: %2d",
 			               m_RelativeSpeed, (int)m_FramesPerSecond);
 		}
-
-		if (EconetEnabled && m_ShowEconetStation)
-		{
-			psz += sprintf(psz, "  Econet: %d.%d",
-			               (int)EconetNetworkID, (int)EconetStationID);
-		}
-
-		if (m_MouseCaptured)
-		{
-			psz = StrCopy(psz, pszReleaseCaptureMessage);
-		}
-
-		SetWindowText(m_hWnd, m_szTitle);
 	}
-}
 
-void BeebWin::UpdateWindowTitle()
-{
-	if (ShouldDisplayTiming())
+	if (EconetEnabled && m_ShowEconetStation)
 	{
-		DisplayTiming();
+		psz += sprintf(psz, "  Econet: %d.%d",
+		               (int)EconetNetworkID, (int)EconetStationID);
 	}
-	else
+
+	if (m_MouseCaptured)
 	{
-		char* psz = m_szTitle;
-
-		psz = StrCopy(psz, WindowTitle);
-
-		if (IsPaused())
-		{
-			psz = StrCopy(psz, "  Paused");
-		}
-
-		if (EconetEnabled && m_ShowEconetStation)
-		{
-			psz += sprintf(psz, "  Econet: %d.%d",
-			               (int)EconetNetworkID, (int)EconetStationID);
-		}
-
-		if (m_MouseCaptured)
-		{
-			psz = StrCopy(psz, pszReleaseCaptureMessage);
-		}
-
-		SetWindowText(m_hWnd, m_szTitle);
+		psz = StrCopy(psz, pszReleaseCaptureMessage);
 	}
+
+	SetWindowText(m_hWnd, m_szTitle);
 }
 
 /****************************************************************************/

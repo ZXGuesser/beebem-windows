@@ -2846,7 +2846,9 @@ bool BeebWin::UpdateTiming()
 		                  (TickCount - m_LastStatsTickCount);
 		m_LastStatsTotalCycles = TotalCycles;
 		m_LastStatsTickCount += 1000;
-		DisplayTiming();
+
+		// Update timing info in title bar.
+		UpdateWindowTitle();
 	}
 
 	// Now we work out if BeebEm is running too fast or not

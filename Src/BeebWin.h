@@ -335,7 +335,6 @@ public:
 	bool UpdateTiming();
 	void AdjustSpeed(bool up);
 	bool ShouldDisplayTiming() const;
-	void DisplayTiming();
 	void UpdateWindowTitle();
 	bool IsWindowMinimized() const;
 	void DisplayClientAreaText(HDC hDC);
