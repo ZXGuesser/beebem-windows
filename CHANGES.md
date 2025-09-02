@@ -382,7 +382,7 @@ Contributors: Mike Wyatt
   state file.
 * Fixed joystick capture error when enabled for a second time.
 
-Version 4.11
+Version 4.11 (27 Aug 2009)
 ------------
 
 Contributors: Rob O'Donnell, Rich Talbot-Watkins, Mike Wyatt
@@ -404,7 +404,7 @@ Contributors: Rob O'Donnell, Rich Talbot-Watkins, Mike Wyatt
   issues when using MOS3.5 (e.g. `*CONFIGURE`).
 * Fixed issue with file lengths in disc import option.
 
-Version 4.10
+Version 4.10 (29 Jul 2009)
 ------------
 
 Contributors: Mike Wyatt
@@ -433,7 +433,7 @@ Contributors: Mike Wyatt
 * Added write support for the Master real time clock.
 * Fixed teletext mode smoothing at startup in Vista.
 
-Version 4.01
+Version 4.01 (20 Apr 2009)
 ------------
 
 Contributors: Steve Pick, Mike Wyatt
@@ -467,7 +467,7 @@ Contributors: Steve Pick, Mike Wyatt
   come to foreground with main window.
 * Added option to enable DirectX smoothing when only in teletext mode.
 
-Version 4.0
+Version 4.0 (4 Apr 2009)
 -----------
 
 Contributors: Mike Wyatt, Rob O'Donnell, Steve Pick
@@ -553,7 +553,7 @@ Contributors: Rich Talbot-Watkins, Mike Wyatt
 * Added `-KbdCmd` command line option to specify a key press sequence to run
   at start up (can be used to run a tape image).
 
-Version 3.81
+Version 3.81 (17 Jan 2008)
 ------------
 
 Contributors: Mike Wyatt, Jon Welch
@@ -567,7 +567,7 @@ Contributors: Mike Wyatt, Jon Welch
   Jonathan Bluestone).
 * Bug fix - Cursor position wrong when in column 1 in editing mode.
 
-Version 3.8
+Version 3.8 (15 Sep 2007)
 -----------
 
 Contributors: Mike Wyatt, Jon Welch
@@ -588,14 +588,14 @@ Contributors: Mike Wyatt, Jon Welch
 * Increased default Econet flag fill timeout to 250000. Improves Econet
   comms a bit (still not 100% though).
 
-Version 3.7
+Version 3.7 (15 May 2007)
 -----------
 
 Contributors: Jon Welch
 
 * Added ARM Second Processor support.
 
-Version 3.6
+Version 3.6 (10 Mar 2007)
 -----------
 
 Contributors: Mike Wyatt, Jon Welch
@@ -632,7 +632,7 @@ Contributors: Mike Wyatt, Jon Welch
 * Added support for Level 3 Econet User Port RTC Module.
 * Added support for mixed mode ADFS/NETFS format discs.
 
-Version 3.5
+Version 3.5 (12 Oct 2006)
 -----------
 
 Contributors: Mike Wyatt, Theo Lindebaum, Jon Welch
@@ -648,7 +648,7 @@ Contributors: Mike Wyatt, Theo Lindebaum, Jon Welch
   work.
 * Added menu options to disable selected keys within BeebEm.
 
-Version 3.4
+Version 3.4 (13 Sep 2006)
 -----------
 
 Contributors: Jon Welch
@@ -666,7 +666,7 @@ Contributors: Jon Welch
   state in Twin Kingdom Valley).
 * Minor VIA timing tweak to make Snapper work again.
 
-Version 3.3
+Version 3.3 (19 Aug 2006)
 -----------
 
 Contributors: Mike Wyatt
@@ -688,7 +688,7 @@ Contributors: Mike Wyatt
   Seems to be a definite improvement on the linear scale. There is a menu
   option to switch between the two.
 
-Version 3.2 (15 May 2006)
+Version 3.2 (2 Apr 2006)
 -----------
 
 Contributors: Jon Welch
@@ -699,7 +699,7 @@ Contributors: Jon Welch
 * Added some enhancements to the debugger from Thomas Horsten. Display of
   stack register and op codes for undocumented instructions.
 
-Version 3.11
+Version 3.11 (20 Feb 2006)
 ------------
 
 Contributors: Mike Wyatt
@@ -772,7 +772,7 @@ Contributors: Mike Wyatt
   screen.
 * Bumped version to 3.0 to keep in sync with the Mac version of BeebEm.
 
-Version 2.3
+Version 2.3 (3 Sep 2005)
 -----------
 
 Contributors: Mike Wyatt, Greg Cook, Jon Welch
