@@ -172,7 +172,8 @@ BEGIN
         MENUITEM "DirectX Smoothing",           IDM_DXSMOOTHING
         MENUITEM "Smooth Teletext Mode Only",   IDM_DXSMOOTHMODE7ONLY
         MENUITEM SEPARATOR
-        MENUITEM "&Speed and FPS On/Off",       IDM_SPEEDANDFPS
+        MENUITEM "Show &Speed and FPS",             IDM_SHOW_SPEED_AND_FPS
+        MENUITEM "Show &Econet Network/Station",    IDM_SHOW_ECONET_STATION
         MENUITEM SEPARATOR
         MENUITEM "&Full Screen",                IDM_FULLSCREEN
         MENUITEM "Maintain Aspect Ratio in Full Screen", IDM_MAINTAINASPECTRATIO

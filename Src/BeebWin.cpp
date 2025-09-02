@@ -134,9 +134,13 @@ BeebWin::BeebWin()
 {
 	// Main window
 	m_hWnd = nullptr;
-	strcpy(m_szTitle, WindowTitle);
 	m_FullScreen = false;
 	m_StartFullScreen = false;
+
+	// Window title
+	strcpy(m_szTitle, WindowTitle);
+	m_ShowSpeedAndFPS = true;
+	m_ShowEconetStation = false;
 
 	// Menu
 	m_hMenu = nullptr;
@@ -145,7 +149,6 @@ BeebWin::BeebWin()
 	m_DisableMenu = false;
 
 	// Timing
-	m_ShowSpeedAndFPS = false;
 	m_TimingType = TimingType::FixedSpeed;
 	m_TimingSpeed = 100;
 	m_RealTimeTarget = 0.0;
@@ -1410,7 +1413,8 @@ void BeebWin::InitMenu(void)
 	UpdateDisplayRendererMenu();
 	UpdateDisplayRendererOptionsMenu();
 
-	CheckMenuItem(IDM_SPEEDANDFPS, m_ShowSpeedAndFPS);
+	CheckMenuItem(IDM_SHOW_SPEED_AND_FPS, m_ShowSpeedAndFPS);
+	CheckMenuItem(IDM_SHOW_ECONET_STATION, m_ShowEconetStation);
 	CheckMenuItem(IDM_FULLSCREEN, m_FullScreen);
 	CheckMenuItem(IDM_MAINTAINASPECTRATIO, m_MaintainAspectRatio);
 	UpdateMonitorMenu();
@@ -4105,17 +4109,16 @@ void BeebWin::HandleCommand(UINT MenuID)
 		}
 		break;
 
-	case IDM_SPEEDANDFPS:
-		if (m_ShowSpeedAndFPS)
-		{
-			m_ShowSpeedAndFPS = false;
-		}
-		else
-		{
-			m_ShowSpeedAndFPS = true;
-		}
+	case IDM_SHOW_SPEED_AND_FPS:
+		m_ShowSpeedAndFPS = !m_ShowSpeedAndFPS;
+		CheckMenuItem(IDM_SHOW_SPEED_AND_FPS, m_ShowSpeedAndFPS);
 
-		CheckMenuItem(IDM_SPEEDANDFPS, m_ShowSpeedAndFPS);
+		UpdateWindowTitle();
+		break;
+
+	case IDM_SHOW_ECONET_STATION:
+		m_ShowEconetStation = !m_ShowEconetStation;
+		CheckMenuItem(IDM_SHOW_ECONET_STATION, m_ShowEconetStation);
 
 		UpdateWindowTitle();
 		break;

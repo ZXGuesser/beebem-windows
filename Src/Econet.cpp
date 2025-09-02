@@ -177,7 +177,9 @@ static unsigned int TimeBetweenBytes = DEFAULT_TIME_BETWEEN_BYTES;
 // This allows multiple different instances of the emulator to be run and
 // to communicate with each other. Note that you STILL need to have them
 // all listed in Econet.cfg so each one knows where the others are.
-unsigned char EconetStationID = 0; // default Station ID
+unsigned char EconetStationID = 0; // Default Station ID
+unsigned char EconetNetworkID = 0; // Default Network ID
+
 static u_short EconetListenPort = 0; // default Listen port
 static unsigned long EconetListenIP = inet_addr("127.0.0.1");
 // IP settings:
@@ -649,6 +651,7 @@ bool EconetReset()
 								if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 								{
 									myaunnet = j;
+									EconetNetworkID = networks[j].network;
 
 									EconetListenIP = IN_ADDR(localaddr);
 									EconetListenPort = DEFAULT_AUN_PORT;
@@ -954,6 +957,7 @@ static bool ReadAUNConfigFile()
 					if (networks[networksp].inet_addr == (EconetListenIP & 0x00FFFFFF))
 					{
 						myaunnet = networksp;
+						EconetNetworkID = networks[networksp].network;
 
 						if (DebugEnabled)
 						{

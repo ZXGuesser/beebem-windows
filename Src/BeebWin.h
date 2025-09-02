@@ -628,9 +628,13 @@ public:
 
 	// Main window
 	HWND m_hWnd;
-	char m_szTitle[256];
 	bool m_FullScreen;
 	bool m_StartFullScreen;
+
+	// Window title
+	char m_szTitle[256];
+	bool m_ShowEconetStation;
+	bool m_ShowSpeedAndFPS;
 
 	// Menu
 	HMENU m_hMenu;
@@ -639,7 +643,6 @@ public:
 	bool m_DisableMenu;
 
 	// Timing
-	bool m_ShowSpeedAndFPS;
 	TimingType m_TimingType;
 	int m_TimingSpeed;
 	double m_RealTimeTarget;

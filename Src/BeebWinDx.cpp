@@ -1068,28 +1068,54 @@ bool BeebWin::IsWindowMinimized() const
 
 void BeebWin::DisplayClientAreaText(HDC hDC)
 {
-	int TextStart=240;
+	int TextStart;
+
 	if (TeletextEnabled)
-		TextStart=(480/TeletextStyle)-((TeletextStyle==2)?12:0);
+	{
+		TextStart = (480 / TeletextStyle) - (TeletextStyle == 2 ? 12 : 0);
+	}
+	else
+	{
+		TextStart = 240;
+	}
 
 	DisplayFDCBoardInfo(hDC, 0, TextStart);
 
-	if (m_ShowSpeedAndFPS && m_FullScreen)
+	if (m_FullScreen)
 	{
-		char fps[50];
+		char Info[50];
+		Info[0] = '\0';
 
-		if (!m_Paused)
+		char* psz = Info;
+
+		if (m_ShowSpeedAndFPS)
 		{
-			sprintf(fps, "%2.2f %2d", m_RelativeSpeed, (int)m_FramesPerSecond);
-		}
-		else
-		{
-			strcpy(fps, "Paused");
+			if (m_Paused)
+			{
+				psz = StrCopy(psz, "Paused");
+			}
+			else
+			{
+				psz += sprintf(psz, "%2.2f %2d", m_RelativeSpeed, (int)m_FramesPerSecond);
+			}
 		}
 
-		SetBkMode(hDC, TRANSPARENT);
-		SetTextColor(hDC, 0x808080);
-		TextOut(hDC, TeletextEnabled ? 490 : 580, TextStart, fps, (int)strlen(fps));
+		if (m_ShowEconetStation && EconetEnabled)
+		{
+			if (m_ShowSpeedAndFPS)
+			{
+				*psz++ = ' ';
+			}
+
+			psz += sprintf(psz, "%d.%d", EconetNetworkID, EconetStationID);
+		}
+
+		if (Info[0] != '\0')
+		{
+			SetBkMode(hDC, TRANSPARENT);
+			SetTextColor(hDC, 0x808080);
+			TextOut(hDC, TeletextEnabled ? 460 : 550, TextStart, Info, (int)(psz - Info));
+		}
 	}
 }
 
@@ -1134,6 +1160,12 @@ void BeebWin::DisplayTiming()
 			               m_RelativeSpeed, (int)m_FramesPerSecond);
 		}
 
+		if (EconetEnabled && m_ShowEconetStation)
+		{
+			psz += sprintf(psz, "  Econet: %d.%d",
+			               (int)EconetNetworkID, (int)EconetStationID);
+		}
+
 		if (m_MouseCaptured)
 		{
 			psz = StrCopy(psz, pszReleaseCaptureMessage);
@@ -1158,6 +1190,12 @@ void BeebWin::UpdateWindowTitle()
 		if (IsPaused())
 		{
 			psz = StrCopy(psz, "  Paused");
+		}
+
+		if (EconetEnabled && m_ShowEconetStation)
+		{
+			psz += sprintf(psz, "  Econet: %d.%d",
+			               (int)EconetNetworkID, (int)EconetStationID);
 		}
 
 		if (m_MouseCaptured)
