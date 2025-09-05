@@ -249,7 +249,7 @@ void TeletextClose()
             if (DebugEnabled)
             {
                 DebugDisplayTraceF(DebugType::Teletext, true,
-                                   "Teletext: closing socket %d", ch);
+                                   "Teletext: Closing socket %d", ch);
             }
 
             CloseTeletextSocket(ch);
@@ -458,7 +458,7 @@ void TeletextAdapterUpdate()
                                     if (DebugEnabled)
                                     {
                                         DebugDisplayTraceF(DebugType::Teletext, true,
-                                                           "Teletext: discard recv error %d. Closing socket %d",
+                                                           "Teletext: Discard recv error %d. Closing socket %d",
                                                            Error, i);
                                     }
 
@@ -508,7 +508,7 @@ void TeletextAdapterUpdate()
                                     if (DebugEnabled)
                                     {
                                         DebugDisplayTraceF(DebugType::Teletext, true,
-                                                           "Teletext: short recv detected, received %d bytes. Closing socket %d",
+                                                           "Teletext: Short recv detected, received %d bytes. Closing socket %d",
                                                            result, i);
                                     }
 
@@ -530,7 +530,7 @@ void TeletextAdapterUpdate()
                                 if (DebugEnabled)
                                 {
                                     DebugDisplayTraceF(DebugType::Teletext, true,
-                                                       "Teletext: no data. Closing socket %d",
+                                                       "Teletext: No data. Closing socket %d",
                                                        i);
                                 }
 
