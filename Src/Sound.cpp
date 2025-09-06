@@ -24,6 +24,7 @@ Boston, MA  02110-1301, USA.
 // Win32 port - Mike Wyatt 7/6/97
 // Converted Win32 port to use DirectSound - Mike Wyatt 11/1/98
 
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -395,17 +396,21 @@ void PlayUpTil(double DestTime)
 			if (TapeSoundEnabled)
 			{
 				// Mix in tape sound here
-				int tapetotal = 0;
+				int TapeTotal = 0;
 
 				if (TapeAudio.Enabled && TapeAudio.Signal == 2)
 				{
-					if (TapeAudio.Samples++>=36) TapeAudio.Samples=0;
-					tapetotal=(int)(sin(((TapeAudio.Samples*20)*3.14)/180)*20);
+					if (TapeAudio.Samples++ >= 36)
+					{
+						TapeAudio.Samples = 0;
+					}
+
+					TapeTotal = (int)(sin(((TapeAudio.Samples * 20) * M_PI) / 180) * 20);
 				}
 
 				if (TapeAudio.Enabled && TapeAudio.Signal == 1)
 				{
-					tapetotal=(int)sin(((TapeAudio.Samples * (10 * (1 + TapeAudio.CurrentBit))) * 3.14) / 180) * (20 + (10 * (1 - TapeAudio.CurrentBit)));
+					TapeTotal = (int)(sin(((TapeAudio.Samples * (10 * (1 + TapeAudio.CurrentBit))) * M_PI) / 180) * (20 + (10 * (1 - TapeAudio.CurrentBit))));
 					// And if you can follow that equation, "ill give you the money meself" - Richard Gellman
 					if (TapeAudio.Samples++ >= 36)
 					{
@@ -430,7 +435,7 @@ void PlayUpTil(double DestTime)
 					}
 				}
 
-				tmptotal += tapetotal;
+				tmptotal += TapeTotal;
 			}
 
 			// Reduce amplitude to reduce clipping
