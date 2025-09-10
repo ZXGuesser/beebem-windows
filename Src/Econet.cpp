@@ -218,11 +218,6 @@ struct AUNHeader
 	uint32_t handle;      // 4 byte sequence little-endian.
 };
 
-// #define EC_PORT_FS 0x99
-// #define EC_PORT_PS_STATUS_ENQ 0x9f
-// #define EC_PORT_PS_STATUS_REPLY 0x9e
-// #define EC_PORT_PS_JOB 0xd1
-
 static unsigned long ec_sequence = 0;
 
 enum class FourWayStage {
