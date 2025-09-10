@@ -180,7 +180,7 @@ static unsigned int TimeBetweenBytes = DEFAULT_TIME_BETWEEN_BYTES;
 // all listed in Econet.cfg so each one knows where the others are.
 unsigned char EconetStationID = 0; // default Station ID
 static u_short EconetListenPort = 0; // default Listen port
-static unsigned long EconetListenIP = 0x0100007f;
+static unsigned long EconetListenIP = inet_addr("127.0.0.1");
 // IP settings:
 static SOCKET ListenSocket = INVALID_SOCKET; // Listen socket
 static SOCKET SendSocket = INVALID_SOCKET;
