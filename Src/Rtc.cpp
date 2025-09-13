@@ -180,7 +180,7 @@ const unsigned char CMOSDefault_Master128[50] =
 	0x00, // 18 - Printer server network: 0
 	0xc9, // 19 - Default language ROM: 12, Default filing system ROM: 9
 	0xff, // 20 - ROMS 0-7 unplugged/inserted
-	0xfe, // 21 - ROMS 8-F unplugged/inserted
+	0xff, // 21 - ROMS 8-F unplugged/inserted
 	0x32, // 22 - Edit mode K
 	0x00, // 23
 	0x07, // 24 - Default screen mode 7, *TV 0, 0
