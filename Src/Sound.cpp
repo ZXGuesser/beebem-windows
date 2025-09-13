@@ -559,8 +559,15 @@ void LoadSoundSamples()
 				SoundSamples[i].len = ftell(fd);
 				SoundSamples[i].pBuf = (unsigned char *)malloc(SoundSamples[i].len);
 				fseek(fd, 0, SEEK_SET);
-				fread(SoundSamples[i].pBuf, 1, SoundSamples[i].len, fd);
+				size_t BytesRead = fread(SoundSamples[i].pBuf, 1, SoundSamples[i].len, fd);
 				fclose(fd);
+
+				if (BytesRead < (size_t)SoundSamples[i].len)
+				{
+					mainWin->Report(MessageType::Error,
+					                "Failed to read sound sample file:\n  %s",
+					                FileName);
+				}
 			}
 			else
 			{
