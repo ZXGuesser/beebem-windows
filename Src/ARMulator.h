@@ -26,7 +26,6 @@ Boston, MA  02110-1301, USA.
 #include "ML675001.h"
 #include "ARMulator/armopts.h"
 #include "ARMulator/armos.h"
-#include "ARMulator/ansidecl.h"
 
 #define IFLAG (state->IFFlags >> 1)
 #define FFLAG (state->IFFlags & 1)

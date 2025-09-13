@@ -599,9 +599,6 @@
     <ClInclude Include="Z80mem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ARMulator\ansidecl.h">
-      <Filter>Header Files\ARMulator</Filter>
-    </ClInclude>
     <ClInclude Include="ARMulator\armdefs.h">
       <Filter>Header Files\ARMulator</Filter>
     </ClInclude>

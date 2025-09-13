@@ -337,7 +337,6 @@
     <ClInclude Include="Arm.h" />
     <ClInclude Include="ArmDisassembler.h" />
     <ClInclude Include="ARMulator.h" />
-    <ClInclude Include="ARMulator\ansidecl.h" />
     <ClInclude Include="ARMulator\armdefs.h" />
     <ClInclude Include="ARMulator\armdis.h" />
     <ClInclude Include="ARMulator\armemu.h" />
