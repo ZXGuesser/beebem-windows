@@ -70,7 +70,7 @@ void VideoLightPenStrobe();
 
 // Allow enough lines for all modes.
 // i.e. max(vertical total * scan lines per char) = 39 * 8  (mode 7 excluded)
-#define MAX_VIDEO_SCAN_LINES 312
+constexpr int MAX_VIDEO_SCAN_LINES = 312;
 
 void SaveVideoUEF(FILE *SUEF);
 void LoadVideoUEF(FILE *SUEF, int Version);

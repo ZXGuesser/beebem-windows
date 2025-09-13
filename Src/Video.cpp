@@ -138,26 +138,23 @@ static bool NextLineBottom = false; // true if the next line of double height sh
 /* Flash every half second(?) i.e. 25 x 50Hz fields */
 // No. On time is longer than off time. - according to my datasheet, its 0.75Hz with 3:1 ON:OFF ratio. - Richard Gellman
 // cant see that myself.. i think it means on for 0.75 secs, off for 0.25 secs
-#define MODE7FLASHFREQUENCY 25
-#define MODE7ONFIELDS 37
-#define MODE7OFFFIELDS 13
+constexpr int MODE7FLASHFREQUENCY = 25;
+constexpr int MODE7ONFIELDS = 37;
+constexpr int MODE7OFFFIELDS = 13;
 
 int CursorFieldCount = 32;
 bool CursorOnState = true;
-int Mode7FlashTrigger=MODE7ONFIELDS;
+int Mode7FlashTrigger = MODE7ONFIELDS;
 
-/* If 1 then refresh on every display, else refresh every n'th display */
-int Video_RefreshFrequency=1;
-/* The number of the current frame - starts at Video_RefreshFrequency - at 0 actually refresh */
-static int FrameNum=0;
+static bool RenderFrame = true; // true to draw the current frame, or false to skip.
 
 static void LowLevelDoScanLineNarrow();
 static void LowLevelDoScanLineWide();
 static void LowLevelDoScanLineNarrowNot4Bytes();
 static void LowLevelDoScanLineWideNot4Bytes();
-static void VideoAddCursor(void);
+static void VideoAddCursor();
 void AdjustVideo();
-void VideoAddLEDs(void);
+void VideoAddLEDs();
 
 #define ENABLE_LOG 0
 
@@ -679,7 +676,7 @@ static void VideoStartOfFrame()
   {
     VideoState.IsNewTVFrame = false;
 
-    FrameNum = mainWin->StartOfFrame();
+    RenderFrame = mainWin->StartOfFrame();
 
     CursorFieldCount--;
     Mode7FlashTrigger--;
@@ -1130,8 +1127,9 @@ void RedoMPTR(void) {
 }
 
 /*-------------------------------------------------------------------------------------------------------------*/
-void VideoDoScanLine(void) {
-  int l;
+
+void VideoDoScanLine()
+{
   // DebugTrace("CharLine=%d InCharLineUp=%d\n", VideoState.CharLine, VideoState.InCharLineUp);
   if (VideoState.IsTeletext) {
     if (VideoState.DoCA1Int) {
@@ -1140,17 +1138,17 @@ void VideoDoScanLine(void) {
     }
 
     // Clear the next 20 scan lines
-    if (FrameNum == 0)
+    if (RenderFrame)
     {
       if (VScreenAdjust > 0 && VideoState.PixmapLine == 0)
       {
-        for (l = -VScreenAdjust; l < 0; ++l)
+        for (int l = -VScreenAdjust; l < 0; ++l)
         {
           mainWin->doHorizLine(0, l, -36, BEEBEM_BITMAP_WIDTH);
         }
       }
 
-      for (l = 0; l < 20 && VideoState.PixmapLine + l < BEEBEM_BITMAP_HEIGHT; ++l)
+      for (int l = 0; l < 20 && VideoState.PixmapLine + l < BEEBEM_BITMAP_HEIGHT; ++l)
       {
         mainWin->doHorizLine(0, VideoState.PixmapLine + l, -36, BEEBEM_BITMAP_WIDTH);
       }
@@ -1164,7 +1162,12 @@ void VideoDoScanLine(void) {
       ova=VideoState.Addr; ovn=CRTC_HorizontalDisplayed;
       VideoState.DataPtr = BeebMemPtrWithWrapMode7(VideoState.Addr, CRTC_HorizontalDisplayed);
       VideoState.Addr+=CRTC_HorizontalDisplayed;
-      if (!FrameNum) DoMode7Row();
+
+      if (RenderFrame)
+      {
+        DoMode7Row();
+      }
+
       VideoState.PixmapLine+=20;
     }
 
@@ -1183,17 +1186,20 @@ void VideoDoScanLine(void) {
       // Changed so that whole screen is still visible after *TV255
       VScreenAdjust=-100+(((CRTC_VerticalTotal+1)-(CRTC_VerticalSyncPos-1))*(20/TeletextStyle));
       AdjustVideo();
-      if (!FrameNum) {
+
+      if (RenderFrame)
+      {
         VideoAddCursor();
         VideoAddLEDs();
         // Clear rest of screen below vertical total
-        for (l = VideoState.PixmapLine; l < 500 / TeletextStyle; ++l)
+        for (int l = VideoState.PixmapLine; l < 500 / TeletextStyle; ++l)
         {
           mainWin->doHorizLine(0, l, -36, BEEBEM_BITMAP_WIDTH);
         }
 
         mainWin->UpdateLines(0, 500 / TeletextStyle);
       }
+
       VideoState.IsNewTVFrame = true;
       VideoStartOfFrame();
       VideoState.PreviousLastPixmapLine=VideoState.PixmapLine;
@@ -1234,9 +1240,9 @@ void VideoDoScanLine(void) {
       VideoState.VSyncState=(CRTC_SyncWidth>>4);
     }
 
-    // Clear the scan line
-    if (FrameNum == 0)
+    if (RenderFrame)
     {
+      // Clear the scan line
       memset(mainWin->GetLinePtr(VideoState.PixmapLine), 0, BEEBEM_BITMAP_WIDTH);
     }
 
@@ -1255,9 +1261,12 @@ void VideoDoScanLine(void) {
         VideoState.Addr+=CRTC_HorizontalDisplayed;
       }
 
-      if (VideoState.InCharLineUp < 8 && ((CRTC_InterlaceAndDelay & 0x30) != 0x30)) {
-        if (!FrameNum)
+      if (VideoState.InCharLineUp < 8 && ((CRTC_InterlaceAndDelay & 0x30) != 0x30))
+      {
+        if (RenderFrame)
+        {
           LowLevelDoScanLine();
+        }
       }
     }
 
@@ -1284,7 +1293,9 @@ void VideoDoScanLine(void) {
     // of the vertical total adjust period.
     if (VideoState.CharLine>CRTC_VerticalTotal && VideoState.InCharLineUp>=CRTC_VerticalTotalAdjust) {
       VScreenAdjust=0;
-      if (!FrameNum && VideoState.IsNewTVFrame) {
+
+      if (RenderFrame && VideoState.IsNewTVFrame)
+      {
         VideoAddCursor();
         VideoAddLEDs();
         CurY=-1;
@@ -1343,7 +1354,7 @@ void VideoInit(void) {
   SetTrigger(99,VideoTriggerCount); /* Give time for OS to set mode up before doing anything silly */
   FastTable_Valid = false;
 
-  FrameNum=Video_RefreshFrequency;
+  RenderFrame = true;
   VideoState.PixmapLine=0;
   VideoState.FirstPixmapLine=-1;
   VideoState.PreviousFirstPixmapLine=0;
@@ -1642,7 +1653,8 @@ void VideoLightPenStrobe()
 	CRTC_LightPenLow  = VideoState.Addr & 0xff;
 }
 
-void VideoAddLEDs(void) {
+void VideoAddLEDs()
+{
 	// now add some keyboard leds
 	if (LEDs.ShowKB) {
 		if (MachineType == Model::Master128 || MachineType == Model::MasterET) {

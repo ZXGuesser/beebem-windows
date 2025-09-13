@@ -323,7 +323,7 @@ public:
 	void CreateSprowCoPro();
 	void DestroySprowCoPro();
 
-	int StartOfFrame(void);
+	bool StartOfFrame();
 	bool UpdateTiming();
 	void AdjustSpeed(bool up);
 	bool ShouldDisplayTiming() const;

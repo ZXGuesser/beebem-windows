@@ -2756,12 +2756,10 @@ int BeebWin::TranslateKey(int vkey, bool keyUp, int &row, int &col)
 }
 
 /****************************************************************************/
-int BeebWin::StartOfFrame(void)
-{
-	int FrameNum = 1;
 
-	if (UpdateTiming())
-		FrameNum = 0;
+bool BeebWin::StartOfFrame()
+{
+	bool UpdateScreen = UpdateTiming();
 
 	// Force video frame rate to match AVI capture rate to avoid
 	// video and sound getting out of sync
@@ -2770,11 +2768,11 @@ int BeebWin::StartOfFrame(void)
 		if (++m_AviFrameSkipCount > m_AviFrameSkip)
 		{
 			m_AviFrameSkipCount = 0;
-			FrameNum = 0;
+			UpdateScreen = true;
 		}
 		else
 		{
-			FrameNum = 1;
+			UpdateScreen = false;
 		}
 
 		// Ensure that frames captured each second (50 frames) matches
@@ -2787,7 +2785,7 @@ int BeebWin::StartOfFrame(void)
 		}
 	}
 
-	return FrameNum;
+	return UpdateScreen;
 }
 
 void BeebWin::doLED(int sx,bool on) {
