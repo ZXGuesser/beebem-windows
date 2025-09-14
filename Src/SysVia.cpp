@@ -115,15 +115,14 @@ void BeebReleaseAllKeys()
 
 static void UpdateIFRTopBit()
 {
-	// Update top bit of IFR
 	if (SysVIAState.ifr & (SysVIAState.ier & 0x7f))
 	{
-		SysVIAState.ifr |= 0x80;
+		SysVIAState.ifr |= IFR_IRQ;
 		intStatus |= 1 << sysVia;
 	}
 	else
 	{
-		SysVIAState.ifr &= 0x7f;
+		SysVIAState.ifr &= ~IFR_IRQ;
 		intStatus &= ~(1 << sysVia);
 	}
 }
@@ -133,9 +132,9 @@ static void UpdateIFRTopBit()
 void PulseSysViaCB1()
 {
 	// Set IFR bit 4 - AtoD end of conversion interrupt
-	if (SysVIAState.ier & 16)
+	if (SysVIAState.ier & IFR_CB1)
 	{
-		SysVIAState.ifr |= 16;
+		SysVIAState.ifr |= IFR_CB1;
 		UpdateIFRTopBit();
 	}
 }
@@ -150,14 +149,14 @@ void DoKbdIntCheck()
 	// interrupt in a few cycles.
 
 	#ifdef DEBUG_KEYBOARD
-	int Oldflag = (SysVIAState.ifr & 1);
+	int Oldflag = SysVIAState.ifr & IFR_CA2;
 	#endif
 
 	if (KeysDown > 0 && (SysVIAState.pcr & 0xc) == 4)
 	{
 		if (IC32State & IC32_KEYBOARD_WRITE)
 		{
-			SysVIAState.ifr |= 1; // CA2
+			SysVIAState.ifr |= IFR_CA2;
 			//DebugTrace("DoKbdIntCheck: Caused interrupt case 1\n");
 			UpdateIFRTopBit();
 		}
@@ -169,8 +168,9 @@ void DoKbdIntCheck()
 				{
 					if (SysViaKbdState[KBDCol][Row])
 					{
-						SysVIAState.ifr |= 1;
 						// DebugTrace("DoKbdIntCheck: Caused interrupt case 2\n");
+
+						SysVIAState.ifr |= IFR_CA2;
 						UpdateIFRTopBit();
 					}
 				}
@@ -183,7 +183,7 @@ void DoKbdIntCheck()
 	DebugTrace("DoKbdIntCheck KeysDown=%d pcr & c=%d IC32State & 8=%d "
 	           "KBDRow=%d KBDCol=%d oldIFRflag=%d Newflag=%d\n",
 	           KeysDown, SysVIAState.pcr & 0xc, IC32State & IC32_KEYBOARD_WRITE,
-	           KBDRow, KBDCol, Oldflag, SysVIAState.ifr & 1);
+	           KBDRow, KBDCol, Oldflag, SysVIAState.ifr & IFR_CA2);
 
 	#endif
 }
@@ -332,7 +332,7 @@ static void IC32Write(unsigned char Value)
 	if (!(IC32State & IC32_KEYBOARD_WRITE) && (PrevIC32State & IC32_KEYBOARD_WRITE))
 	{
 		KBDRow = (SlowDataBusWriteValue >> 4) & 7;
-		KBDCol = (SlowDataBusWriteValue & 0xf);
+		KBDCol = SlowDataBusWriteValue & 0xf;
 		DoKbdIntCheck(); /* Should really only if write enable on KBD changes */
 	}
 }
@@ -435,8 +435,6 @@ void SysVIAWrite(int Address, unsigned char Value)
 	switch (Address)
 	{
 		case 0: // ORB
-			// Clear bit 4 of IFR from AtoD Conversion
-			SysVIAState.ifr &= ~16;
 			SysVIAState.orb = Value;
 
 			if (MachineType == Model::Master128 || MachineType == Model::MasterET)
@@ -457,20 +455,23 @@ void SysVIAWrite(int Address, unsigned char Value)
 			// The bottom 4 bits of ORB connect to the IC32 latch.
 			IC32Write(Value);
 
-			if ((SysVIAState.ifr & 8) && ((SysVIAState.pcr & 0x20) == 0))
+			if ((SysVIAState.ifr & IFR_CB2) && ((SysVIAState.pcr & 0x20) == 0))
 			{
-				SysVIAState.ifr &= 0xf7;
-				UpdateIFRTopBit();
+				SysVIAState.ifr &= ~IFR_CB2;
 			}
-			SysVIAState.ifr &= ~16;
+
+			// Clear bit 4 of IFR from AtoD Conversion
+			SysVIAState.ifr &= ~IFR_CB1;
 			UpdateIFRTopBit();
 			break;
 
 		case 1: // ORA
 			SysVIAState.ora = Value;
-			SlowDataBusWrite(Value);
-			SysVIAState.ifr&=0xfc;
+
+			SysVIAState.ifr &= ~(IFR_CA2 | IFR_CA1);
 			UpdateIFRTopBit();
+
+			SlowDataBusWrite(Value);
 			break;
 
 		case 2:
@@ -491,21 +492,25 @@ void SysVIAWrite(int Address, unsigned char Value)
 			SysVIAState.timer1l &= 0xff;
 			SysVIAState.timer1l |= Value << 8;
 			SysVIAState.timer1c = SysVIAState.timer1l * 2 + 1;
-			SysVIAState.ifr &= 0xbf; // clear timer 1 ifr
+
 			// If PB7 toggling enabled, then lower PB7 now
-			if (SysVIAState.acr & 0x80)
+			if (SysVIAState.acr & ACR_TIMER1_OUTPUT_ENABLE)
 			{
 				SysVIAState.orb &= 0x7f;
 				SysVIAState.irb &= 0x7f;
 			}
+
+			SysVIAState.ifr &= ~IFR_TIMER1;
 			UpdateIFRTopBit();
+
 			SysVIAState.timer1hasshot = false;
 			break;
 
 		case 7:
 			SysVIAState.timer1l &= 0xff;
 			SysVIAState.timer1l |= Value << 8;
-			SysVIAState.ifr &= 0xbf; // clear timer 1 ifr (this is what Model-B does)
+
+			SysVIAState.ifr &= ~IFR_TIMER1; // Clear timer 1 IFR (this is what Model-B does)
 			UpdateIFRTopBit();
 			break;
 
@@ -519,7 +524,7 @@ void SysVIAWrite(int Address, unsigned char Value)
 			SysVIAState.timer2l |= Value << 8;
 			SysVIAState.timer2c=SysVIAState.timer2l * 2 + 1;
 			if (SysVIAState.timer2c == 0) SysVIAState.timer2c = 0x20000;
-			SysVIAState.ifr &= 0xdf; // Clear timer 2 IFR
+			SysVIAState.ifr &= ~IFR_TIMER2;
 			UpdateIFRTopBit();
 			SysVIAState.timer2hasshot = false;
 			break;
@@ -578,12 +583,14 @@ void SysVIAWrite(int Address, unsigned char Value)
 			{
 				SysVIAState.ier &= ~Value;
 			}
-			SysVIAState.ier &= 0x7f;
+
+			SysVIAState.ier &= ~IER_SET_CLEAR;
 			UpdateIFRTopBit();
 			break;
 
 		case 15:
 			SysVIAState.ora = Value;
+
 			SlowDataBusWrite(Value);
 			break;
 	}
@@ -602,8 +609,6 @@ unsigned char SysVIARead(int Address)
 	switch (Address)
 	{
 		case 0: // IRB read
-			// Clear bit 4 of IFR from AtoD Conversion
-			SysVIAState.ifr &= ~16;
 			tmp = SysVIAState.orb & SysVIAState.ddrb;
 
 			if (!JoystickButton[1])
@@ -649,6 +654,8 @@ unsigned char SysVIARead(int Address)
 
 			#endif
 
+			// Clear bit 4 of IFR from AtoD Conversion
+			SysVIAState.ifr &= ~IFR_CB1;
 			UpdateIFRTopBit();
 			break;
 
@@ -670,7 +677,7 @@ unsigned char SysVIARead(int Address)
 				tmp = (SysVIAState.timer1c / 2) & 0xff;
 			}
 
-			SysVIAState.ifr &= 0xbf; // Clear bit 6 - timer 1
+			SysVIAState.ifr &= ~IFR_TIMER1;
 			UpdateIFRTopBit();
 			break;
 
@@ -695,7 +702,8 @@ unsigned char SysVIARead(int Address)
 			{
 				tmp = (SysVIAState.timer2c / 2) & 0xff;
 			}
-			SysVIAState.ifr &= 0xdf; // Clear bit 5 - timer 2
+
+			SysVIAState.ifr &= ~IFR_TIMER2;
 			UpdateIFRTopBit();
 			break;
 
@@ -727,16 +735,15 @@ unsigned char SysVIARead(int Address)
 			break;
 
 		case 14:
-			tmp = SysVIAState.ier | 0x80;
+			tmp = SysVIAState.ier | IER_SET_CLEAR;
 			break;
 
 		case 1:
-			SysVIAState.ifr &= 0xfc;
+			SysVIAState.ifr &= ~(IFR_CA2 | IFR_CA1);
 			UpdateIFRTopBit();
 			// Fall through...
 
 		case 15:
-			// slow data bus read
 			tmp = SlowDataBusRead();
 			break;
 	}
@@ -755,15 +762,15 @@ unsigned char SysVIARead(int Address)
 
 // Value denotes the new value - i.e. 1 for a rising edge
 
-void SysVIATriggerCA1Int(int value)
+void SysVIATriggerCA1Int(int Value)
 {
 	// value^=1;
 	// DebugTrace("SysVIATriggerCA1Int at %d\n", TotalCycles);
 
 	// Cause interrupt on appropriate edge
-	if (!((SysVIAState.pcr & 1) ^ value))
+	if (!((SysVIAState.pcr & 1) ^ Value))
 	{
-		SysVIAState.ifr |= 2; // CA1
+		SysVIAState.ifr |= IFR_CA1;
 		UpdateIFRTopBit();
 	}
 }
@@ -778,19 +785,19 @@ void SysVIA_poll_real()
 	{
 		t1int = true;
 
-		if (!SysVIAState.timer1hasshot || (SysVIAState.acr & 0x40))
+		if (!SysVIAState.timer1hasshot || (SysVIAState.acr & ACR_TIMER1_CONTINUOUS))
 		{
 			// DebugTrace("SysVia timer1 int at %d\n", TotalCycles);
-			SysVIAState.ifr |= 0x40; // Timer 1 interrupt
+			SysVIAState.ifr |= IFR_TIMER1; // Timer 1 interrupt
 			UpdateIFRTopBit();
 
-			if (SysVIAState.acr & 0x80)
+			if (SysVIAState.acr & ACR_TIMER1_OUTPUT_ENABLE)
 			{
 				SysVIAState.orb ^= 0x80; // Toggle PB7
 				SysVIAState.irb ^= 0x80; // Toggle PB7
 			}
 
-			if ((SysVIAState.ier & 0x40) && CyclesToInt == NO_TIMER_INT_DUE)
+			if ((SysVIAState.ier & IER_TIMER1) && CyclesToInt == NO_TIMER_INT_DUE)
 			{
 				CyclesToInt = 3 + SysVIAState.timer1c;
 			}
@@ -810,10 +817,10 @@ void SysVIA_poll_real()
 		if (!SysVIAState.timer2hasshot)
 		{
 			// DebugTrace("SysVia timer2 int at %d\n", TotalCycles);
-			SysVIAState.ifr |= 0x20; // Timer 2 interrupt
+			SysVIAState.ifr |= IFR_TIMER2;
 			UpdateIFRTopBit();
 
-			if ((SysVIAState.ier & 0x20) && CyclesToInt == NO_TIMER_INT_DUE)
+			if ((SysVIAState.ier & IER_TIMER2) && CyclesToInt == NO_TIMER_INT_DUE)
 			{
 				CyclesToInt = 3 + SysVIAState.timer2c;
 			}
@@ -835,7 +842,7 @@ void SysVIA_poll(unsigned int ncycles)
 
 	SysVIAState.timer1c -= ncycles;
 
-	if (!(SysVIAState.acr & 0x20))
+	if (!(SysVIAState.acr & ACR_TIMER2_CONTROL))
 	{
 		SysVIAState.timer2c -= ncycles;
 	}
@@ -845,7 +852,10 @@ void SysVIA_poll(unsigned int ncycles)
 		SysVIA_poll_real();
 	}
 
-	if (SRTrigger <= TotalCycles) SRPoll();
+	if (SRTrigger <= TotalCycles)
+	{
+		SRPoll();
+	}
 
 	// Ensure that CA2 keyboard interrupt is asserted when key pressed
 	DoKbdIntCheck();
