@@ -42,27 +42,55 @@ struct VIAState {
   bool cb2;
 };
 
+// 6522 Interrupt Flags Register
+constexpr unsigned char IFR_CA2      = 0x01;
+constexpr unsigned char IFR_CA1      = 0x02;
+constexpr unsigned char IFR_SHIFTREG = 0x04;
+constexpr unsigned char IFR_CB2      = 0x08;
+constexpr unsigned char IFR_CB1      = 0x10;
+constexpr unsigned char IFR_TIMER2   = 0x20;
+constexpr unsigned char IFR_TIMER1   = 0x40;
+constexpr unsigned char IFR_IRQ      = 0x80;
+
+// 6522 Interrupt Enable Register
+constexpr unsigned char IER_CA2       = 0x01;
+constexpr unsigned char IER_CA1       = 0x02;
+constexpr unsigned char IER_SHIFTREG  = 0x04;
+constexpr unsigned char IER_CB2       = 0x08;
+constexpr unsigned char IER_CB1       = 0x10;
+constexpr unsigned char IER_TIMER2    = 0x20;
+constexpr unsigned char IER_TIMER1    = 0x40;
+constexpr unsigned char IER_SET_CLEAR = 0x80;
+
+// 6522 Auxiliary Control Register
+constexpr unsigned char ACR_PA_LATCH_ENABLE      = 0x01;
+constexpr unsigned char ACR_PB_LATCH_ENABLE      = 0x02;
+constexpr unsigned char ACR_PB_SHIFTREG_CONTROL  = 0x1c;
+constexpr unsigned char ACR_TIMER2_CONTROL       = 0x20;
+constexpr unsigned char ACR_TIMER1_CONTINUOUS    = 0x40;
+constexpr unsigned char ACR_TIMER1_OUTPUT_ENABLE = 0x80;
+
 // 6522 Peripheral Control Register
-const unsigned char PCR_CB2_CONTROL           = 0xe0;
-const unsigned char PCR_CB1_INTERRUPT_CONTROL = 0x10;
-const unsigned char PCR_CA2_CONTROL           = 0x0e;
-const unsigned char PCR_CA1_INTERRUPT_CONTROL = 0x01;
+constexpr unsigned char PCR_CB2_CONTROL           = 0xe0;
+constexpr unsigned char PCR_CB1_INTERRUPT_CONTROL = 0x10;
+constexpr unsigned char PCR_CA2_CONTROL           = 0x0e;
+constexpr unsigned char PCR_CA1_INTERRUPT_CONTROL = 0x01;
 
 // PCR CB2 control bits
-const unsigned char PCR_CB2_OUTPUT_PULSE = 0xa0;
-const unsigned char PCR_CB2_OUTPUT_LOW   = 0xc0;
-const unsigned char PCR_CB2_OUTPUT_HIGH  = 0xe0;
+constexpr unsigned char PCR_CB2_OUTPUT_PULSE = 0xa0;
+constexpr unsigned char PCR_CB2_OUTPUT_LOW   = 0xc0;
+constexpr unsigned char PCR_CB2_OUTPUT_HIGH  = 0xe0;
 
 // PCR CB1 interrupt control bit
-const unsigned char PCB_CB1_POSITIVE_INT = 0x10;
+constexpr unsigned char PCB_CB1_POSITIVE_INT = 0x10;
 
 // PCR CA2 control bits
-const unsigned char PCR_CA2_OUTPUT_PULSE = 0x0a;
-const unsigned char PCR_CA2_OUTPUT_LOW   = 0x0c;
-const unsigned char PCR_CA2_OUTPUT_HIGH  = 0x0e;
+constexpr unsigned char PCR_CA2_OUTPUT_PULSE = 0x0a;
+constexpr unsigned char PCR_CA2_OUTPUT_LOW   = 0x0c;
+constexpr unsigned char PCR_CA2_OUTPUT_HIGH  = 0x0e;
 
 // PCR CA1 interrupt control bit
-const unsigned char PCB_CA1_POSITIVE_INT = 0x01;
+constexpr unsigned char PCB_CA1_POSITIVE_INT = 0x01;
 
 void VIAReset(VIAState *ToReset);
 void SaveVIAUEF(FILE *SUEF);
