@@ -50,10 +50,10 @@ keyboard emulation - David Alan Gilbert 30/10/94 */
 // #define DEBUG_SLOW_DATA_BUS
 
 // Shift register stuff
-static unsigned char SRMode;
-static unsigned char SRCount;
-static unsigned char SRData;
-static unsigned char SREnabled;
+// static unsigned char SRCount;
+static int SRTrigger = 0;
+static void SRPoll();
+static void UpdateSRState(bool SRrw);
 
 // Fire button for joystick 1 and 2, false=not pressed, true=pressed
 bool JoystickButton[2] = { false, false };
@@ -525,12 +525,13 @@ void SysVIAWrite(int Address, unsigned char Value)
 			break;
 
 		case 10:
-			SRData = Value;
+			SysVIAState.sr = Value;
+			UpdateSRState(true);
 			break;
 
 		case 11:
 			SysVIAState.acr = Value;
-			SRMode = (Value >> 2) & 7;
+			UpdateSRState(false);
 			break;
 
 		case 12:
@@ -703,7 +704,8 @@ unsigned char SysVIARead(int Address)
 			break;
 
 		case 10:
-			tmp = SRData;
+			tmp = SysVIAState.sr;
+			UpdateSRState(true);
 			break;
 
 		case 11:
@@ -843,6 +845,8 @@ void SysVIA_poll(unsigned int ncycles)
 		SysVIA_poll_real();
 	}
 
+	if (SRTrigger <= TotalCycles) SRPoll();
+
 	// Ensure that CA2 keyboard interrupt is asserted when key pressed
 	DoKbdIntCheck();
 
@@ -862,10 +866,52 @@ void SysVIAReset()
 	// Make it no keys down and set dip switches
 	BeebReleaseAllKeys();
 
-	SRData = 0;
-	SRMode = 0;
-	SRCount = 0;
-	SREnabled = 0; // Disable Shift register shifting shiftily. (I am nuts) - Richard Gellman
+	SRTrigger = 0;
+}
+
+/*--------------------------------------------------------------------------*/
+
+static int SRMode = 0;
+
+static void SRPoll()
+{
+	if (SRTrigger == 0)
+	{
+		ClearTrigger(SRTrigger);
+		UpdateSRState(false);
+	}
+	else if (SRMode == 6 || SRMode == 2)
+	{
+		if (!(SysVIAState.ifr & IFR_SHIFTREG))
+		{
+			// Shift complete
+			SysVIAState.ifr |= IFR_SHIFTREG;
+			UpdateIFRTopBit();
+		}
+
+		ClearTrigger(SRTrigger);
+	}
+}
+
+static void UpdateSRState(bool SRrw)
+{
+	SRMode = (SysVIAState.acr >> 2) & 7;
+
+	// TODO: Implement all SR modes, and actually shift the SR contents.
+
+	if ((SRMode == 6 || SRMode == 2) && SRTrigger == CycleCountTMax)
+	{
+		SetTrigger(16, SRTrigger);
+	}
+
+	if (SRrw)
+	{
+		if (SysVIAState.ifr & IFR_SHIFTREG)
+		{
+			SysVIAState.ifr &= ~IFR_SHIFTREG;
+			UpdateIFRTopBit();
+		}
+	}
 }
 
 /*--------------------------------------------------------------------------*/

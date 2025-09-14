@@ -476,6 +476,7 @@ int sgn(int number)
 }
 
 /*--------------------------------------------------------------------------*/
+
 static int SRMode = 0;
 
 static void SRPoll()
@@ -485,32 +486,35 @@ static void SRPoll()
 		ClearTrigger(SRTrigger);
 		UpdateSRState(false);
 	}
-	else if (SRMode == 6)
+	else if (SRMode == 6 || SRMode == 2)
 	{
-		if (!(UserVIAState.ifr & 0x04))
+		if (!(UserVIAState.ifr & IFR_SHIFTREG))
 		{
 			// Shift complete
-			UserVIAState.ifr|=0x04;
+			UserVIAState.ifr |= IFR_SHIFTREG;
 			UpdateIFRTopBit();
 		}
+
 		ClearTrigger(SRTrigger);
 	}
 }
 
 static void UpdateSRState(bool SRrw)
 {
-	SRMode = ((UserVIAState.acr >> 2) & 7);
+	SRMode = (UserVIAState.acr >> 2) & 7;
 
-	if (SRMode == 6 && SRTrigger == CycleCountTMax)
+	// TODO: Implement all SR modes, and actually shift the SR contents.
+
+	if ((SRMode == 6 || SRMode == 2) && SRTrigger == CycleCountTMax)
 	{
 		SetTrigger(16, SRTrigger);
 	}
 
 	if (SRrw)
 	{
-		if (UserVIAState.ifr & 0x04)
+		if (UserVIAState.ifr & IFR_SHIFTREG)
 		{
-			UserVIAState.ifr &= 0xfb;
+			UserVIAState.ifr &= ~IFR_SHIFTREG;
 			UpdateIFRTopBit();
 		}
 	}
