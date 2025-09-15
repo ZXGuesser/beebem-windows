@@ -195,8 +195,15 @@ void UserVIAWrite(int Address, unsigned char Value)
 			UserVIAState.timer2l &= 0xff;
 			UserVIAState.timer2l |= Value << 8;
 			UserVIAState.timer2c = UserVIAState.timer2l * 2 + 1;
+
+			if (UserVIAState.timer2c == 0)
+			{
+				UserVIAState.timer2c = 0x20000;
+			}
+
 			UserVIAState.ifr &= ~IFR_TIMER2;
 			UpdateIFRTopBit();
+
 			UserVIAState.timer2hasshot = false; // Added by K.Lowe 24/08/03
 			break;
 

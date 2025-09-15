@@ -522,10 +522,16 @@ void SysVIAWrite(int Address, unsigned char Value)
 		case 9:
 			SysVIAState.timer2l &= 0xff;
 			SysVIAState.timer2l |= Value << 8;
-			SysVIAState.timer2c=SysVIAState.timer2l * 2 + 1;
-			if (SysVIAState.timer2c == 0) SysVIAState.timer2c = 0x20000;
+			SysVIAState.timer2c = SysVIAState.timer2l * 2 + 1;
+
+			if (SysVIAState.timer2c == 0)
+			{
+				SysVIAState.timer2c = 0x20000;
+			}
+
 			SysVIAState.ifr &= ~IFR_TIMER2;
 			UpdateIFRTopBit();
+
 			SysVIAState.timer2hasshot = false;
 			break;
 
