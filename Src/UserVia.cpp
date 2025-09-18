@@ -543,7 +543,10 @@ static void UpdateSRState(bool SRrw)
 
 	if ((UserVIAState.SRMode == 6 || UserVIAState.SRMode == 2) && SRTrigger == CycleCountTMax)
 	{
-		SetTrigger(16, SRTrigger);
+		// Set a timer to trigger setting the Shift Register interrupt.
+		// 16 cycles at the VIA input clock rate (1 MHz),
+		// so 32 cycles at 2 MHz.
+		SetTrigger(32, SRTrigger);
 	}
 
 	if (SRrw)
