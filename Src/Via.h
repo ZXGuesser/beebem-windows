@@ -25,21 +25,30 @@ Boston, MA  02110-1301, USA.
 
 #include <stdio.h>
 
-struct VIAState {
-  unsigned char ora,orb;
-  unsigned char ira,irb;
-  unsigned char ddra,ddrb;
-  unsigned char acr,pcr;
-  unsigned char ifr,ier;
-  int timer1c,timer2c; /* NOTE: Timers descrement at 2MHz and values are */
-  int timer1l,timer2l; /*   fixed up on read/write - latches hold 1MHz values*/
-  bool timer1hasshot; // True if we have already caused an interrupt for one shot mode
-  bool timer2hasshot; // True if we have already caused an interrupt for one shot mode
-  int timer1adjust; // Adjustment for 1.5 cycle counts, every other interrupt, it becomes 2 cycles instead of one
-  int timer2adjust; // Adjustment for 1.5 cycle counts, every other interrupt, it becomes 2 cycles instead of one
-  unsigned char sr;
-  bool ca2;
-  bool cb2;
+struct VIAState
+{
+	unsigned char ora;
+	unsigned char orb;
+	unsigned char ira;
+	unsigned char irb;
+	unsigned char ddra;
+	unsigned char ddrb;
+	unsigned char acr;
+	unsigned char pcr;
+	unsigned char ifr;
+	unsigned char ier;
+	int timer1c; // NOTE: Timers decrement at 2MHz and values are
+	int timer2c; // fixed up on read/write
+	int timer1l; // Latches hold 1MHz values
+	int timer2l;
+	bool timer1hasshot; // true if we have already caused an interrupt for one shot mode
+	bool timer2hasshot; // true if we have already caused an interrupt for one shot mode
+	int timer1adjust; // Adjustment for 1.5 cycle counts, every other interrupt, it becomes 2 cycles instead of one
+	int timer2adjust; // Adjustment for 1.5 cycle counts, every other interrupt, it becomes 2 cycles instead of one
+	unsigned char sr;
+	bool ca2;
+	bool cb2;
+	int SRMode;
 };
 
 // 6522 Interrupt Flags Register
@@ -92,8 +101,9 @@ constexpr unsigned char PCR_CA2_OUTPUT_HIGH  = 0x0e;
 // PCR CA1 interrupt control bit
 constexpr unsigned char PCB_CA1_POSITIVE_INT = 0x01;
 
-void VIAReset(VIAState *ToReset);
-void SaveVIAUEF(FILE *SUEF);
-void LoadViaUEF(FILE *SUEF);
+void VIAReset(VIAState *pVIA);
+
+void SaveVIAUEF(FILE *SUEF, VIAState* pVIA);
+void LoadVIAUEF(FILE *SUEF, int Version, VIAState* pVIA);
 
 #endif

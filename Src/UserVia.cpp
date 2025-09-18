@@ -33,6 +33,7 @@ Boston, MA  02110-1301, USA.
 #include "Log.h"
 #include "Main.h"
 #include "Tube.h"
+#include "UefState.h"
 #include "UserPortBreakoutBox.h"
 #include "UserPortRTC.h"
 #include "Via.h"
@@ -413,7 +414,8 @@ void UserVIATriggerCA1Int()
 }
 
 /*--------------------------------------------------------------------------*/
-void UserVIA_poll_real()
+
+static void UserVIA_poll_real()
 {
 	static bool t1int = false;
 
@@ -473,15 +475,15 @@ void UserVIA_poll_real()
 	}
 }
 
-void UserVIA_poll(unsigned int ncycles)
+void UserVIAPoll(unsigned int Cycles)
 {
 	// Converted to a proc to allow shift register functions
 
-	UserVIAState.timer1c -= ncycles;
+	UserVIAState.timer1c -= Cycles;
 
 	if (!(UserVIAState.acr & ACR_TIMER2_CONTROL))
 	{
-		UserVIAState.timer2c -= ncycles;
+		UserVIAState.timer2c -= Cycles;
 	}
 
 	if (UserVIAState.timer1c < 0 || UserVIAState.timer2c < 0)
@@ -506,27 +508,21 @@ void UserVIA_poll(unsigned int ncycles)
 }
 
 /*--------------------------------------------------------------------------*/
+
 void UserVIAReset()
 {
 	VIAReset(&UserVIAState);
 
 	ClearTrigger(AMXTrigger);
 	ClearTrigger(PrinterTrigger);
-	SRTrigger = 0;
+	ClearTrigger(SRTrigger);
 }
 
 /*--------------------------------------------------------------------------*/
 
-static int SRMode = 0;
-
 static void SRPoll()
 {
-	if (SRTrigger == 0)
-	{
-		ClearTrigger(SRTrigger);
-		UpdateSRState(false);
-	}
-	else if (SRMode == 6 || SRMode == 2)
+	if (UserVIAState.SRMode == 6 || UserVIAState.SRMode == 2)
 	{
 		if (!(UserVIAState.ifr & IFR_SHIFTREG))
 		{
@@ -541,11 +537,11 @@ static void SRPoll()
 
 static void UpdateSRState(bool SRrw)
 {
-	SRMode = (UserVIAState.acr >> 2) & 7;
+	UserVIAState.SRMode = (UserVIAState.acr >> 2) & 7;
 
 	// TODO: Implement all SR modes, and actually shift the SR contents.
 
-	if ((SRMode == 6 || SRMode == 2) && SRTrigger == CycleCountTMax)
+	if ((UserVIAState.SRMode == 6 || UserVIAState.SRMode == 2) && SRTrigger == CycleCountTMax)
 	{
 		SetTrigger(16, SRTrigger);
 	}
@@ -760,9 +756,37 @@ static void WriteToPrinter(unsigned char Value)
 
 /*--------------------------------------------------------------------------*/
 
-void DebugUserViaState()
+void DebugUserVIAState()
 {
-	DebugViaState("UserVia", &UserVIAState);
+	DebugVIAState("UserVia", &UserVIAState);
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SaveUserVIAUEF(FILE *SUEF)
+{
+	UEFWrite8(1, SUEF); // 0: SysVIA, 1: UserVIA
+	SaveVIAUEF(SUEF, &UserVIAState);
+	UEFWrite8(0, SUEF); // Unused (IC32State in SysVIA)
+
+	UEFWrite32(SRTrigger, SUEF);
+}
+
+/*--------------------------------------------------------------------------*/
+
+void LoadUserVIAUEF(FILE *SUEF, int Version)
+{
+	LoadVIAUEF(SUEF, Version, &UserVIAState);
+
+	if (Version >= 16)
+	{
+		SRTrigger = UEFRead32(SUEF);
+
+		if (SRTrigger != CycleCountTMax)
+		{
+			SRTrigger += TotalCycles;
+		}
+	}
 }
 
 /*--------------------------------------------------------------------------*/

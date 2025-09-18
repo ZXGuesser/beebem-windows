@@ -41,9 +41,7 @@ void SysVIAWrite(int Address, unsigned char Value);
 unsigned char SysVIARead(int Address);
 void SysVIAReset();
 
-void SysVIA_poll_real(void);
-
-void SysVIA_poll(unsigned int ncycles);
+void SysVIAPoll(unsigned int Cycles);
 
 void BeebKeyUp(int Row, int Column);
 void BeebKeyDown(int Row, int Column);
@@ -52,5 +50,8 @@ void BeebReleaseAllKeys();
 void SysVIATriggerCA1Int(int value);
 
 void PulseSysViaCB1(void);
+
+void SaveSysVIAUEF(FILE *SUEF);
+void LoadSysVIAUEF(FILE *SUEF, int Version);
 
 #endif

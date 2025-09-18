@@ -2673,11 +2673,11 @@ static bool DebugCmdState(const char* args)
 			break;
 
 		case 'u': // User via state
-			DebugUserViaState();
+			DebugUserVIAState();
 			break;
 
 		case 's': // Sys via state
-			DebugSysViaState();
+			DebugSysVIAState();
 			break;
 
 		case 'e': // Serial ACIA / ULA state

@@ -39,15 +39,16 @@ Boston, MA  02110-1301, USA.
 #include "Serial.h"
 #include "Sound.h"
 #include "SprowCoPro.h"
+#include "SysVia.h"
 #include "Tube.h"
-#include "Via.h"
+#include "UserVia.h"
 #include "Video.h"
 #include "Z80mem.h"
 #include "Z80.h"
 
 /*-------------------------------------------------------------------------*/
 
-const unsigned char UEFSTATE_VERSION = 15;
+const unsigned char UEFSTATE_VERSION = 16;
 
 /*-------------------------------------------------------------------------*/
 
@@ -301,7 +302,8 @@ UEFStateResult SaveUEFState(const char *FileName)
 		SaveState(Save6502UEF, 0x0460, UEFState);
 		SaveMemUEF(UEFState);
 		SaveState(SaveVideoUEF, 0x0468, UEFState);
-		SaveVIAUEF(UEFState);
+		SaveState(SaveSysVIAUEF, 0x0467, UEFState);
+		SaveState(SaveUserVIAUEF, 0x0467, UEFState);
 		SaveState(SaveSoundUEF, 0x046B, UEFState);
 
 		if (MachineType != Model::Master128 && NativeFDC)
@@ -455,9 +457,19 @@ UEFStateResult LoadUEFState(const char *FileName)
 					LoadSWRamMemUEF(UEFState);
 					break;
 
-				case 0x0467:
-					LoadViaUEF(UEFState);
+				case 0x0467: {
+					uint8_t VIAType = UEFRead8(UEFState);
+
+					if (VIAType == 0)
+					{
+						LoadSysVIAUEF(UEFState, Version);
+					}
+					else
+					{
+						LoadUserVIAUEF(UEFState, Version);
+					}
 					break;
+				}
 
 				case 0x0468:
 					LoadVideoUEF(UEFState, Version);

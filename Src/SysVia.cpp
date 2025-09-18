@@ -43,6 +43,7 @@ keyboard emulation - David Alan Gilbert 30/10/94 */
 #include "Rtc.h"
 #include "Sound.h"
 #include "Speech.h"
+#include "UefState.h"
 #include "Via.h"
 
 // #define DEBUG_IC32
@@ -783,7 +784,7 @@ void SysVIATriggerCA1Int(int Value)
 
 /*--------------------------------------------------------------------------*/
 
-void SysVIA_poll_real()
+static void SysVIA_poll_real()
 {
 	static bool t1int = false;
 
@@ -841,16 +842,16 @@ void SysVIA_poll_real()
 	}
 }
 
-void SysVIA_poll(unsigned int ncycles)
+void SysVIAPoll(unsigned int Cycles)
 {
 	// Converted to a proc to allow shift register functions
-	// ChipClock(ncycles);
+	// ChipClock(Cycles);
 
-	SysVIAState.timer1c -= ncycles;
+	SysVIAState.timer1c -= Cycles;
 
 	if (!(SysVIAState.acr & ACR_TIMER2_CONTROL))
 	{
-		SysVIAState.timer2c -= ncycles;
+		SysVIAState.timer2c -= Cycles;
 	}
 
 	if (SysVIAState.timer1c < 0 || SysVIAState.timer2c < 0)
@@ -882,21 +883,14 @@ void SysVIAReset()
 	// Make it no keys down and set dip switches
 	BeebReleaseAllKeys();
 
-	SRTrigger = 0;
+	ClearTrigger(SRTrigger);
 }
 
 /*--------------------------------------------------------------------------*/
 
-static int SRMode = 0;
-
 static void SRPoll()
 {
-	if (SRTrigger == 0)
-	{
-		ClearTrigger(SRTrigger);
-		UpdateSRState(false);
-	}
-	else if (SRMode == 6 || SRMode == 2)
+	if (SysVIAState.SRMode == 6 || SysVIAState.SRMode == 2)
 	{
 		if (!(SysVIAState.ifr & IFR_SHIFTREG))
 		{
@@ -911,11 +905,11 @@ static void SRPoll()
 
 static void UpdateSRState(bool SRrw)
 {
-	SRMode = (SysVIAState.acr >> 2) & 7;
+	SysVIAState.SRMode = (SysVIAState.acr >> 2) & 7;
 
 	// TODO: Implement all SR modes, and actually shift the SR contents.
 
-	if ((SRMode == 6 || SRMode == 2) && SRTrigger == CycleCountTMax)
+	if ((SysVIAState.SRMode == 6 || SysVIAState.SRMode == 2) && SRTrigger == CycleCountTMax)
 	{
 		SetTrigger(16, SRTrigger);
 	}
@@ -932,9 +926,37 @@ static void UpdateSRState(bool SRrw)
 
 /*--------------------------------------------------------------------------*/
 
-void DebugSysViaState()
+void DebugSysVIAState()
 {
-	DebugViaState("SysVia", &SysVIAState);
+	DebugVIAState("SysVia", &SysVIAState);
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SaveSysVIAUEF(FILE *SUEF)
+{
+	UEFWrite8(0, SUEF); // 0: SysVIA, 1: UserVIA
+	SaveVIAUEF(SUEF, &SysVIAState);
+	UEFWrite8(IC32State, SUEF);
+}
+
+/*--------------------------------------------------------------------------*/
+
+void LoadSysVIAUEF(FILE *SUEF, int Version)
+{
+	LoadVIAUEF(SUEF, Version, &SysVIAState);
+
+	IC32State = UEFRead8(SUEF);
+
+	if (Version >= 16)
+	{
+		SRTrigger = UEFRead32(SUEF);
+
+		if (SRTrigger != CycleCountTMax)
+		{
+			SRTrigger += TotalCycles;
+		}
+	}
 }
 
 /*--------------------------------------------------------------------------*/

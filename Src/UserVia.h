@@ -34,7 +34,7 @@ extern bool SWRAMBoardEnabled;
 void UserVIAWrite(int Address, unsigned char Value);
 unsigned char UserVIARead(int Address);
 void UserVIAReset(void);
-void UserVIA_poll(unsigned int ncycles);
+void UserVIAPoll(unsigned int Cycles);
 
 // AMX mouse enabled
 extern bool AMXMouseEnabled;
@@ -73,5 +73,8 @@ constexpr int PRINTER_TRIGGER = 25;
 
 extern int PrinterTrigger;
 void PrinterPoll();
+
+void SaveUserVIAUEF(FILE *SUEF);
+void LoadUserVIAUEF(FILE *SUEF, int Version);
 
 #endif

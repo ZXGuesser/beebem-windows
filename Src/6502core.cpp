@@ -3281,8 +3281,8 @@ static void PollVIAs(unsigned int nCycles)
 		if (CyclesToInt != NO_TIMER_INT_DUE)
 			CyclesToInt -= nCycles;
 
-		SysVIA_poll(nCycles);
-		UserVIA_poll(nCycles);
+		SysVIAPoll(nCycles);
+		UserVIAPoll(nCycles);
 
 		ViaCycles += nCycles;
 	}
