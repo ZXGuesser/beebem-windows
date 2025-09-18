@@ -298,18 +298,26 @@ public:
 
 	EightUChars *GetLinePtr(int y)
 	{
-		int d = (y * BEEBEM_BITMAP_WIDTH) + ScreenAdjust;
-		if (d > MAX_VIDEO_SCAN_LINES * BEEBEM_BITMAP_WIDTH)
-			return (EightUChars *)(m_screen + MAX_VIDEO_SCAN_LINES * BEEBEM_BITMAP_WIDTH);
-		return (EightUChars *)(m_screen + d);
+		int Offset = (y * BEEBEM_BITMAP_WIDTH) + ScreenAdjust;
+
+		if (Offset > MAX_VIDEO_SCAN_LINES * BEEBEM_BITMAP_WIDTH)
+		{
+			Offset = MAX_VIDEO_SCAN_LINES * BEEBEM_BITMAP_WIDTH;
+		}
+
+		return (EightUChars *)(m_screen + Offset);
 	}
 
 	SixteenUChars *GetLinePtr16(int y)
 	{
-		int d = (y * BEEBEM_BITMAP_WIDTH) + ScreenAdjust;
-		if (d > MAX_VIDEO_SCAN_LINES * BEEBEM_BITMAP_WIDTH)
-			return (SixteenUChars *)(m_screen + MAX_VIDEO_SCAN_LINES * BEEBEM_BITMAP_WIDTH);
-		return (SixteenUChars *)(m_screen + d);
+		int Offset = (y * BEEBEM_BITMAP_WIDTH) + ScreenAdjust;
+
+		if (Offset > MAX_VIDEO_SCAN_LINES * BEEBEM_BITMAP_WIDTH)
+		{
+			Offset = MAX_VIDEO_SCAN_LINES * BEEBEM_BITMAP_WIDTH;
+		}
+
+		return (SixteenUChars *)(m_screen + Offset);
 	}
 
 	HWND GethWnd() { return m_hWnd; }
