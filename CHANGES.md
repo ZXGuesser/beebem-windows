@@ -1,6 +1,25 @@
 BeebEm Change History
 =====================
 
+Unreleased Changes
+------------
+
+Contributors: Chris Needham, Ken Kowe
+
+* Fixed tape audio output.
+* Changed Master 128 CMOS defaults so no ROMs are unplugged, and removed
+  ANFS from the default ROM config.
+* VIA timer counter state is now stored in saved state files without losing
+  precision.
+* Added a basic (incomplete) emulation of System VIA shift register, modes
+  2 and 6, and added mode 2 support to the User VIA shift register. Note that
+  only the shift register interrupt is emulated, not the shift register
+  itself, the CB1 output clock, or reading and writing bits to/from CB2.
+* Added -Log command line option to write a log file. This is intended
+  for debugging purposes only.
+* Fixed the BeebEm installer to not delete existing files under Program Files
+  while installing.
+
 Version 4.20 (28 August 2025)
 ------------
 
