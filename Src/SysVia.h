@@ -49,7 +49,7 @@ void BeebReleaseAllKeys();
 
 void SysVIATriggerCA1Int(int value);
 
-void PulseSysViaCB1(void);
+void SysVIAPulseCB1();
 
 void DebugSysVIAState();
 

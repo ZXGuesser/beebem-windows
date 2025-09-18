@@ -104,7 +104,7 @@ void AtoDPollReal()
 	AtoD.Status &= 0xf;
 	AtoD.Status |= 0x40; // Not busy
 
-	PulseSysViaCB1();
+	SysVIAPulseCB1();
 
 	int Value;
 
@@ -141,7 +141,7 @@ void AtoDInit()
 
 	// Not busy, conversion complete (OS1.2 will then request another conversion)
 	AtoD.Status = 0x40;
-	PulseSysViaCB1();
+	SysVIAPulseCB1();
 }
 
 /*--------------------------------------------------------------------------*/

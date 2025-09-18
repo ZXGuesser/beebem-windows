@@ -130,7 +130,7 @@ static void UpdateIFRTopBit()
 
 /*--------------------------------------------------------------------------*/
 
-void PulseSysViaCB1()
+void SysVIAPulseCB1()
 {
 	// Set IFR bit 4 - AtoD end of conversion interrupt
 	if (SysVIAState.ier & IFR_CB1)
@@ -784,7 +784,7 @@ void SysVIATriggerCA1Int(int Value)
 
 /*--------------------------------------------------------------------------*/
 
-static void SysVIA_poll_real()
+static void SysVIAPollReal()
 {
 	static bool t1int = false;
 
@@ -856,7 +856,7 @@ void SysVIAPoll(unsigned int Cycles)
 
 	if (SysVIAState.timer1c < 0 || SysVIAState.timer2c < 0)
 	{
-		SysVIA_poll_real();
+		SysVIAPollReal();
 	}
 
 	if (SRTrigger <= TotalCycles)

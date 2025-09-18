@@ -415,7 +415,7 @@ void UserVIATriggerCA1Int()
 
 /*--------------------------------------------------------------------------*/
 
-static void UserVIA_poll_real()
+static void UserVIAPollReal()
 {
 	static bool t1int = false;
 
@@ -488,7 +488,7 @@ void UserVIAPoll(unsigned int Cycles)
 
 	if (UserVIAState.timer1c < 0 || UserVIAState.timer2c < 0)
 	{
-		UserVIA_poll_real();
+		UserVIAPollReal();
 	}
 
 	if (AMXMouseEnabled && AMXTrigger <= TotalCycles)
