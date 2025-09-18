@@ -51,6 +51,8 @@ void SysVIATriggerCA1Int(int value);
 
 void PulseSysViaCB1(void);
 
+void DebugSysVIAState();
+
 void SaveSysVIAUEF(FILE *SUEF);
 void LoadSysVIAUEF(FILE *SUEF, int Version);
 

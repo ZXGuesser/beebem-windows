@@ -103,6 +103,8 @@ constexpr unsigned char PCB_CA1_POSITIVE_INT = 0x01;
 
 void VIAReset(VIAState *pVIA);
 
+void DebugVIAState(const char *Name, VIAState *pVIA);
+
 void SaveVIAUEF(FILE *SUEF, VIAState* pVIA);
 void LoadVIAUEF(FILE *SUEF, int Version, VIAState* pVIA);
 

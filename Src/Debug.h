@@ -135,11 +135,6 @@ void DebugDisplayTraceV(DebugType type, bool host, const char *format, va_list a
 void DebugDisplayInfo(const char *info);
 void DebugDisplayInfoF(const char *format, ...);
 
-void DebugVideoState(); // See Video.cpp
-void DebugUserVIAState(); // See UserVia.cpp
-void DebugSysVIAState(); // See SysVia.cpp
-void DebugVIAState(const char *Name, VIAState *pVIA); // See Via.cpp
-
 void DebugRunScript(const char *filename);
 bool DebugLoadSwiftLabels(const char *filename);
 

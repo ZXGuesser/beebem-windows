@@ -75,4 +75,6 @@ constexpr int MAX_VIDEO_SCAN_LINES = 312;
 void SaveVideoUEF(FILE *SUEF);
 void LoadVideoUEF(FILE *SUEF, int Version);
 
+void DebugVideoState();
+
 #endif

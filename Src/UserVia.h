@@ -74,6 +74,8 @@ constexpr int PRINTER_TRIGGER = 25;
 extern int PrinterTrigger;
 void PrinterPoll();
 
+void DebugUserVIAState();
+
 void SaveUserVIAUEF(FILE *SUEF);
 void LoadUserVIAUEF(FILE *SUEF, int Version);
 
