@@ -1604,10 +1604,15 @@ void BeebWin::LoadSWRAMPreferences()
 	if (!m_Preferences.GetBinaryValue(CFG_SWRAM_WRITABLE, RomWritePrefs, 16))
 	{
 		for (int slot = 0; slot < 16; ++slot)
+		{
 			RomWritePrefs[slot] = true;
+		}
 	}
 
-	m_Preferences.GetBoolValue(CFG_SWRAM_BOARD_ENABLED, SWRAMBoardEnabled, false);
+	if (!m_Preferences.GetBoolValue(CFG_SOLIDISK_SWRAM_BOARD_ENABLED, UserPortRTCEnabled, false))
+	{
+		m_Preferences.GetBoolValue(CFG_SWRAM_BOARD_ENABLED_OLD, SolidiskSWRAMBoardEnabled, false);
+	}
 }
 
 /****************************************************************************/
@@ -1872,7 +1877,7 @@ void BeebWin::SavePreferences(bool saveAll)
 		for (int slot = 0; slot < 16; ++slot)
 			RomWritePrefs[slot] = RomWritable[slot];
 		m_Preferences.SetBinaryValue(CFG_SWRAM_WRITABLE, RomWritePrefs, 16);
-		m_Preferences.SetBoolValue(CFG_SWRAM_BOARD_ENABLED, SWRAMBoardEnabled);
+		m_Preferences.SetBoolValue(CFG_SOLIDISK_SWRAM_BOARD_ENABLED, SolidiskSWRAMBoardEnabled);
 
 		// User port breakout box
 		char KeyData[256];

@@ -733,8 +733,8 @@ static void RomWriteThrough(int Address, unsigned char Value)
 {
 	int Bank = 0;
 
-	// SW RAM board - bank to write to is selected by User VIA
-	if (SWRAMBoardEnabled)
+	// Solidisk SW RAM board - bank to write to is selected by User VIA
+	if (SolidiskSWRAMBoardEnabled)
 	{
 		Bank = (UserVIAState.orb & UserVIAState.ddrb) & 0xf;
 
@@ -768,8 +768,15 @@ void BeebWriteMem(int Address, unsigned char Value)
 		}
 
 		if (Address >= 0x8000 && Address < 0xc000) {
-			if (!SWRAMBoardEnabled && RomWritable[ROMSEL]) Roms[ROMSEL][Address - 0x8000] = Value;
-			else RomWriteThrough(Address, Value);
+			if (!SolidiskSWRAMBoardEnabled && RomWritable[ROMSEL])
+			{
+				Roms[ROMSEL][Address - 0x8000] = Value;
+			}
+			else
+			{
+				RomWriteThrough(Address, Value);
+			}
+
 			return;
 		}
 	}

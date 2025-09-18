@@ -364,7 +364,7 @@ BEGIN
             MENUITEM "Rom &E",                      IDM_ALLOWWRITES_ROME, CHECKED
             MENUITEM "Rom &F",                      IDM_ALLOWWRITES_ROMF, CHECKED
         END
-        MENUITEM "SW RAM Board On/Off",         IDM_SWRAMBOARD
+        MENUITEM "Solidisk SW RAM Board On/Off", IDM_SOLIDISK_SWRAM_BOARD
         MENUITEM "Edit ROM Configuration",      IDM_ROMCONFIG
         MENUITEM SEPARATOR
         MENUITEM "Basic &Hardware Only",        IDM_BASIC_HARDWARE_ONLY

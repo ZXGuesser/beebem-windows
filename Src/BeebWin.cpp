@@ -1470,7 +1470,7 @@ void BeebWin::InitMenu(void)
 	UpdateTubeMenu();
 
 	SetRomMenu();
-	CheckMenuItem(IDM_SWRAMBOARD, SWRAMBoardEnabled);
+	CheckMenuItem(IDM_SOLIDISK_SWRAM_BOARD, SolidiskSWRAMBoardEnabled);
 	UpdateOptionsMenu();
 	UpdateEconetMenu();
 	CheckMenuItem(IDM_TELETEXT, TeletextAdapterEnabled);
@@ -4219,9 +4219,9 @@ void BeebWin::HandleCommand(UINT MenuID)
 		break;
 	}
 
-	case IDM_SWRAMBOARD:
-		SWRAMBoardEnabled = !SWRAMBoardEnabled;
-		CheckMenuItem(IDM_SWRAMBOARD, SWRAMBoardEnabled);
+	case IDM_SOLIDISK_SWRAM_BOARD:
+		SolidiskSWRAMBoardEnabled = !SolidiskSWRAMBoardEnabled;
+		CheckMenuItem(IDM_SOLIDISK_SWRAM_BOARD, SolidiskSWRAMBoardEnabled);
 		break;
 
 	case IDM_ROMCONFIG:

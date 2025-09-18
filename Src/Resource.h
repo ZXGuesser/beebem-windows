@@ -440,7 +440,7 @@
 #define IDM_CAPTUREPNG                  40269
 #define IDM_CAPTURESCREEN               40270
 #define IDM_FLOPPY_DRIVE                40271
-#define IDM_SWRAMBOARD                  40276
+#define IDM_SOLIDISK_SWRAM_BOARD        40276
 #define IDM_ROMCONFIG                   40277
 #define IDM_MAINTAINASPECTRATIO         40278
 #define IDM_XAUDIO2                     40285

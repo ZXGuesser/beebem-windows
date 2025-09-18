@@ -61,8 +61,8 @@ static int SRTrigger = 0;
 static void SRPoll();
 static void UpdateSRState(bool SRrw);
 
-// SW RAM board
-bool SWRAMBoardEnabled = false;
+// Solidisk SW RAM board
+bool SolidiskSWRAMBoardEnabled = false;
 
 // My raw VIA state
 VIAState UserVIAState;

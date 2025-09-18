@@ -193,7 +193,8 @@ const char* const CFG_CMOS_MASTER_ET               = "CMOSRamMasterET";
 
 // Sideways RAM
 const char* const CFG_SWRAM_WRITABLE               = "SWRAMWritable";
-const char* const CFG_SWRAM_BOARD_ENABLED          = "SWRAMBoard";
+const char* const CFG_SOLIDISK_SWRAM_BOARD_ENABLED = "SolidiskSWRAMBoard";
+const char* const CFG_SWRAM_BOARD_ENABLED_OLD      = "SWRAMBoard";
 
 // File paths
 const char* const CFG_DISCS_PATH                   = "DiscsPath";

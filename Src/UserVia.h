@@ -29,7 +29,7 @@ Boston, MA  02110-1301, USA.
 #include "Via.h"
 
 extern VIAState UserVIAState;
-extern bool SWRAMBoardEnabled;
+extern bool SolidiskSWRAMBoardEnabled;
 
 void UserVIAWrite(int Address, unsigned char Value);
 unsigned char UserVIARead(int Address);
