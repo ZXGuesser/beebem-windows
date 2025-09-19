@@ -19,8 +19,8 @@ Contributors: Chris Needham, Ken Kowe
   for debugging purposes only.
 * Fixed the BeebEm installer to not delete existing files under Program Files
   while installing.
-* The SW RAM Board On/Off has been renamed to Solidisk SW RAM Board On/Off,
-  to clarify its purpose.
+* The SW RAM Board On/Off menu item has been renamed to Solidisk SW RAM Board
+  On/Off, to clarify its purpose.
 
 Version 4.20 (28 August 2025)
 ------------
