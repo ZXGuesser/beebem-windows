@@ -1,7 +1,7 @@
 BeebEm Change History
 =====================
 
-Unreleased Changes
+Version 4.21 (19 September 2025)
 ------------
 
 Contributors: Chris Needham, Ken Kowe
@@ -254,7 +254,7 @@ Contributors: Chris Needham, Tadek Kijkowski
 * Added BeebEm.user.props.example file and updated the instructions
   for how to compile BeebEm.
 
-Version 4.16 (7 Nov 2023)
+Version 4.16 (7 Nov 2020)
 ------------
 
 Contributors: Chris Needham, Dominic Beesley
@@ -1054,7 +1054,7 @@ Contributors: Mike Wyatt
 
 * Added Robert's Freeze when Inactive option.
 
-Version 1.01 ()
+Version 1.01
 ------------
 
 Contributors: Mike Wyatt

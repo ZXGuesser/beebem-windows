@@ -20,8 +20,8 @@ Boston, MA  02110-1301, USA.
 
 // BeebEm version
 #define VERSION_MAJOR     4
-#define VERSION_MINOR     20
+#define VERSION_MINOR     21
 #define VERSION_PATCH     0
-#define VERSION_STRING    "4.20"
-#define VERSION_DATE      "28 August 2025"
+#define VERSION_STRING    "4.21"
+#define VERSION_DATE      "19 September 2025"
 #define VERSION_COPYRIGHT "Copyright (c) 1995-2025 BeebEm contributors"
