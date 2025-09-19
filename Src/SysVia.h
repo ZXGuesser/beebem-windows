@@ -47,7 +47,7 @@ void BeebKeyUp(int Row, int Column);
 void BeebKeyDown(int Row, int Column);
 void BeebReleaseAllKeys();
 
-void SysVIATriggerCA1Int(int value);
+void SysVIATriggerCA1Int(int Value);
 
 void SysVIAPulseCB1();
 
