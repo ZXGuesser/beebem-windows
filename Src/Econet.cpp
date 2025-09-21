@@ -181,8 +181,7 @@ unsigned char EconetStationID = 0; // default Station ID
 static u_short EconetListenPort = 0; // default Listen port
 static unsigned long EconetListenIP = inet_addr("127.0.0.1");
 // IP settings:
-static SOCKET Socket = INVALID_SOCKET;
-static bool ReceiverSocketsOpen = false; // Used to flag line up and clock running
+static SOCKET Socket = INVALID_SOCKET; // Also used to flag line up and clock running
 
 const u_short DEFAULT_AUN_PORT = 32768;
 
@@ -480,8 +479,6 @@ static void EconetCloseSockets()
 		CloseSocket(Socket);
 		Socket = INVALID_SOCKET;
 	}
-
-	ReceiverSocketsOpen = false;
 }
 
 //---------------------------------------------------------------------------
@@ -703,8 +700,6 @@ bool EconetReset()
 		EconetError("Econet: Failed to set socket for broadcasts (error %ld)", GetLastSocketError());
 		goto Fail;
 	}
-
-	ReceiverSocketsOpen = true;
 
 	// how long before we bother with poll routine?
 	SetTrigger(TimeBetweenBytes, EconetTrigger);
@@ -1172,7 +1167,7 @@ bool EconetPoll() // return NMI status
 		EconetStateChanged = false;
 
 		// Don't poll if failed to init sockets
-		if (ReceiverSocketsOpen)
+		if (Socket != INVALID_SOCKET)
 		{
 			return EconetPoll_real();
 		}
@@ -2175,7 +2170,7 @@ bool EconetPoll_real() // return NMI status
 	// sockets true means dcd low means not dcd high means cts low
 	// doing it this way finally works !!  great :-) :-)
 
-	if (ReceiverSocketsOpen && (ADLC.control2 & CONTROL_REG2_RTS_CONTROL)) // clock + RTS
+	if (Socket != INVALID_SOCKET && (ADLC.control2 & CONTROL_REG2_RTS_CONTROL)) // clock + RTS
 	{
 		ADLC.cts = false;
 		ADLC.status1 &= ~STATUS_REG1_CTS;
@@ -2282,9 +2277,9 @@ bool EconetPoll_real() // return NMI status
 	}
 
 	// SR2b3 - RxAbort - Abort received - set in rx routines above
-	// SR2b4 - Error during reception - set if error flaged in rx routine.
+	// SR2b4 - Error during reception - set if error flagged in rx routine.
 	// SR2b5 - DCD
-	if (!ReceiverSocketsOpen) // is line down?
+	if (Socket == INVALID_SOCKET) // is line down?
 	{
 		ADLC.status2 |= STATUS_REG2_DCD; // flag error
 	}
