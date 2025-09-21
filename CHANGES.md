@@ -1,6 +1,14 @@
 BeebEm Change History
 =====================
 
+Unreleased Changes
+------------
+
+Contributors: Chris Needham, Alistair Cree, Ken Kowe
+
+* Added an option to show the Econet network and station in the window title.
+* The SINGLESOCKET option in Econet.cfg has been removed.
+
 Version 4.21 (19 September 2025)
 ------------
 
