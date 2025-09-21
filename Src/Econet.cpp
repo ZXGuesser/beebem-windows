@@ -149,7 +149,6 @@ const bool DEFAULT_MASSAGE_NETWORKS = false;
 static bool AUNMode = DEFAULT_AUN_MODE; // Use Acorn Universal Networking (AUN) style networking
 static bool LearnMode = DEFAULT_LEARN_MODE; // Add receipts from unknown hosts to network table
 static bool StrictAUNMode = DEFAULT_STRICT_AUN_MODE; // Assume network ip=stn number when sending to unknown hosts
-static bool SingleSocket = DEFAULT_SINGLE_SOCKET; // Use same socket for Send and receive
 static unsigned int FourWayStageTimeout = DEFAULT_FOUR_WAY_STAGE_TIMEOUT;
 static bool MassageNetworks = DEFAULT_MASSAGE_NETWORKS; // Massage network numbers on send/receive (add/sub 128)
 
@@ -182,8 +181,7 @@ unsigned char EconetStationID = 0; // default Station ID
 static u_short EconetListenPort = 0; // default Listen port
 static unsigned long EconetListenIP = inet_addr("127.0.0.1");
 // IP settings:
-static SOCKET ListenSocket = INVALID_SOCKET; // Listen socket
-static SOCKET SendSocket = INVALID_SOCKET;
+static SOCKET Socket = INVALID_SOCKET;
 static bool ReceiverSocketsOpen = false; // Used to flag line up and clock running
 
 const u_short DEFAULT_AUN_PORT = 32768;
@@ -477,19 +475,11 @@ static EconetHost* AddHost(sockaddr_in* pAddress)
 
 static void EconetCloseSockets()
 {
-	// In single socket mode, SendSocket == ListenSocket
-	if (SendSocket != INVALID_SOCKET && SendSocket != ListenSocket)
+	if (Socket != INVALID_SOCKET)
 	{
-		CloseSocket(SendSocket);
+		CloseSocket(Socket);
+		Socket = INVALID_SOCKET;
 	}
-
-	if (ListenSocket != INVALID_SOCKET)
-	{
-		CloseSocket(ListenSocket);
-	}
-
-	SendSocket = INVALID_SOCKET;
-	ListenSocket = INVALID_SOCKET;
 
 	ReceiverSocketsOpen = false;
 }
@@ -560,10 +550,11 @@ bool EconetReset()
 		goto Fail;
 	}
 
-	// Create a SOCKET for listening for incoming connection requests.
-	ListenSocket = socket(AF_INET, SOCK_DGRAM, 0);
+	// Create a SOCKET for sending messages and listening for incoming
+	// connection requests.
+	Socket = socket(AF_INET, SOCK_DGRAM, 0);
 
-	if (ListenSocket == INVALID_SOCKET)
+	if (Socket == INVALID_SOCKET)
 	{
 		EconetError("Econet: Failed to open listening socket (error %ld)", GetLastSocketError());
 		goto Fail;
@@ -596,7 +587,7 @@ bool EconetReset()
 		service.sin_port = htons(EconetListenPort);
 		S_ADDR(service) = EconetListenIP;
 
-		if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == SOCKET_ERROR)
+		if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == SOCKET_ERROR)
 		{
 			EconetError("Econet: Failed to bind to port %d (error %ld)", EconetListenPort, GetLastSocketError());
 			goto Fail;
@@ -627,7 +618,7 @@ bool EconetReset()
 						service.sin_port = htons(stations[i].port);
 						S_ADDR(service) = stations[i].inet_addr;
 
-						if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
+						if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 						{
 							EconetListenPort = stations[i].port;
 							EconetListenIP = stations[i].inet_addr;
@@ -658,7 +649,7 @@ bool EconetReset()
 								service.sin_port = htons(DEFAULT_AUN_PORT);
 								S_ADDR(service) = IN_ADDR(localaddr);
 
-								if (bind(ListenSocket, (SOCKADDR*)&service, sizeof(service)) == 0)
+								if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 								{
 									myaunnet = j;
 
@@ -704,26 +695,10 @@ bool EconetReset()
 		RTCWriteData(EconetStationID);
 	}
 
-	// Socket used to send messages.
-	if (SingleSocket)
-	{
-		SendSocket = ListenSocket;
-	}
-	else
-	{
-		SendSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-
-		if (SendSocket == INVALID_SOCKET)
-		{
-			EconetError("Econet: Failed to open sending socket (error %ld)", GetLastSocketError());
-			goto Fail;
-		}
-	}
-
 	// This call is what allows broadcast packets to be sent:
 	const char broadcast = '1';
 
-	if (setsockopt(SendSocket, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) == -1)
+	if (setsockopt(Socket, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) == -1)
 	{
 		EconetError("Econet: Failed to set socket for broadcasts (error %ld)", GetLastSocketError());
 		goto Fail;
@@ -879,7 +854,7 @@ static bool ReadEconetConfigFile()
 				}
 				else if (StrCaseCmp(Key.c_str(), "SINGLESOCKET") == 0)
 				{
-					SingleSocket = std::stoi(Value) != 0;
+					// Ignored.
 				}
 				else if (StrCaseCmp(Key.c_str(), "FLAGFILLTIMEOUT") == 0)
 				{
@@ -1021,7 +996,6 @@ static bool ReadNetwork()
 	AUNMode = DEFAULT_AUN_MODE;
 	LearnMode = DEFAULT_LEARN_MODE;
 	StrictAUNMode = DEFAULT_STRICT_AUN_MODE;
-	SingleSocket = DEFAULT_SINGLE_SOCKET;
 	EconetFlagFillTimeout = DEFAULT_FLAG_FILL_TIMEOUT;
 	EconetScoutAckTimeout = DEFAULT_SCOUT_ACK_TIMEOUT;
 	TimeBetweenBytes = DEFAULT_TIME_BETWEEN_BYTES;
@@ -1241,7 +1215,7 @@ bool EconetPoll_real() // return NMI status
 	//         unsupported - no action needed here
 	// CR1b5 - Discontinue - when set, discontinue reception of incoming data.
 	//         automatically reset this when reach the end of current frame in progress
-	//         automatically reset when frame aborted bvy receiving an abort flag, or DCD fails
+	//         automatically reset when frame aborted by receiving an abort flag, or DCD fails
 	if (ADLC.control1 & CONTROL_REG1_RX_FRAME_DISCONTINUE)
 	{
 		if (DebugEnabled) DebugDisplayTrace(DebugType::Econet, true, "EconetPoll: RxABORT is set");
@@ -1679,7 +1653,7 @@ bool EconetPoll_real() // return NMI status
 
 							if (SendMe)
 							{
-								if (sendto(SendSocket, (char *)&EconetTx, SendLen, 0,
+								if (sendto(Socket, (char *)&EconetTx, SendLen, 0,
 								           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 								{
 									EconetError("Econet: Failed to send packet to station %d (%s port %u)",
@@ -1690,7 +1664,7 @@ bool EconetPoll_real() // return NMI status
 						}
 						else
 						{
-							if (sendto(SendSocket, (char *)BeebTx.buff, BeebTx.Pointer, 0,
+							if (sendto(Socket, (char *)BeebTx.buff, BeebTx.Pointer, 0,
 							           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 							{
 								EconetError("Econet: Failed to send packet to network %d station %d (%s port %u)",
@@ -1788,11 +1762,11 @@ bool EconetPoll_real() // return NMI status
 						// Check if packet is waiting without blocking
 						fd_set ReadFds;
 						FD_ZERO(&ReadFds);
-						FD_SET(ListenSocket, &ReadFds);
+						FD_SET(Socket, &ReadFds);
 
 						timeval TimeOut = {0, 0};
 
-						int RetVal = select((int)ListenSocket + 1, &ReadFds, NULL, NULL, &TimeOut);
+						int RetVal = select((int)Socket + 1, &ReadFds, NULL, NULL, &TimeOut);
 
 						if (RetVal > 0)
 						{
@@ -1802,12 +1776,12 @@ bool EconetPoll_real() // return NMI status
 
 							if (AUNMode)
 							{
-								RetVal = recvfrom(ListenSocket, (char *)EconetRx.raw, sizeof(EconetRx.raw) + sizeof(EconetRx.buff), 0, (SOCKADDR *)&RecvAddr, &sizRcvAdr);
+								RetVal = recvfrom(Socket, (char *)EconetRx.raw, sizeof(EconetRx.raw) + sizeof(EconetRx.buff), 0, (SOCKADDR *)&RecvAddr, &sizRcvAdr);
 								EconetRx.BytesInBuffer = RetVal;
 							}
 							else
 							{
-								RetVal = recvfrom(ListenSocket, (char *)BeebRx.buff, sizeof(BeebRx.buff), 0, (SOCKADDR *)&RecvAddr, &sizRcvAdr);
+								RetVal = recvfrom(Socket, (char *)BeebRx.buff, sizeof(BeebRx.buff), 0, (SOCKADDR *)&RecvAddr, &sizRcvAdr);
 							}
 
 							if (RetVal > 0)
@@ -1992,8 +1966,6 @@ bool EconetPoll_real() // return NMI status
 									BeebRx.Pointer = 0;
 								}
 
-
-
 								if ((BeebRx.eh.deststn == EconetStationID || IsBroadcastStation(BeebRx.eh.deststn)) &&
 								    BeebRx.BytesInBuffer > 0)
 								{
@@ -2017,10 +1989,10 @@ bool EconetPoll_real() // return NMI status
 									}
 								}
 							}
-							else if (RetVal == SOCKET_ERROR && !SingleSocket)
+							/* else if (RetVal == SOCKET_ERROR)
 							{
 								EconetError("Econet: Failed to receive packet (error %ld)", GetLastSocketError());
-							}
+							} */
 						}
 						else if (RetVal == SOCKET_ERROR)
 						{
