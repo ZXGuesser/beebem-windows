@@ -334,10 +334,11 @@ struct NetStn {
 
 static NetStn LastError;
 
-const int NETWORK_TABLE_LENGTH = 512; // Total number of hosts we can know about
-const int AUN_TABLE_LENGTH = 128; // number of disparate networks in AUNMap
-static EconetHost stations[NETWORK_TABLE_LENGTH]; // individual stations we know about
-static EconetNet networks[AUN_TABLE_LENGTH]; // AUN networks we know about
+const int STATIONS_TABLE_LENGTH = 512; // Total number of hosts we can know about
+const int NETWORKS_TABLE_LENGTH = 128; // Number of disparate networks in AUNMap
+
+static EconetHost stations[STATIONS_TABLE_LENGTH]; // Individual stations we know about
+static EconetNet networks[NETWORKS_TABLE_LENGTH]; // AUN networks we know about
 
 static int stationsp = 0; // How many individual stations do I know about?
 static int networksp = 0;  // How many networks do I know about?
@@ -447,7 +448,7 @@ static EconetHost* FindHost(sockaddr_in* pAddress)
 
 static EconetHost* AddHost(sockaddr_in* pAddress)
 {
-	if (stationsp < NETWORK_TABLE_LENGTH)
+	if (stationsp < STATIONS_TABLE_LENGTH)
 	{
 		if (DebugEnabled) DebugDisplayTrace(DebugType::Econet, true, "Econet: Previously unknown host; add entry!");
 
@@ -631,7 +632,7 @@ bool EconetReset()
 			{
 				// Still can't find one ... strict mode?
 
-				if (AUNMode && StrictAUNMode && stationsp < NETWORK_TABLE_LENGTH)
+				if (AUNMode && StrictAUNMode && stationsp < STATIONS_TABLE_LENGTH)
 				{
 					if (DebugEnabled)
 						DebugDisplayTrace(DebugType::Econet, true, "Econet: No free hosts in table; trying automatic mode");
@@ -801,7 +802,7 @@ static bool ReadEconetConfigFile()
 
 		if (Tokens.size() == 4)
 		{
-			if (stationsp < NETWORK_TABLE_LENGTH)
+			if (stationsp < STATIONS_TABLE_LENGTH)
 			{
 				try
 				{
@@ -939,7 +940,7 @@ static bool ReadAUNConfigFile()
 
 		if (Tokens.size() == 3 && StrCaseCmp("ADDMAP", Tokens[0].c_str()) == 0)
 		{
-			if (networksp < AUN_TABLE_LENGTH)
+			if (networksp < NETWORKS_TABLE_LENGTH)
 			{
 				try
 				{
