@@ -313,7 +313,13 @@ void BeebWin::TextToSpeechSetVoice(ISpObjectToken* pToken)
 	if (m_SpVoice != nullptr)
 	{
 		m_SpVoice->SetVoice(pToken);
+	}
+}
 
+void BeebWin::TextToSpeechAnnounce()
+{
+	if (m_SpVoice != nullptr)
+	{
 		m_SpVoice->Speak(L"<SILENCE MSEC='800'/>BeebEm text to speech output enabled",
 		                 SPF_ASYNC, nullptr);
 	}

@@ -240,7 +240,7 @@ public:
 	~BeebWin();
 
 	bool Initialise();
-	void ApplyPreferences();
+	void ApplyPreferences(bool StartUp);
 	void Shutdown();
 
 	static LRESULT CALLBACK WndProc(HWND hWnd,
@@ -564,6 +564,7 @@ public:
 	ISpObjectToken* TextToSpeechGetSelectedVoiceToken();
 	void TextToSpeechSetVoice(int Index);
 	void TextToSpeechSetVoice(ISpObjectToken* pToken);
+	void TextToSpeechAnnounce();
 	void TextToSpeechSelectVoiceMenuItem(int Index);
 	void Speak(const char *text, DWORD flags);
 	void SpeakChar(unsigned char c);

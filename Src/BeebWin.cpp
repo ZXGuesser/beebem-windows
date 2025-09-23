@@ -483,7 +483,7 @@ bool BeebWin::Initialise()
 	m_hDC = GetDC(m_hWnd);
 
 	RomConfig.Load(RomFile);
-	ApplyPreferences();
+	ApplyPreferences(true);
 
 	if (!m_DebugScriptFileName.empty())
 	{
@@ -531,7 +531,7 @@ bool BeebWin::Initialise()
 
 /****************************************************************************/
 
-void BeebWin::ApplyPreferences()
+void BeebWin::ApplyPreferences(bool StartUp)
 {
 	// Set up paths
 
@@ -594,6 +594,11 @@ void BeebWin::ApplyPreferences()
 	if (m_TextToSpeechEnabled)
 	{
 		m_TextToSpeechEnabled = InitTextToSpeech();
+
+		if (!StartUp && m_TextToSpeechEnabled)
+		{
+			TextToSpeechAnnounce();
+		}
 	}
 
 	InitTextView();
@@ -4909,6 +4914,11 @@ void BeebWin::HandleCommand(UINT MenuID)
 		else
 		{
 			m_TextToSpeechEnabled = InitTextToSpeech();
+
+			if (m_TextToSpeechEnabled)
+			{
+				TextToSpeechAnnounce();
+			}
 		}
 
 		CheckMenuItem(IDM_TEXTTOSPEECH_ENABLE, m_TextToSpeechEnabled);
@@ -6075,7 +6085,7 @@ void BeebWin::SelectUserDataPath()
 
 				// Load and apply prefs
 				LoadPreferences();
-				ApplyPreferences();
+				ApplyPreferences(false);
 			}
 			break;
 
