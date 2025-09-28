@@ -1766,35 +1766,47 @@ bool EconetPoll_real() // return NMI status
 
 						timeval TimeOut = {0, 0};
 
-						int RetVal = select((int)Socket + 1, &ReadFds, NULL, NULL, &TimeOut);
+						int NumReady = select((int)Socket + 1, &ReadFds, NULL, NULL, &TimeOut);
 
-						if (RetVal > 0)
+						if (NumReady > 0)
 						{
+							// Read the packet.
 							sockaddr_in RecvAddr;
-							// Read the packet
-							int sizRcvAdr = sizeof(RecvAddr);
+							int RecvAddrSize = sizeof(RecvAddr);
+							int BytesReceived;
 
 							if (AUNMode)
 							{
-								RetVal = recvfrom(Socket, (char *)EconetRx.raw, sizeof(EconetRx.raw) + sizeof(EconetRx.buff), 0, (SOCKADDR *)&RecvAddr, &sizRcvAdr);
-								EconetRx.BytesInBuffer = RetVal;
+								BytesReceived = recvfrom(Socket,
+								                         (char *)EconetRx.raw,
+								                         sizeof(EconetRx.raw) + sizeof(EconetRx.buff),
+								                         0,
+								                         (SOCKADDR *)&RecvAddr,
+								                         &RecvAddrSize);
+
+								EconetRx.BytesInBuffer = BytesReceived;
 							}
 							else
 							{
-								RetVal = recvfrom(Socket, (char *)BeebRx.buff, sizeof(BeebRx.buff), 0, (SOCKADDR *)&RecvAddr, &sizRcvAdr);
+								BytesReceived = recvfrom(Socket,
+								                         (char *)BeebRx.buff,
+								                         sizeof(BeebRx.buff),
+								                         0,
+								                         (SOCKADDR *)&RecvAddr,
+								                         &RecvAddrSize);
 							}
 
-							if (RetVal > 0)
+							if (BytesReceived > 0)
 							{
 								//if (DebugEnabled)
 								{
 									DebugDisplayTraceF(DebugType::Econet, true,
-									                   "EconetPoll: Packet received: %u bytes from %s port %u",
-									                   (int)RetVal,
+									                   "EconetPoll: Packet received: %d bytes from %s port %u",
+									                   BytesReceived,
 									                   IpAddressStr(S_ADDR(RecvAddr)),
 									                   htons(RecvAddr.sin_port));
 
-									std::string str = "EconetPoll: Packet data:" + BytesToString(AUNMode ? EconetRx.raw : BeebRx.buff, RetVal);
+									std::string str = "EconetPoll: Packet data:" + BytesToString(AUNMode ? EconetRx.raw : BeebRx.buff, BytesReceived);
 
 									DebugDisplayTrace(DebugType::Econet, true, str.c_str());
 								}
@@ -1826,7 +1838,7 @@ bool EconetPoll_real() // return NMI status
 										//if (DebugEnabled)
 										{
 											DebugDisplayTraceF(DebugType::Econet, true,
-											                   "Econet: Packet was from %02x %02x ",
+											                   "Econet: Packet was from %02x %02x",
 											                   (unsigned int)pHost->network,
 											                   (unsigned int)pHost->station);
 										}
@@ -1853,7 +1865,7 @@ bool EconetPoll_real() // return NMI status
 													BeebRx.eh.deststn = 255; // wasn't just for us..
 													BeebRx.eh.destnet = 255;
 													j = 6;
-													for (unsigned int i = 0; i < RetVal - sizeof(EconetRx.ah); i++, j++) {
+													for (unsigned int i = 0; i < BytesReceived - sizeof(EconetRx.ah); i++, j++) {
 														BeebRx.buff[j] = EconetRx.buff[i];
 													}
 													BeebRx.BytesInBuffer = j;
@@ -1864,7 +1876,7 @@ bool EconetPoll_real() // return NMI status
 
 												case AUNType::Immediate:
 													j = 6;
-													for (unsigned int i = 0; i < RetVal - sizeof(EconetRx.ah); i++, j++) {
+													for (unsigned int i = 0; i < BytesReceived - sizeof(EconetRx.ah); i++, j++) {
 														BeebRx.buff[j] = EconetRx.buff[i];
 													}
 													BeebRx.BytesInBuffer = j;
@@ -1919,7 +1931,7 @@ bool EconetPoll_real() // return NMI status
 											// BeebRx.eh.destnet = EconetRx.eh.destnet & inmask ; // 30jun was 0
 
 											j = 4;
-											for (unsigned int i = 0; i < RetVal - sizeof(EconetRx.ah); i++, j++) {
+											for (unsigned int i = 0; i < BytesReceived - sizeof(EconetRx.ah); i++, j++) {
 												BeebRx.buff[j] = EconetRx.buff[i];
 											}
 											BeebRx.BytesInBuffer = j;
@@ -1962,7 +1974,7 @@ bool EconetPoll_real() // return NMI status
 								}
 								else
 								{
-									BeebRx.BytesInBuffer = RetVal;
+									BeebRx.BytesInBuffer = BytesReceived;
 									BeebRx.Pointer = 0;
 								}
 
@@ -1994,7 +2006,7 @@ bool EconetPoll_real() // return NMI status
 								EconetError("Econet: Failed to receive packet (error %ld)", GetLastSocketError());
 							} */
 						}
-						else if (RetVal == SOCKET_ERROR)
+						else if (NumReady == SOCKET_ERROR)
 						{
 							EconetError("Econet: Failed to check for new packet");
 						}
@@ -2461,7 +2473,7 @@ bool EconetPoll_real() // return NMI status
 void DebugDumpADLC()
 {
 	DebugDisplayTraceF(DebugType::Econet, true,
-	                   "ADLC: Ctl:%02X %02X %02X %02X St:%02X %02X TXptr:%01x rx:%01x FF:%d IRQc:%02x SR2c:%02x PC:%04x 4W:%i ",
+	                   "ADLC: Ctl:%02X %02X %02X %02X St:%02X %02X TXptr:%01x rx:%01x FF:%d IRQc:%02x SR2c:%02x PC:%04x 4W:%i",
 	                   (int)ADLC.control1, (int)ADLC.control2, (int)ADLC.control3, (int)ADLC.control4,
 	                   (int)ADLC.status1, (int)ADLC.status2,
 	                   (int)ADLC.txfptr, (int)ADLC.rxfptr, FlagFillActive ? 1 : 0,
