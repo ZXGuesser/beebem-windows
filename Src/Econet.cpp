@@ -2107,12 +2107,13 @@ bool EconetPoll_real() // return NMI status
 	}
 
 	// waiting for AUN to become idle?
-	if (AUNMode && fourwaystage == FourWayStage::WaitForIdle
-		&& BeebRx.BytesInBuffer == 0
-		&& ADLC.rxfptr == 0
-		&& ADLC.txfptr == 0 // ??
-		// && EconetScoutAckTrigger > TotalCycles
-		)
+	if (AUNMode &&
+	    fourwaystage == FourWayStage::WaitForIdle &&
+	    BeebRx.BytesInBuffer == 0 &&
+	    ADLC.rxfptr == 0 &&
+	    ADLC.txfptr == 0 // ??
+	    // && EconetScoutAckTrigger > TotalCycles
+	    )
 	{
 		fourwaystage = FourWayStage::Idle;
 		EconetFourWayTrigger = 0;
