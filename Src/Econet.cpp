@@ -259,7 +259,7 @@ struct LongEconetPacket
 
 // Does Econet send multiple packets for big transfers, or just one huge
 // packet?
-// What's MTU on econet? Depends on clock speed but its big (e.g. 100K).
+// What's MTU on econet? Depends on clock speed but it's big (e.g. 100K).
 // As we are using UDP, we will construct a 2048 byte buffer, accept data
 // into this, and send it periodically.  We will accept incoming data
 // similarly, and dribble it back into the emulated 68B54.
@@ -503,7 +503,7 @@ bool EconetReset()
 	ADLC.control3 = 0; //ADLC.control3 & 95;
 
 	// clear all status conditions
-	ADLC.status1 = 0; // cts - clear to send line input (no collissions talking udp)
+	ADLC.status1 = 0; // cts - clear to send line input (no collisions talking udp)
 	ADLC.status2 = 0; // dcd - no clock (until sockets initialised and open)
 	ADLC.sr2pse = 0;
 
@@ -1323,7 +1323,7 @@ bool EconetPoll_real() // return NMI status
 	// CR3b4 - FDSE - flag detect status enable.  when set, then FD (SR1b3) + interrupr indicated a flag
 	// has been received. I don't think we use this mode, so ignoring it.
 	// CR3b5 - Loop - Loop mode. Not used.
-	// CR3b6 - GAP/TST - sets test loopback mode (when not in Loop operation mode.) ignored.
+	// CR3b6 - GAP/TST - sets test loopback mode (when not in Loop operation mode). ignored.
 	// CR3b7 - LOC/DTR - (when not in loop mode) controls DTR pin directly. pin not used in a BBC B
 
 	// CR4b0 - FF/F - when clear, re-used the Flag at end of one packet as start of next packet. ignored.
@@ -2174,13 +2174,13 @@ bool EconetPoll_real() // return NMI status
 	// SR1b4 - CTS - set by ~CTS line going up, and causes IRQ if enabled.
 	//               only cleared by cpu.
 	//               ~CTS is a NAND of DCD(clock present)(high if valid)
-	//               & collission detection!
+	//               & collision detection!
 	//               i.e. it's low (thus clear to send) when we have both DCD(clock)
 	//               present AND no collision on line and no collision.
 	//               cts will ALSO be high if there is no cable!
 	// we will only bother checking against DCD here as can't have collisions.
 	// but nfs then loops waiting for CTS high!
-	// on the B+ there is (by default) no collission detection circuitary. instead S29
+	// on the B+ there is (by default) no collision detection circuitary. instead S29
 	// links RTS in its place, thus CTS is a NAND of not RTS & not DCD
 	// i.e. cts = ! ( !rts && !dcd ) all signals are active low.
 	// there is a delay on rts going high after cr2b7=0 - ignore this for now.
