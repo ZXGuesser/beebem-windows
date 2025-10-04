@@ -329,14 +329,14 @@ void SyncIO(void)
 void AdjustForIORead(void)
 {
 	Cycles++;
-	IOCycles += 1;
+	IOCycles++;
 	PollVIAs(1);
 }
 
 void AdjustForIOWrite(void)
 {
 	Cycles++;
-	IOCycles += 1;
+	IOCycles++;
 	PollVIAs(1);
 	DoIntCheck();
 }
