@@ -89,6 +89,23 @@ char ToHexDigit(int Value)
 
 /****************************************************************************/
 
+std::string BytesToString(const unsigned char* pData, int Length)
+{
+	std::string str;
+
+	for (int i = 0; i < Length; i++)
+	{
+		char sz[10];
+		sprintf(sz, " %02X", pData[i]);
+
+		str += sz;
+	}
+
+	return str;
+}
+
+/****************************************************************************/
+
 bool StringEndsWith(const std::string& str, const std::string& suffix)
 {
 	return str.size() >= suffix.size() &&

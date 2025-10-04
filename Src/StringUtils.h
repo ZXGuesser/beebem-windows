@@ -26,6 +26,7 @@ Boston, MA  02110-1301, USA.
 void Trim(std::string& str);
 bool ParseNumber(const std::string& str, int* pValue);
 char ToHexDigit(int Value);
+std::string BytesToString(const unsigned char* pData, int Length);
 bool StringEndsWith(const std::string& str, const std::string& suffix);
 std::string WStr2Str(const std::wstring& str);
 std::wstring Str2WStr(const std::string& str);

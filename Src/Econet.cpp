@@ -400,23 +400,6 @@ static const char* IpAddressStr(unsigned long inet_addr)
 
 //---------------------------------------------------------------------------
 
-static std::string BytesToString(const unsigned char* pData, int Length)
-{
-	std::string str;
-
-	for (int i = 0; i < Length; i++)
-	{
-		char sz[10];
-		sprintf(sz, " %02X", pData[i]);
-
-		str += sz;
-	}
-
-	return str;
-}
-
-//---------------------------------------------------------------------------
-
 static EconetHost* FindNetworkConfig(unsigned char Station)
 {
 	for (int i = 0; i < stationsp; ++i)
