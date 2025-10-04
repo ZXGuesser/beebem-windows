@@ -76,7 +76,7 @@ Preferences::Result Preferences::Load(const char* FileName)
 
 	while (std::getline(Input, Line))
 	{
-		trim(Line);
+		Trim(Line);
 
 		// Skip blank lines and comments
 		if (Line.empty() || Line[0] == '#')
@@ -91,8 +91,8 @@ Preferences::Result Preferences::Load(const char* FileName)
 			std::string Key(Line, 0, Pos);
 			std::string Value(Line, Pos + 1, Line.size());
 
-			trim(Key);
-			trim(Value);
+			Trim(Key);
+			Trim(Value);
 
 			m_Prefs[Key] = Value;
 		}

@@ -23,7 +23,7 @@ Boston, MA  02110-1301, USA.
 
 #include <string>
 
-void trim(std::string& str);
+void Trim(std::string& str);
 bool ParseNumber(const std::string& str, int* pValue);
 char ToHexDigit(int Value);
 bool StringEndsWith(const std::string& str, const std::string& suffix);

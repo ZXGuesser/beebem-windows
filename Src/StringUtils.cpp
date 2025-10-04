@@ -31,7 +31,7 @@ Boston, MA  02110-1301, USA.
 
 /****************************************************************************/
 
-static void trimLeft(std::string& str)
+static void TrimLeft(std::string& str)
 {
 	auto pos = std::find_if(str.begin(), str.end(), [](int ch) {
 		return !std::isspace(ch);
@@ -42,7 +42,7 @@ static void trimLeft(std::string& str)
 
 /****************************************************************************/
 
-static void trimRight(std::string& str)
+static void TrimRight(std::string& str)
 {
 	auto pos = std::find_if(str.rbegin(), str.rend(), [](int ch) {
 		return !std::isspace(ch);
@@ -53,10 +53,10 @@ static void trimRight(std::string& str)
 
 /****************************************************************************/
 
-void trim(std::string& str)
+void Trim(std::string& str)
 {
-	trimLeft(str);
-	trimRight(str);
+	TrimLeft(str);
+	TrimRight(str);
 }
 
 /****************************************************************************/

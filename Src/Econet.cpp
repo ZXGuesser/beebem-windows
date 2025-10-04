@@ -771,7 +771,7 @@ static bool ReadEconetConfigFile()
 	{
 		LineCounter++;
 
-		trim(Line);
+		Trim(Line);
 
 		// Skip blank lines and comments
 		if (Line.empty() || Line[0] == '#')
@@ -918,7 +918,7 @@ static bool ReadAUNConfigFile()
 	{
 		LineCounter++;
 
-		trim(Line);
+		Trim(Line);
 
 		// Skip blank lines and comments
 		if (Line.empty() || Line[0] == '#' || Line[0] == '|')

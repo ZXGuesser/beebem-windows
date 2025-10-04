@@ -2119,7 +2119,7 @@ bool DebugLoadSwiftLabels(const char* filename)
 
 		while (std::getline(input, line))
 		{
-			trim(line);
+			Trim(line);
 
 			// Example: [{'SYMBOL':12345L,'SYMBOL2':12346L}]
 

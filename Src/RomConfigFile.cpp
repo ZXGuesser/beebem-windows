@@ -176,7 +176,7 @@ bool RomConfigFile::Load(const char *FileName)
 
 	while (std::getline(File, Line))
 	{
-		trim(Line);
+		Trim(Line);
 
 		// Skip blank lines and comments
 		if (Line.empty() || Line[0] == '#')
