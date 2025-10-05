@@ -40,7 +40,8 @@ Boston, MA  02110-1301, USA.
 #include "BeebMem.h"
 #include "6502core.h"
 #include "AtoDConv.h"
-#include "Debug.h" // Rob added for INTON/OFF reporting only
+#include "Debug.h"
+#include "DebugTrace.h"
 #include "Disc1770.h"
 #include "Disc8271.h"
 #include "Econet.h" // Rob
@@ -516,9 +517,12 @@ unsigned char BeebReadMem(int Address) {
 		(((MachineType != Model::Master128 && MachineType != Model::MasterET) && (Address & ~3) == 0xfe18) ||
 		 ((MachineType == Model::Master128 || MachineType == Model::MasterET) && (Address & ~3) == 0xfe38)))
 	{
-		if (DebugEnabled)
-			DebugDisplayTrace(DebugType::Econet, true, "Econet: INTOFF");
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: INTOFF\n");
+		#endif
+
 		EconetNMIEnabled = INTOFF;
+
 		return EconetReadStationID();
 	}
 
@@ -536,7 +540,9 @@ unsigned char BeebReadMem(int Address) {
 	    (((MachineType != Model::Master128 && MachineType != Model::MasterET) && (Address & ~3) == 0xfe20) ||
 	     ((MachineType == Model::Master128 || MachineType == Model::MasterET) && (Address & ~3) == 0xfe3c)))
 	{
-		if (DebugEnabled) DebugDisplayTrace(DebugType::Econet, true, "Econet: INTON");
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: INTON\n");
+		#endif
 
 		if (!EconetNMIEnabled) // was off
 		{
@@ -546,7 +552,9 @@ unsigned char BeebReadMem(int Address) {
 			{
 				NMIStatus |= 1 << nmi_econet;
 
-				if (DebugEnabled) DebugDisplayTrace(DebugType::Econet, true, "Econet: delayed NMI asserted");
+				#ifdef DEBUG_ECONET
+				DebugTrace("Econet: Delayed NMI asserted\n");
+				#endif
 			}
 		}
 	}
@@ -988,9 +996,12 @@ void BeebWriteMem(int Address, unsigned char Value)
 	//Rob: econet NMI mask
 	if (EconetEnabled &&
 		(((MachineType != Model::Master128 && MachineType != Model::MasterET) && (Address & ~3) == 0xfe18) ||
-		 ((MachineType == Model::Master128 || MachineType == Model::MasterET) && (Address & ~3) == 0xfe38)) ) {
-		if (DebugEnabled)
-			DebugDisplayTrace(DebugType::Econet, true, "Econet: INTOFF(w)");
+		 ((MachineType == Model::Master128 || MachineType == Model::MasterET) && (Address & ~3) == 0xfe38)))
+	{
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: INTOFF(w)\n");
+		#endif
+
 		EconetNMIEnabled = INTOFF;
 	}
 

@@ -32,6 +32,7 @@ void EconetWrite(unsigned char Register, unsigned char Value);
 unsigned char EconetReadStationID();
 bool EconetInterruptRequest();
 bool EconetPoll();
+void DebugEconetState();
 
 extern bool EconetEnabled;
 extern bool EconetNMIEnabled;
@@ -45,5 +46,7 @@ extern unsigned char EconetNetworkID;
 
 extern char EconetCfgPath[MAX_PATH];
 extern char AUNMapPath[MAX_PATH];
+
+// #define DEBUG_ECONET
 
 #endif

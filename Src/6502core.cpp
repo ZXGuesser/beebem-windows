@@ -34,6 +34,7 @@ Boston, MA  02110-1301, USA.
 #include "AtoDConv.h"
 #include "BeebMem.h"
 #include "Debug.h"
+#include "DebugTrace.h"
 #include "Disc1770.h"
 #include "Disc8271.h"
 #include "Econet.h"
@@ -3334,13 +3335,15 @@ static void PollHardware(unsigned int nCycles)
 		{
 			NMIStatus |= 1<<nmi_econet;
 
-			if (DebugEnabled)
-				DebugDisplayTrace(DebugType::Econet, true, "Econet: NMI asserted");
+			#ifdef DEBUG_ECONET
+			DebugTrace("Econet: NMI asserted\n");
+			#endif
 		}
 		else
 		{
-			if (DebugEnabled)
-				DebugDisplayTrace(DebugType::Econet, true, "Econet: NMI requested but supressed");
+			#ifdef DEBUG_ECONET
+			DebugTrace("Econet: NMI requested but supressed\n");
+			#endif
 		}
 	}
 }

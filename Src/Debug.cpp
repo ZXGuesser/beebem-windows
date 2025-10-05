@@ -42,6 +42,7 @@ Boston, MA  02110-1301, USA.
 #include "6502core.h"
 #include "BeebMem.h"
 #include "DebugTrace.h"
+#include "Econet.h"
 #include "FileDialog.h"
 #include "Main.h"
 #include "Resource.h"
@@ -181,7 +182,7 @@ static const DebugCmd DebugCmdTable[] = {
 	{ "d",          DebugCmdCode,          "", ""}, // Alias of "code"
 	{ "watch",      DebugCmdWatch,         "[p] <addr> <b|w|d> [<name>]", "Set or clear a byte, word, or dword watch at addr" },
 	{ "e",          DebugCmdWatch,         "", ""}, // Alias of "watch"
-	{ "state",      DebugCmdState,         "<v|u|s|e|t|m|r>", "Display state of Video/UserVIA/SysVIA/Serial/Tube/Memory/ROMs" },
+	{ "state",      DebugCmdState,         "<v|u|s|e|n|t|m|r>", "Display state of Video/UserVIA/SysVIA/Serial/Econet/Tube/Memory/ROMs" },
 	{ "s",          DebugCmdState,         "", ""}, // Alias of "state"
 	{ "save",       DebugCmdSave,          "[<count>] [<filename>]", "Write console lines to file" },
 	{ "w",          DebugCmdSave,          "", ""}, // Alias of "save"
@@ -1388,13 +1389,6 @@ void DebugAssertBreak(int addr, int prevAddr, bool host)
 
 void DebugDisplayTrace(DebugType type, bool host, const char *info)
 {
-	if (type == DebugType::Econet)
-	{
-		DebugTrace(info);
-		DebugTrace("\n");
-		return;
-	}
-
 	if (DebugEnabled && ((DebugHost && host) || (DebugParasite && !host)))
 	{
 		switch (type)
@@ -1421,15 +1415,10 @@ void DebugDisplayTrace(DebugType type, bool host, const char *info)
 			break;
 
 		case DebugType::Tube:
-			if ((DebugHost && host) || (DebugParasite && !host))
-			{
-				if (IsDlgItemChecked(hwndDebug, IDC_DEBUG_TUBE))
-					DebugDisplayInfo(info);
-				if (IsDlgItemChecked(hwndDebug, IDC_DEBUG_TUBE_BRK))
-					DebugBreakExecution(type);
-			}
-
-			DebugTrace(info);
+			if (IsDlgItemChecked(hwndDebug, IDC_DEBUG_TUBE))
+				DebugDisplayInfo(info);
+			if (IsDlgItemChecked(hwndDebug, IDC_DEBUG_TUBE_BRK))
+				DebugBreakExecution(type);
 			break;
 
 		case DebugType::Serial:
@@ -2684,6 +2673,10 @@ static bool DebugCmdState(const char* args)
 
 		case 'e': // Serial ACIA / ULA state
 			DebugSerialState();
+			break;
+
+		case 'n': // Econet state
+			DebugEconetState();
 			break;
 
 		case 't': // Tube state
