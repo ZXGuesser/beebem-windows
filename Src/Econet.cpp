@@ -234,7 +234,7 @@ enum class FourWayStage {
 
 static FourWayStage fourwaystage;
 
-struct ShorEconetHeader
+struct EconetHeader
 {
 	unsigned char deststn;
 	unsigned char destnet;
@@ -280,7 +280,7 @@ struct EthernetPacket
 
 	union {
 		unsigned char buff[ETHERNET_BUFFER_SIZE];
-		ShorEconetHeader eh;
+		EconetHeader eh;
 	};
 
 	unsigned int Pointer;
@@ -2050,7 +2050,7 @@ bool EconetPollReal() // return NMI status
 							BeebRx.eh.srcstn  = (unsigned char)EconetTx.deststn;  //30jun dont think this is right..
 							BeebRx.eh.srcnet  = (unsigned char)(EconetTx.destnet & inmask);
 
-							const int DestOffset = sizeof(ShorEconetHeader);
+							const int DestOffset = sizeof(EconetHeader);
 
 							if (EconetRx.ah.port == 0 && EconetRx.ah.cb == (0x82 & 0x7f))
 							{
@@ -2059,7 +2059,9 @@ bool EconetPollReal() // return NMI status
 								memcpy(BeebRx.buff + DestOffset, EconetRx.buff + SrcOffset, Length);
 								BeebRx.BytesInBuffer = DestOffset + Length;
 							}
-							else if (EconetRx.ah.port == 0 && EconetRx.ah.cb >= (0x83 & 0x7f) && EconetRx.ah.cb <= (0x85 & 0x7f))
+							else if (EconetRx.ah.port == 0 &&
+							         EconetRx.ah.cb >= (0x83 & 0x7f) &&
+							         EconetRx.ah.cb <= (0x85 & 0x7f))
 							{
 								const int SrcOffset = 4;
 								const int Length = EconetRx.BytesInBuffer - sizeof(EconetRx.ah) - SrcOffset;
