@@ -1237,7 +1237,7 @@ bool EconetPollReal() // return NMI status
 
 		ADLC.status1 &= ~(STATUS_REG1_STATUS2_READ_REQUEST | STATUS_REG1_FLAG_DETECTED); // clear sr2rq, FD
 
-		// clear FV, RxIdle, RxAbt, Err, OVRN, DCD
+		// Clear FV, RxIdle, RxAbt, Err, OVRN, DCD.
 		ADLC.status2 &= ~(STATUS_REG2_FRAME_VALID |
 		                  STATUS_REG2_INACTIVE_IDLE_RECEIVED |
 		                  STATUS_REG2_ABORT_RECEIVED |
@@ -1505,25 +1505,36 @@ bool EconetPollReal() // return NMI status
 							switch (fourwaystage)
 							{
 							case FourWayStage::ScoutAckReceived:
-								// it came in response to our ack of a scout
-								// what we have /should/ be the data block ..
+								// It came in response to our ack of a scout.
+								// What we have /should/ be the data block.
 								// CLUDGE WARNING is this a scout sent again immediately?? TODO fix this?!?!
-								if (EconetTx.ah.port == 0x00) {
+								if (EconetTx.ah.port == 0x00)
+								{
 									if (EconetTx.ah.cb == (0x82 & 0x7f))
+									{
 										j = 8;
-									else if (EconetTx.ah.cb >= (0x83 & 0x7f) && EconetTx.ah.cb <= (0x85 & 0x7f))
+									}
+									else if (EconetTx.ah.cb >= (0x83 & 0x7f) &&
+									         EconetTx.ah.cb <= (0x85 & 0x7f))
+									{
 										j = 4;
+									}
 								}
 
-								if (BeebTx.Pointer != sizeof(BeebTx.eh) + j || memcmp(BeebTx.buff, BeebTxCopy, sizeof(BeebTx.eh) + j) != 0) { // nope
+								if (BeebTx.Pointer != sizeof(BeebTx.eh) + j || memcmp(BeebTx.buff, BeebTxCopy, sizeof(BeebTx.eh) + j) != 0) // nope
+								{
 									for (unsigned int k = 4; k < BeebTx.Pointer; k++, j++) {
 										EconetTx.buff[j] = BeebTx.buff[k];
 									}
 									EconetTx.Pointer = j;
-									fourwaystage = FourWayStage::DataSent;
-									if (DebugEnabled) DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_DATASENT");
+
 									SendMe = true;
 									SendLen = sizeof(EconetTx.ah) + EconetTx.Pointer;
+
+									fourwaystage = FourWayStage::DataSent;
+
+									// if (DebugEnabled)
+									DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_DATASENT");
 									break;
 								} // else fall through...
 
@@ -1548,29 +1559,39 @@ bool EconetPollReal() // return NMI status
 								if (IsBroadcastStation(EconetTx.deststn))
 								{
 									EconetTx.ah.type = AUNType::Broadcast;
+
 									fourwaystage = FourWayStage::WaitForIdle; // no response to broadcasts...
-									//if (DebugEnabled)
-									DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (broadcast snt)");
+
 									SendMe = true; // send packet ...
 									SendLen = sizeof(EconetTx.ah) + 8;
+
+									//if (DebugEnabled)
+									DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (broadcast snt)");
 								}
-								else if (EconetTx.ah.port == 0 && (EconetTx.ah.cb < (0x82 & 0x7f) || EconetTx.ah.cb >(0x85 & 0x7f)))
+								else if (EconetTx.ah.port == 0 &&
+								         (EconetTx.ah.cb < (0x82 & 0x7f) || EconetTx.ah.cb >(0x85 & 0x7f)))
 								{
 									EconetTx.ah.type = AUNType::Immediate;
+
 									fourwaystage = FourWayStage::ImmediateSent;
-									//if (DebugEnabled)
-									DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_IMMSENT");
+
 									SendMe = true; // send packet ...
 									SendLen = sizeof(EconetTx.ah) + EconetTx.Pointer;
+
+									//if (DebugEnabled)
+									DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_IMMSENT");
 								}
 								else
 								{
 									EconetTx.ah.type = AUNType::Unicast;
+
 									fourwaystage = FourWayStage::ScoutSent;
+
+									// Don't send anything but set wait anyway.
+									SetTrigger(EconetScoutAckTimeout, EconetScoutAckTrigger);
+
 									//if (DebugEnabled)
 									DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_SCOUTSENT");
-									// dont send anything but set wait anyway
-									SetTrigger(EconetScoutAckTimeout, EconetScoutAckTrigger);
 									//if (DebugEnabled)
 									DebugDisplayTrace(DebugType::Econet, true, "Econet: SCACKtimer set");
 								} // else BROADCAST !!!!
@@ -1591,9 +1612,10 @@ bool EconetPollReal() // return NMI status
 								// Now we really need to send an ack to the far AUN host...
 								// Send header of last block received straight back.
 								// This ought to work, but only because the Beeb can only talk to one machine at any time.
-								SendLen = sizeof(EconetRx.ah);
 								EconetTx.ah = EconetRx.ah;
 								EconetTx.ah.type = AUNType::Ack;
+
+								SendLen = sizeof(EconetRx.ah);
 								SendMe = true;
 								/*
 								if (sendto(SendSocket, (char *) &EconetTx.ah, SendLen, 0,
@@ -1605,31 +1627,35 @@ bool EconetPollReal() // return NMI status
 								*/
 
 								fourwaystage = FourWayStage::WaitForIdle;
+
 								//if (DebugEnabled)
 								DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (final ack sent)");
 								break;
 
 							case FourWayStage::ImmediateReceived:
 								// It's a reply to an immediate command we just had.
-								fourwaystage = FourWayStage::WaitForIdle;
-								//if (DebugEnabled)
-								DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (imm rcvd)");
-
 								for (unsigned int k = 4; k < BeebTx.Pointer; k++, j++) {
 									EconetTx.buff[j] = BeebTx.buff[k];
 								}
 
 								EconetTx.Pointer = j;
+
 								EconetTx.ah = EconetRx.ah;
 								EconetTx.ah.type = AUNType::ImmReply;
 
 								SendMe = true;
 								SendLen = sizeof(EconetTx.ah) + EconetTx.Pointer;
+
+								fourwaystage = FourWayStage::WaitForIdle;
+
+								//if (DebugEnabled)
+								DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (imm rcvd)");
 								break;
 
 							default:
-								// Shouldn't be here. Ignore packet and abort fourway
+								// Shouldn't be here. Ignore packet and abort fourway.
 								fourwaystage = FourWayStage::WaitForIdle;
+
 								//if (DebugEnabled)
 								DebugDisplayTrace(DebugType::Econet, true, "Econet: Set FWS_WAIT4IDLE (unexpected mode, packet ignored)");
 								break;
@@ -1725,7 +1751,8 @@ bool EconetPollReal() // return NMI status
 
 					if (++BeebRx.Pointer >= BeebRx.BytesInBuffer) // that was last byte!
 					{
-						ADLC.rxffc |= 1; // set FV flag (this was last byte of frame)
+						// Set Frame Valid flag (this was last byte of frame).
+						ADLC.rxffc |= 1;
 
 						// Reset read for next packet.
 						BeebRx.Pointer = 0;
@@ -1802,27 +1829,26 @@ bool EconetPollReal() // return NMI status
 
 								if (AUNMode)
 								{
-									// convert from AUN format
-									// find station number of sender
+									// Convert from AUN format.
+									// Find station number of sender.
 									EconetHost* pHost = FindHost(&RecvAddr);
 
 									if (pHost == nullptr)
 									{
 										// Packet from unknown host.
-
 										if (LearnMode)
 										{
 											pHost = AddHost(&RecvAddr);
 										}
 									}
 
-									if (pHost == nullptr) // didn't find it in the table ..
+									if (pHost == nullptr)
 									{
+										// Didn't find it in the table. Ignore the packet.
+										BeebRx.BytesInBuffer = 0;
+
 										//if (DebugEnabled)
 											DebugDisplayTrace(DebugType::Econet, true, "Econet: Packet ignored");
-
-										// Ignore the packet.
-										BeebRx.BytesInBuffer = 0;
 									}
 									else
 									{
@@ -1850,7 +1876,7 @@ bool EconetPollReal() // return NMI status
 											switch (EconetRx.ah.type)
 											{
 												case AUNType::Broadcast: {
-													BeebRx.eh.deststn = 255; // wasn't just for us..
+													BeebRx.eh.deststn = 255; // Wasn't just for us..
 													BeebRx.eh.destnet = 255;
 
 													const int Offset = sizeof(LongEconetPacket);
@@ -1918,14 +1944,12 @@ bool EconetPollReal() // return NMI status
 
 										case FourWayStage::ImmediateSent: {
 											// It should be reply to an immediate instruction.
-											// TODO  check that it is!!!   Example scenario where it will not
+											// TODO  check that it is!!! Example scenario where it will not
 											// be - *STATIONs poll sends packet to itself... packet we get
 											// here is the one we just sent out..!!!
 											// I'm pretty sure that real Econet can't send to itself.
 											BeebRx.eh.deststn = EconetStationID; // must be for us.
 											BeebRx.eh.destnet = 0;
-											// BeebRx.eh.deststn = EconetRx.eh.deststn; // 30jun was EconetStationID; // must be for us.
-											// BeebRx.eh.destnet = EconetRx.eh.destnet & inmask; // 30jun was 0
 
 											BeebRx.eh.srcstn = pHost->station;
 											BeebRx.eh.srcnet = pHost->network;
@@ -1952,8 +1976,6 @@ bool EconetPollReal() // return NMI status
 												// Construct a final ack for the Beeb.
 												BeebRx.eh.deststn = EconetStationID; // must be for us.
 												BeebRx.eh.destnet = 0;
-												// BeebRx.eh.deststn = EconetRx.eh.deststn; // 30jun was EconetStationID; // must be for us.
-												// BeebRx.eh.destnet = EconetRx.eh.destnet & inmask; // 30jun was 0
 
 												BeebRx.eh.srcstn = pHost->station;
 												BeebRx.eh.srcnet = pHost->network;
@@ -1987,7 +2009,7 @@ bool EconetPollReal() // return NMI status
 								if ((BeebRx.eh.deststn == EconetStationID || IsBroadcastStation(BeebRx.eh.deststn)) &&
 								    BeebRx.BytesInBuffer > 0)
 								{
-									// Peer sent us packet - no longer in flag fill
+									// Peer sent us packet - no longer in flag fill.
 									FlagFillActive = false;
 
 									//if (DebugEnabled)
@@ -2028,8 +2050,8 @@ bool EconetPollReal() // return NMI status
 							BeebRx.eh.deststn = EconetStationID;
 							BeebRx.eh.destnet = 0;
 
-							BeebRx.eh.srcstn = (unsigned char)EconetTx.deststn; // use scout's dest as source of ack.
-							BeebRx.eh.srcnet = (unsigned char)EconetTx.destnet; // & inmask; //30jun
+							BeebRx.eh.srcstn = (unsigned char)EconetTx.deststn; // Use scout's dest as source of ack.
+							BeebRx.eh.srcnet = (unsigned char)EconetTx.destnet;
 
 							BeebRx.BytesInBuffer = 4;
 							BeebRx.Pointer = 0;
@@ -2044,8 +2066,6 @@ bool EconetPollReal() // return NMI status
 							// Beeb acked the scout we gave it, so give it the data AUN sent us earlier.
 							BeebRx.eh.deststn = EconetStationID; // As it is data it must be for us.
 							BeebRx.eh.destnet = 0;
-							// BeebRx.eh.deststn = EconetRx.eh.deststn; // 30jun
-							// BeebRx.eh.destnet = EconetRx.eh.destnet & inmask; // 30jun was 0
 
 							BeebRx.eh.srcstn  = (unsigned char)EconetTx.deststn;  //30jun dont think this is right..
 							BeebRx.eh.srcnet  = (unsigned char)(EconetTx.destnet & inmask);
