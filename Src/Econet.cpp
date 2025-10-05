@@ -188,11 +188,11 @@ static SOCKET Socket = INVALID_SOCKET; // Also used to flag line up and clock ru
 const u_short DEFAULT_AUN_PORT = 32768;
 
 // Written in 2004:
-// we will be using Econet over Ethernet as per AUN,
+// We will be using Econet over Ethernet as per AUN,
 // however I've not got a real Acorn ethernet machine to see how
 // it actually works! The only details I can find is it is:
-// "standard econet encpsulated in UDP to port 32768" and that
-// Addressing defaults to "1.0.net.stn" where net >= 128 for ethernet.
+// "Standard econet encpsulated in UDP to port 32768" and that
+// addressing defaults to "1.0.net.stn" where net >= 128 for Ethernet.
 // but can be overridden, so we won't worry about that.
 
 // 2009: Now I come back to this, I know the format ... :-)
@@ -273,10 +273,7 @@ const int ETHERNET_BUFFER_SIZE = 65536;
 
 struct EthernetPacket
 {
-	union {
-		unsigned char raw[8];
-		AUNHeader ah;
-	};
+	AUNHeader ah;
 
 	union {
 		unsigned char buff[ETHERNET_BUFFER_SIZE];
@@ -314,19 +311,22 @@ static EconetPacket BeebRx;
 static unsigned char BeebTxCopy[sizeof(LongEconetPacket)];
 
 // Holds data from Econet.cfg file
-struct EconetHost {
+struct EconetHost
+{
 	unsigned char station;
 	unsigned char network;
 	unsigned long inet_addr;
 	u_short port;
 };
 
-struct EconetNet {
+struct EconetNet
+{
 	unsigned long inet_addr;
 	unsigned char network;
 };
 
-struct NetStn {
+struct NetStn
+{
 	unsigned char network;
 	unsigned char station;
 };
@@ -1767,8 +1767,8 @@ bool EconetPollReal() // return NMI status
 							if (AUNMode)
 							{
 								BytesReceived = recvfrom(Socket,
-								                         (char *)EconetRx.raw,
-								                         sizeof(EconetRx.raw) + sizeof(EconetRx.buff),
+								                         (char *)&EconetRx,
+								                         sizeof(EconetRx.ah) + sizeof(EconetRx.buff),
 								                         0,
 								                         (SOCKADDR *)&RecvAddr,
 								                         &RecvAddrSize);
@@ -1795,7 +1795,7 @@ bool EconetPollReal() // return NMI status
 									                   IpAddressStr(S_ADDR(RecvAddr)),
 									                   htons(RecvAddr.sin_port));
 
-									std::string str = "EconetPoll: Packet data:" + BytesToString(AUNMode ? EconetRx.raw : BeebRx.buff, BytesReceived);
+									std::string str = "EconetPoll: Packet data:" + BytesToString(AUNMode ? (const unsigned char*)&EconetRx : BeebRx.buff, BytesReceived);
 
 									DebugDisplayTrace(DebugType::Econet, true, str.c_str());
 								}
