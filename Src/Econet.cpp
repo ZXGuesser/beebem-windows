@@ -51,7 +51,8 @@ Boston, MA  02110-1301, USA.
 // control1_b0 is AC
 // this splits register address 0x01 as control2 and control3
 // and register address 0x03 as tx-data-last-data and control4
-struct MC6854 {
+struct MC6854
+{
 	unsigned char control1;
 	unsigned char control2;
 	unsigned char control3;
@@ -152,7 +153,8 @@ static bool StrictAUNMode = DEFAULT_STRICT_AUN_MODE; // Assume network ip=stn nu
 static unsigned int FourWayStageTimeout = DEFAULT_FOUR_WAY_STAGE_TIMEOUT;
 static bool MassageNetworks = DEFAULT_MASSAGE_NETWORKS; // Massage network numbers on send/receive (add/sub 128)
 
-static int inmask, outmask;
+static unsigned char inmask;
+static unsigned char outmask;
 
 bool EconetStateChanged = false;
 bool EconetEnabled;    // Enable hardware
@@ -199,7 +201,8 @@ const u_short DEFAULT_AUN_PORT = 32768;
 // and sure enough, it's pretty simple.
 // It's translating the different protocols that was harder.
 
-enum class AUNType : unsigned char {
+enum class AUNType : unsigned char
+{
 	Broadcast = 1,
 	Unicast = 2,
 	Ack = 3,
@@ -219,7 +222,8 @@ struct AUNHeader
 
 static unsigned long ec_sequence = 0;
 
-enum class FourWayStage {
+enum class FourWayStage
+{
 	Idle = 0,
 	ScoutSent = 1,
 	ScoutAckReceived = 2,
@@ -271,26 +275,20 @@ struct LongEconetPacket
 // (and that's certainly larger than Acorn bridges can cope with.)
 const int ETHERNET_BUFFER_SIZE = 65536;
 
-struct EthernetPacket
-{
-	AUNHeader ah;
-
-	union {
-		unsigned char buff[ETHERNET_BUFFER_SIZE];
-		EconetHeader eh;
-	};
-
-	unsigned int Pointer;
-	unsigned int BytesInBuffer;
-	unsigned long inet_addr;
-	unsigned int port;
-	unsigned int deststn;
-	unsigned int destnet;
-};
-
-// Buffers used to construct packets for sending out via UDP
-static EthernetPacket EconetRx;
-static EthernetPacket EconetTx;
+// Buffers
+// =======
+//
+// Non-AUN Mode
+// ------------
+//
+// Transmit: Beeb -> ADLC.txfifo -> BeebTx -> sendto()
+// Receive:  recvfrom() -> BeebRx -> ADLC.rxfifo -> Beeb
+//
+// AUN Mode
+// --------
+//
+// Transmit: Beeb -> ADLC.txfifo -> BeebTx -> EconetTX -> sendto()
+// Receive:  recvfrom() -> EconetRX -> BeebRx -> ADLC.rxfifo -> Beeb
 
 // Buffers used to construct packets sent to/received from BBC micro
 
@@ -309,6 +307,26 @@ static EconetPacket BeebTx;
 static EconetPacket BeebRx;
 
 static unsigned char BeebTxCopy[sizeof(LongEconetPacket)];
+
+struct EthernetPacket
+{
+	AUNHeader ah;
+
+	union {
+		unsigned char buff[ETHERNET_BUFFER_SIZE];
+		EconetHeader eh;
+	};
+
+	unsigned int Pointer;
+	unsigned int BytesInBuffer;
+
+	unsigned char deststn;
+	unsigned char destnet;
+};
+
+// Buffers used to construct packets for sending out via UDP
+static EthernetPacket EconetRx;
+static EthernetPacket EconetTx;
 
 // Holds data from Econet.cfg file
 struct EconetHost
@@ -381,7 +399,7 @@ static void EconetError(const char *Format, ...);
 
 //---------------------------------------------------------------------------
 
-static bool IsBroadcastStation(unsigned int Station)
+static bool IsBroadcastStation(unsigned char Station)
 {
 	return Station == 0 || Station == 255;
 }
@@ -500,14 +518,15 @@ bool EconetReset()
 	ADLC.status2 = 0; // dcd - no clock (until sockets initialised and open)
 	ADLC.sr2pse = 0;
 
-	//software stuff:
 	EconetRx.Pointer = 0;
 	EconetRx.BytesInBuffer = 0;
+
 	EconetTx.Pointer = 0;
 	EconetTx.BytesInBuffer = 0;
 
 	BeebRx.Pointer = 0;
 	BeebRx.BytesInBuffer = 0;
+
 	BeebTx.Pointer = 0;
 	BeebTx.BytesInBuffer = 0;
 
@@ -2106,8 +2125,8 @@ bool EconetPollReal()
 							BeebRx.eh.deststn = EconetStationID;
 							BeebRx.eh.destnet = 0;
 
-							BeebRx.eh.srcstn = (unsigned char)EconetTx.deststn; // Use scout's dest as source of ack.
-							BeebRx.eh.srcnet = (unsigned char)EconetTx.destnet;
+							BeebRx.eh.srcstn = EconetTx.deststn; // Use scout's dest as source of ack.
+							BeebRx.eh.srcnet = EconetTx.destnet;
 
 							BeebRx.BytesInBuffer = 4;
 							BeebRx.Pointer = 0;
@@ -2124,8 +2143,8 @@ bool EconetPollReal()
 							BeebRx.eh.deststn = EconetStationID; // As it is data it must be for us.
 							BeebRx.eh.destnet = 0;
 
-							BeebRx.eh.srcstn  = (unsigned char)EconetTx.deststn;  //30jun dont think this is right..
-							BeebRx.eh.srcnet  = (unsigned char)(EconetTx.destnet & inmask);
+							BeebRx.eh.srcstn  = EconetTx.deststn; //30jun dont think this is right..
+							BeebRx.eh.srcnet  = EconetTx.destnet & inmask;
 
 							const int DestOffset = sizeof(EconetHeader);
 
