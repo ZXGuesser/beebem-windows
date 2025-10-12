@@ -77,6 +77,20 @@ bool ParseNumber(const std::string& str, int* pValue)
 
 /****************************************************************************/
 
+int ParseNumber(const std::string& str, int Min, int Max)
+{
+	int Value = std::stoi(str);
+
+	if (Value < Min || Value > Max)
+	{
+		throw std::exception();
+	}
+
+	return Value;
+}
+
+/****************************************************************************/
+
 char ToHexDigit(int Value)
 {
 	static const char HexDigit[16] =

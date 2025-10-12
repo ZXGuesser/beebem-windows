@@ -21,10 +21,13 @@ Boston, MA  02110-1301, USA.
 #ifndef SOCKET_HEADER
 #define SOCKET_HEADER
 
+#include <string>
+
 int CloseSocket(SOCKET Socket);
 int GetLastSocketError();
 bool SetSocketBlocking(SOCKET Socket, bool Blocking);
 bool WouldBlock(int Error);
+unsigned long ParseIPAddress(const std::string& Value);
 
 #define S_ADDR(s) (s).sin_addr.s_addr
 

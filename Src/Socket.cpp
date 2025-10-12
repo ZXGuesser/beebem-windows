@@ -27,6 +27,8 @@ Boston, MA  02110-1301, USA.
 #include <unistd.h>
 #endif
 
+#include <stdexcept>
+
 /****************************************************************************/
 
 int CloseSocket(SOCKET Socket)
@@ -99,6 +101,20 @@ bool WouldBlock(int Error)
 	return Error == EWOULDBLOCK; // TODO: EAGAIN?
 
 	#endif
+}
+
+/****************************************************************************/
+
+unsigned long ParseIPAddress(const std::string& Value)
+{
+	unsigned long Address = inet_addr(Value.c_str());
+
+	if (Address == INADDR_NONE)
+	{
+		throw std::exception();
+	}
+
+	return Address;
 }
 
 /****************************************************************************/

@@ -824,10 +824,10 @@ static bool ReadEconetConfigFile()
 			{
 				try
 				{
-					stations[stationsp].network   = (unsigned char)std::stoi(Tokens[0]);
-					stations[stationsp].station   = (unsigned char)std::stoi(Tokens[1]);
-					stations[stationsp].inet_addr = inet_addr(Tokens[2].c_str());
-					stations[stationsp].port      = (u_short)std::stoi(Tokens[3]);
+					stations[stationsp].network   = (unsigned char)ParseNumber(Tokens[0], 0, 255);
+					stations[stationsp].station   = (unsigned char)ParseNumber(Tokens[1], 0, 255);
+					stations[stationsp].inet_addr = ParseIPAddress(Tokens[2]);
+					stations[stationsp].port      = (u_short)ParseNumber(Tokens[3], 1, 65535);
 
 					DebugDisplayTraceF(DebugType::Econet,
 					                   true,
@@ -876,20 +876,20 @@ static bool ReadEconetConfigFile()
 				}
 				else if (StrCaseCmp(Key.c_str(), "FLAGFILLTIMEOUT") == 0)
 				{
-					EconetFlagFillTimeout = std::stoi(Value);
+					EconetFlagFillTimeout = ParseNumber(Value, 0, INT_MAX);
 				}
 				else if (StrCaseCmp(Key.c_str(), "SCACKTIMEOUT") == 0 ||
 				         StrCaseCmp(Key.c_str(), "SCOUTACKTIMEOUT") == 0)
 				{
-					EconetScoutAckTimeout = std::stoi(Value);
+					EconetScoutAckTimeout = ParseNumber(Value, 0, INT_MAX);
 				}
 				else if (StrCaseCmp(Key.c_str(), "TIMEBETWEENBYTES") == 0)
 				{
-					TimeBetweenBytes = std::stoi(Value);
+					TimeBetweenBytes = ParseNumber(Value, 0, INT_MAX);
 				}
 				else if (StrCaseCmp(Key.c_str(), "FOURWAYTIMEOUT") == 0)
 				{
-					FourWayStageTimeout = std::stoi(Value);
+					FourWayStageTimeout = ParseNumber(Value, 0, INT_MAX);
 				}
 				else if (StrCaseCmp(Key.c_str(), "MASSAGENETS") == 0)
 				{
@@ -963,8 +963,8 @@ static bool ReadAUNConfigFile()
 			{
 				try
 				{
-					networks[networksp].inet_addr = inet_addr(Tokens[1].c_str()) & 0x00FFFFFF; // stored as lsb..msb ?!?!
-					networks[networksp].network   = (unsigned char)(std::stoi(Tokens[2]) & inmask); // 30jun strip b7
+					networks[networksp].inet_addr = ParseIPAddress(Tokens[1]) & 0x00FFFFFF; // stored as lsb..msb ?!?!
+					networks[networksp].network   = (unsigned char)(ParseNumber(Tokens[2], 0, 255) & inmask); // 30jun strip b7
 
 					if (DebugEnabled)
 					{
