@@ -37,7 +37,6 @@ Boston, MA  02110-1301, USA.
 
 #include <windows.h>
 #include <d3d9.h>
-#include <d3dx9math.h>
 #include <ddraw.h>
 #include <sapi.h>
 
@@ -720,7 +719,7 @@ public:
 	IDirect3DDevice9* m_pd3dDevice;
 	IDirect3DVertexBuffer9* m_pVB;
 	IDirect3DTexture9* m_pTexture;
-	D3DXMATRIX m_TextureMatrix;
+	D3DMATRIX m_TextureMatrix;
 
 	// Joystick input
 	bool m_JoystickCaptured;

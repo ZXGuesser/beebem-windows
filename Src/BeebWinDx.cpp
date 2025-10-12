@@ -22,7 +22,6 @@ Boston, MA  02110-1301, USA.
 
 #include <windows.h>
 #include <ddraw.h>
-#include <d3dx9math.h>
 
 #include <assert.h>
 #include <stdio.h>
@@ -396,8 +395,8 @@ HRESULT BeebWin::InitDX9()
 
 	CUSTOMVERTEX * pVertices = nullptr;
 	HRESULT hResult = D3D_OK;
-	D3DXMATRIX Ortho2D;
-	D3DXMATRIX Ident;
+	D3DMATRIX Ortho2D;
+	D3DMATRIX Ident;
 
 	assert(m_pD3D == nullptr);
 	assert(m_pd3dDevice == nullptr);
@@ -531,22 +530,30 @@ HRESULT BeebWin::InitDX9()
 		goto Fail;
 	}
 
-	pVertices[0].position = D3DXVECTOR3(0.0f, -511.0f, 0.0f);
+	pVertices[0].position.x = 0.0f;
+	pVertices[0].position.y = -511.0f;
+	pVertices[0].position.z = 0.0f;
 	pVertices[0].color = 0x00ffffff;
 	pVertices[0].tu = 0.0f;
 	pVertices[0].tv = 1.0f;
 
-	pVertices[1].position = D3DXVECTOR3(0.0f, 0.0f, 0.0f);
+	pVertices[1].position.x = 0.0f;
+	pVertices[1].position.y = 0.0f;
+	pVertices[1].position.z = 0.0f;
 	pVertices[1].color = 0x00ffffff;
 	pVertices[1].tu = 0.0f;
 	pVertices[1].tv = 0.0f;
 
-	pVertices[2].position = D3DXVECTOR3(799.0f, -511.0f, 0.0f);
+	pVertices[2].position.x = 799.0f;
+	pVertices[2].position.y = -511.0f;
+	pVertices[2].position.z = 0.0f;
 	pVertices[2].color = 0x00ffffff;
 	pVertices[2].tu = 1.0f;
 	pVertices[2].tv = 1.0f;
 
-	pVertices[3].position = D3DXVECTOR3(799.0f, 0.0f, 0.0f);
+	pVertices[3].position.x = 799.0f;
+	pVertices[3].position.y = 0.0f;
+	pVertices[3].position.z = 0.0f;
 	pVertices[3].color = 0x00ffffff;
 	pVertices[3].tu = 1.0f;
 	pVertices[3].tv = 0.0f;
@@ -555,7 +562,7 @@ HRESULT BeebWin::InitDX9()
 
 	// Set up matrices
 	//D3DXMatrixOrthoOffCenterLH(&Ortho2D, 0.0f, (float)BEEBEM_BITMAP_WIDTH, -(float)BEEBEM_BITMAP_HEIGHT, 0.0f, 0.0f, 1.0f);
-	D3DXMatrixIdentity(&Ortho2D);
+	D3DMatrixIdentity(&Ortho2D);
 	// float l = 0.0f;
 	float r = (float)BEEBEM_BITMAP_WIDTH;
 	float b = -(float)BEEBEM_BITMAP_HEIGHT;
@@ -571,12 +578,12 @@ HRESULT BeebWin::InitDX9()
 
 	m_pd3dDevice->SetTransform(D3DTS_PROJECTION, &Ortho2D);
 
-	D3DXMatrixIdentity(&Ident);
+	D3DMatrixIdentity(&Ident);
 	m_pd3dDevice->SetTransform(D3DTS_VIEW, &Ident);
 	m_pd3dDevice->SetTransform(D3DTS_WORLD, &Ident);
 
 	// Identity matrix will fill window with our texture
-	D3DXMatrixIdentity(&m_TextureMatrix);
+	D3DMatrixIdentity(&m_TextureMatrix);
 
 	hResult = m_pd3dDevice->CreateTexture(BEEBEM_BITMAP_WIDTH,
 	                                      BEEBEM_BITMAP_HEIGHT,
