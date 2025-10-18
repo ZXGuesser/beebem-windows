@@ -77,13 +77,13 @@ bool ParseNumber(const std::string& str, int* pValue)
 
 /****************************************************************************/
 
-int ParseNumber(const std::string& str, int Min, int Max)
+int ParseNumber(const char* Name, const std::string& str, int Min, int Max)
 {
 	int Value = std::stoi(str);
 
 	if (Value < Min || Value > Max)
 	{
-		throw std::exception();
+		throw std::out_of_range(Name);
 	}
 
 	return Value;

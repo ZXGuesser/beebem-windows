@@ -105,13 +105,13 @@ bool WouldBlock(int Error)
 
 /****************************************************************************/
 
-unsigned long ParseIPAddress(const std::string& Value)
+unsigned long ParseIPAddress(const char* Name, const std::string& Value)
 {
 	unsigned long Address = inet_addr(Value.c_str());
 
 	if (Address == INADDR_NONE)
 	{
-		throw std::exception();
+		throw std::out_of_range(Name);
 	}
 
 	return Address;

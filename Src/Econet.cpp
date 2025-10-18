@@ -824,10 +824,10 @@ static bool ReadEconetConfigFile()
 			{
 				try
 				{
-					stations[stationsp].network   = (unsigned char)ParseNumber(Tokens[0], 0, 255);
-					stations[stationsp].station   = (unsigned char)ParseNumber(Tokens[1], 0, 255);
-					stations[stationsp].inet_addr = ParseIPAddress(Tokens[2]);
-					stations[stationsp].port      = (u_short)ParseNumber(Tokens[3], 1, 65535);
+					stations[stationsp].network   = (unsigned char)ParseNumber("network", Tokens[0], 0, 255);
+					stations[stationsp].station   = (unsigned char)ParseNumber("station", Tokens[1], 0, 255);
+					stations[stationsp].inet_addr = ParseIPAddress("IP address", Tokens[2]);
+					stations[stationsp].port      = (u_short)ParseNumber("port", Tokens[3], 1, 65535);
 
 					DebugDisplayTraceF(DebugType::Econet,
 					                   true,
@@ -837,9 +837,9 @@ static bool ReadEconetConfigFile()
 
 					stationsp++;
 				}
-				catch (const std::exception&)
+				catch (const std::exception& e)
 				{
-					EconetError("Invalid value in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
+					EconetError("Invalid %s value in Econet config file:\n  %s (Line %d)", e.what(), EconetCfgPath, LineCounter);
 					Success = false;
 					break;
 				}
@@ -876,20 +876,20 @@ static bool ReadEconetConfigFile()
 				}
 				else if (StrCaseCmp(Key.c_str(), "FLAGFILLTIMEOUT") == 0)
 				{
-					EconetFlagFillTimeout = ParseNumber(Value, 0, INT_MAX);
+					EconetFlagFillTimeout = ParseNumber(Key.c_str(), Value, 0, INT_MAX);
 				}
 				else if (StrCaseCmp(Key.c_str(), "SCACKTIMEOUT") == 0 ||
 				         StrCaseCmp(Key.c_str(), "SCOUTACKTIMEOUT") == 0)
 				{
-					EconetScoutAckTimeout = ParseNumber(Value, 0, INT_MAX);
+					EconetScoutAckTimeout = ParseNumber(Key.c_str(), Value, 0, INT_MAX);
 				}
 				else if (StrCaseCmp(Key.c_str(), "TIMEBETWEENBYTES") == 0)
 				{
-					TimeBetweenBytes = ParseNumber(Value, 0, INT_MAX);
+					TimeBetweenBytes = ParseNumber(Key.c_str(), Value, 0, INT_MAX);
 				}
 				else if (StrCaseCmp(Key.c_str(), "FOURWAYTIMEOUT") == 0)
 				{
-					FourWayStageTimeout = ParseNumber(Value, 0, INT_MAX);
+					FourWayStageTimeout = ParseNumber(Key.c_str(), Value, 0, INT_MAX);
 				}
 				else if (StrCaseCmp(Key.c_str(), "MASSAGENETS") == 0)
 				{
@@ -963,8 +963,8 @@ static bool ReadAUNConfigFile()
 			{
 				try
 				{
-					networks[networksp].inet_addr = ParseIPAddress(Tokens[1]) & 0x00FFFFFF; // stored as lsb..msb ?!?!
-					networks[networksp].network   = (unsigned char)(ParseNumber(Tokens[2], 0, 255) & inmask); // 30jun strip b7
+					networks[networksp].inet_addr = ParseIPAddress("IP address", Tokens[1]) & 0x00FFFFFF; // stored as lsb..msb ?!?!
+					networks[networksp].network   = (unsigned char)(ParseNumber("network", Tokens[2], 0, 255) & inmask); // 30jun strip b7
 
 					if (DebugEnabled)
 					{
@@ -992,9 +992,9 @@ static bool ReadAUNConfigFile()
 
 					networksp++;
 				}
-				catch (const std::exception&)
+				catch (const std::exception& e)
 				{
-					EconetError("Invalid value in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
+					EconetError("Invalid %s value in Econet config file:\n  %s (Line %d)", e.what(), EconetCfgPath, LineCounter);
 					Success = false;
 					break;
 				}

@@ -27,7 +27,7 @@ int CloseSocket(SOCKET Socket);
 int GetLastSocketError();
 bool SetSocketBlocking(SOCKET Socket, bool Blocking);
 bool WouldBlock(int Error);
-unsigned long ParseIPAddress(const std::string& Value);
+unsigned long ParseIPAddress(const char* Name, const std::string& Value);
 
 #define S_ADDR(s) (s).sin_addr.s_addr
 
