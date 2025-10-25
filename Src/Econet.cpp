@@ -53,30 +53,31 @@ Boston, MA  02110-1301, USA.
 // and register address 0x03 as tx-data-last-data and control4
 struct MC6854
 {
-	unsigned char control1;
-	unsigned char control2;
-	unsigned char control3;
-	unsigned char control4;
-	unsigned char txfifo[3];
-	unsigned char rxfifo[3];
-	unsigned char txfptr; // first empty byte in fifo
-	unsigned char rxfptr; // first empty byte in fifo
-	unsigned char txftl; // tx fifo tx lst flags. (bits relate to subscripts)
-	unsigned char rxffc; // rx fifo fc flags bits
-	unsigned char rxap; // rx fifo ap flags (bits relate to subscripts)
+	unsigned char Control1;
+	unsigned char Control2;
+	unsigned char Control3;
+	unsigned char Control4;
 
-	unsigned char status1;
-	unsigned char status2;
+	unsigned char TxFifo[3];
+	unsigned char RxFifo[3];
+	unsigned char TxFifoPtr; // first empty byte in fifo
+	unsigned char RxFifoPtr; // first empty byte in fifo
+	unsigned char TxFifoTxLast; // tx fifo tx lst flags. (bits relate to subscripts)
+	unsigned char RxFifoFCFlags; // rx fifo fc flags bits
+	unsigned char RxFifoAPFlags; // rx fifo ap flags (bits relate to subscripts)
 
-	int sr2pse; // PSE level for SR2 rx bits
+	unsigned char Status1;
+	unsigned char Status2;
+
+	int PriorityStatus; // PSE level for SR2 rx bits
 	// 0 = inactive
 	// 1 = ERR, FV, DCD, OVRN, ABT
 	// 2 = Idle
 	// 3 = AP
 	// 4 = RDA
 
-	bool cts; // signal up
-	bool idle;
+	bool CTS; // signal up
+	bool Idle;
 };
 
 const unsigned char CONTROL_REG1_ADDRESS_CONTROL               = 0x01;
@@ -507,16 +508,16 @@ bool EconetReset()
 
 	// hardware operations:
 	// set RxReset and TxReset
-	ADLC.control1 = CONTROL_REG1_RX_RESET | CONTROL_REG1_TX_RESET;
+	ADLC.Control1 = CONTROL_REG1_RX_RESET | CONTROL_REG1_TX_RESET;
 	// reset TxAbort, RTS, LoopMode, DTR
-	ADLC.control4 = 0; //ADLC.control4 & 223;
-	ADLC.control2 = 0; //ADLC.control2 & 127;
-	ADLC.control3 = 0; //ADLC.control3 & 95;
+	ADLC.Control4 = 0; //ADLC.control4 & 223;
+	ADLC.Control2 = 0; //ADLC.control2 & 127;
+	ADLC.Control3 = 0; //ADLC.control3 & 95;
 
 	// Clear all status conditions.
-	ADLC.status1 = 0; // CTS - clear to send line input (no collisions talking UDP)
-	ADLC.status2 = 0; // DCD - no clock (until sockets initialised and open)
-	ADLC.sr2pse = 0;
+	ADLC.Status1 = 0; // CTS - clear to send line input (no collisions talking UDP)
+	ADLC.Status2 = 0; // DCD - no clock (until sockets initialised and open)
+	ADLC.PriorityStatus = 0;
 
 	EconetRx.Pointer = 0;
 	EconetRx.BytesInBuffer = 0;
@@ -532,14 +533,14 @@ bool EconetReset()
 
 	fourwaystage = FourWayStage::Idle; // used for AUN mode translation stage.
 
-	ADLC.rxfptr = 0;
-	ADLC.rxap = 0;
-	ADLC.rxffc = 0;
-	ADLC.txfptr = 0;
-	ADLC.txftl = 0;
+	ADLC.RxFifoPtr = 0;
+	ADLC.RxFifoAPFlags = 0;
+	ADLC.RxFifoFCFlags = 0;
+	ADLC.TxFifoPtr = 0;
+	ADLC.TxFifoTxLast = 0;
 
-	ADLC.idle = true;
-	ADLC.cts = false;
+	ADLC.Idle = true;
+	ADLC.CTS = false;
 
 	irqcause = 0;
 	sr1b2cause = 0;
@@ -1085,18 +1086,18 @@ unsigned char EconetRead(unsigned char Register)
 
 	if (Register == 0)
 	{
-		Value = ADLC.status1;
+		Value = ADLC.Status1;
 	}
 	else if (Register == 1)
 	{
-		Value = ADLC.status2;
+		Value = ADLC.Status2;
 	}
 	else
 	{
 		// RxReset not set and something in FIFO.
-		if (((ADLC.control1 & CONTROL_REG1_RX_RESET) == 0) && ADLC.rxfptr > 0)
+		if (((ADLC.Control1 & CONTROL_REG1_RX_RESET) == 0) && ADLC.RxFifoPtr > 0)
 		{
-			Value = ADLC.rxfifo[--ADLC.rxfptr]; // Read RX buffer.
+			Value = ADLC.RxFifo[--ADLC.RxFifoPtr]; // Read RX buffer.
 
 			EconetStateChanged = true;
 		}
@@ -1136,19 +1137,19 @@ void EconetWrite(unsigned char Register, unsigned char Value)
 
 	if (Register == 0)
 	{
-		ADLC.control1 = Value;
+		ADLC.Control1 = Value;
 	}
-	else if (Register == 1 && !(ADLC.control1 & CONTROL_REG1_ADDRESS_CONTROL))
+	else if (Register == 1 && !(ADLC.Control1 & CONTROL_REG1_ADDRESS_CONTROL))
 	{
-		ADLC.control2 = Value;
+		ADLC.Control2 = Value;
 	}
-	else if (Register == 1 && (ADLC.control1 & CONTROL_REG1_ADDRESS_CONTROL))
+	else if (Register == 1 && (ADLC.Control1 & CONTROL_REG1_ADDRESS_CONTROL))
 	{
-		ADLC.control3 = Value;
+		ADLC.Control3 = Value;
 	}
-	else if (Register == 3 && (ADLC.control1 & CONTROL_REG1_ADDRESS_CONTROL))
+	else if (Register == 3 && (ADLC.Control1 & CONTROL_REG1_ADDRESS_CONTROL))
 	{
-		ADLC.control4 = Value;
+		ADLC.Control4 = Value;
 	}
 	else if (Register == 2 || Register == 3) // adr 02 or adr 03 & AC=0
 	{
@@ -1157,17 +1158,17 @@ void EconetWrite(unsigned char Register, unsigned char Value)
 		// register 3 with c1b0=0 is output byte & finalise tx.
 		// can also finalise tx by setting a control bit.so do that automatically for reg 3
 		// worry about actually sending stuff in the poll routines, not here.
-		if ((ADLC.control1 & CONTROL_REG1_TX_RESET) == 0)
+		if ((ADLC.Control1 & CONTROL_REG1_TX_RESET) == 0)
 		{
-			ADLC.txfifo[2] = ADLC.txfifo[1];
-			ADLC.txfifo[1] = ADLC.txfifo[0];
-			ADLC.txfifo[0] = Value;
-			ADLC.txfptr++;
-			ADLC.txftl = ADLC.txftl << 1; // shift txlast bits up.
+			ADLC.TxFifo[2] = ADLC.TxFifo[1];
+			ADLC.TxFifo[1] = ADLC.TxFifo[0];
+			ADLC.TxFifo[0] = Value;
+			ADLC.TxFifoPtr++;
+			ADLC.TxFifoTxLast <<= 1; // Shift TxLast bits up.
 
 			if (Register == 3)
 			{
-				ADLC.control2 |= CONTROL_REG2_TX_LAST_DATA; // set txlast control flag ourself
+				ADLC.Control2 |= CONTROL_REG2_TX_LAST_DATA; // Set TxLast control flag ourself.
 			}
 		}
 	}
@@ -1179,7 +1180,7 @@ void EconetWrite(unsigned char Register, unsigned char Value)
 
 bool EconetInterruptRequest()
 {
-	return (ADLC.status1 & STATUS_REG1_IRQ) != 0;
+	return (ADLC.Status1 & STATUS_REG1_IRQ) != 0;
 }
 
 //--------------------------------------------------------------------------------------------
@@ -1219,8 +1220,8 @@ bool EconetPollReal()
 	bool Interrupt = false;
 
 	// save flags
-	ADLCtemp.status1 = ADLC.status1;
-	ADLCtemp.status2 = ADLC.status2;
+	ADLCtemp.Status1 = ADLC.Status1;
+	ADLCtemp.Status2 = ADLC.Status2;
 
 	// okie dokie. This is where the brunt of the ADLC emulation & network handling will happen.
 
@@ -1239,7 +1240,7 @@ bool EconetPollReal()
 	// CR1b5 - Discontinue - when set, discontinue reception of incoming data.
 	//         Automatically reset this when reach the end of current frame in progress.
 	//         Automatically reset when frame aborted by receiving an abort flag, or DCD fails.
-	if (ADLC.control1 & CONTROL_REG1_RX_FRAME_DISCONTINUE)
+	if (ADLC.Control1 & CONTROL_REG1_RX_FRAME_DISCONTINUE)
 	{
 		#ifdef DEBUG_ECONET
 		DebugTrace("EconetPoll: RxABORT is set\n");
@@ -1248,11 +1249,11 @@ bool EconetPollReal()
 		BeebRx.Pointer = 0;
 		BeebRx.BytesInBuffer = 0;
 
-		ADLC.rxfptr = 0;
-		ADLC.rxap = 0;
-		ADLC.rxffc = 0;
+		ADLC.RxFifoPtr = 0;
+		ADLC.RxFifoAPFlags = 0;
+		ADLC.RxFifoFCFlags = 0;
 
-		ADLC.control1 &= ~CONTROL_REG1_RX_FRAME_DISCONTINUE;
+		ADLC.Control1 &= ~CONTROL_REG1_RX_FRAME_DISCONTINUE;
 
 		fourwaystage = FourWayStage::Idle;
 	}
@@ -1265,28 +1266,28 @@ bool EconetPollReal()
 	//         no action needed here; watch this bit elsewhere to inhibit actions
 
 	// CR2b0 - PSE - priotitised status enable - adjusts how status bits show up.
-	//         See sr2pse and code in status section
+	//         See PriorityStatus and code in status section
 	// CR2b1 - 2byte/1byte mode. Set to indicate 2 byte mode. See TDRA status bit.
 	// CR2b2 - Flag/Mark idle select. What is transmitted when TX idle.
 	//         Ignored here as not needed.
 	// CR2b3 - FC/TDRA mode - does status bit SR1b6 indicate 1=Frame Complete,
 	//         0=TX Data Reg Available. See TDRA status bit.
 	// CR2b4 - TxLast - byte just put into FIFO was the last byte of a packet.
-	if (ADLC.control2 & CONTROL_REG2_TX_LAST_DATA)
+	if (ADLC.Control2 & CONTROL_REG2_TX_LAST_DATA)
 	{
-		ADLC.txftl |= 1; // set b0 - flag for fifo[0]
-		ADLC.control2 &= ~CONTROL_REG2_TX_LAST_DATA;
+		ADLC.TxFifoTxLast |= 1; // set b0 - flag for fifo[0]
+		ADLC.Control2 &= ~CONTROL_REG2_TX_LAST_DATA;
 	}
 
 	// CR2b5 - CLR RxST - Clear Receiver Status - reset status bits
-	if ((ADLC.control2 & CONTROL_REG2_CLEAR_RX_STATUS) || (ADLC.control1 & CONTROL_REG1_RX_RESET)) // or RxReset
+	if ((ADLC.Control2 & CONTROL_REG2_CLEAR_RX_STATUS) || (ADLC.Control1 & CONTROL_REG1_RX_RESET)) // or RxReset
 	{
-		ADLC.control2 &= ~CONTROL_REG2_CLEAR_RX_STATUS;
+		ADLC.Control2 &= ~CONTROL_REG2_CLEAR_RX_STATUS;
 
-		ADLC.status1 &= ~(STATUS_REG1_STATUS2_READ_REQUEST | STATUS_REG1_FLAG_DETECTED);
+		ADLC.Status1 &= ~(STATUS_REG1_STATUS2_READ_REQUEST | STATUS_REG1_FLAG_DETECTED);
 
 		// Clear FV, RxIdle, RxAbt, Err, OVRN, DCD.
-		ADLC.status2 &= ~(STATUS_REG2_FRAME_VALID |
+		ADLC.Status2 &= ~(STATUS_REG2_FRAME_VALID |
 		                  STATUS_REG2_INACTIVE_IDLE_RECEIVED |
 		                  STATUS_REG2_ABORT_RECEIVED |
 		                  STATUS_REG2_FCS_ERROR |
@@ -1294,60 +1295,60 @@ bool EconetPollReal()
 		                  STATUS_REG2_RX_OVERRUN);
 
 		// If PSE is active, advance to the next priority.
-		if ((ADLC.control2 & CONTROL_REG2_PRIORITIZED_STATUS_ENABLE) && ADLC.sr2pse > 0)
+		if ((ADLC.Control2 & CONTROL_REG2_PRIORITIZED_STATUS_ENABLE) && ADLC.PriorityStatus > 0)
 		{
-			ADLC.sr2pse++;
+			ADLC.PriorityStatus++;
 
-			if (ADLC.sr2pse > 4)
+			if (ADLC.PriorityStatus > 4)
 			{
-				ADLC.sr2pse = 0;
+				ADLC.PriorityStatus = 0;
 			}
 		}
 		else
 		{
-			ADLC.sr2pse = 0;
+			ADLC.PriorityStatus = 0;
 		}
 
 		sr1b2cause = 0; // Clear cause of sr2b1 going up.
 
 		// Clear buffers on RX reset.
-		if (ADLC.control1 & CONTROL_REG1_RX_RESET)
+		if (ADLC.Control1 & CONTROL_REG1_RX_RESET)
 		{
 			BeebRx.Pointer = 0;
 			BeebRx.BytesInBuffer = 0;
 
-			ADLC.rxfptr = 0;
-			ADLC.rxap = 0;
-			ADLC.rxffc = 0;
-			ADLC.sr2pse = 0;
+			ADLC.RxFifoPtr = 0;
+			ADLC.RxFifoAPFlags = 0;
+			ADLC.RxFifoFCFlags = 0;
+			ADLC.PriorityStatus = 0;
 		}
 
 		// fourwaystage = FourWayStage::Idle; // this really doesn't like being here.
 	}
 
 	// CR2b6 - CLT TxST - Clear Transmitter Status - reset status bits
-	if ((ADLC.control2 & CONTROL_REG2_CLEAR_TX_STATUS) || (ADLC.control1 & CONTROL_REG1_TX_RESET)) // or TxReset
+	if ((ADLC.Control2 & CONTROL_REG2_CLEAR_TX_STATUS) || (ADLC.Control1 & CONTROL_REG1_TX_RESET)) // or TxReset
 	{
-		ADLC.control2 &= ~CONTROL_REG2_CLEAR_TX_STATUS;
+		ADLC.Control2 &= ~CONTROL_REG2_CLEAR_TX_STATUS;
 
-		ADLC.status1 &= ~(STATUS_REG1_CTS |
+		ADLC.Status1 &= ~(STATUS_REG1_CTS |
 		                  STATUS_REG1_TX_UNDERRUN |
 		                  STATUS_REG1_TDRA);
 
-		if (ADLC.cts)
+		if (ADLC.CTS)
 		{
-			ADLC.status1 |= STATUS_REG1_CTS; // CTS follows signal, reset high again.
-			ADLCtemp.status1 |= STATUS_REG1_CTS; // Don't trigger another interrupt instantly.
+			ADLC.Status1 |= STATUS_REG1_CTS; // CTS follows signal, reset high again.
+			ADLCtemp.Status1 |= STATUS_REG1_CTS; // Don't trigger another interrupt instantly.
 		}
 
 		// Clear buffers on TX reset.
-		if (ADLC.control1 & CONTROL_REG1_TX_RESET)
+		if (ADLC.Control1 & CONTROL_REG1_TX_RESET)
 		{
 			BeebTx.Pointer = 0;
 			BeebTx.BytesInBuffer = 0;
 
-			ADLC.txfptr = 0;
-			ADLC.txftl = 0;
+			ADLC.TxFifoPtr = 0;
+			ADLC.TxFifoTxLast = 0;
 		}
 	}
 
@@ -1371,15 +1372,15 @@ bool EconetPollReal()
 	// CR4b1,2 - TX word length. 11=8 bits. BBC uses 8 bits so ignore flags and assume 8 bits throughout
 	// CR4b3,4 - RX word length. 11=8 bits. BBC uses 8 bits so ignore flags and assume 8 bits throughout
 	// CR4b5 - TransmitABT - Abort Transmission.  Once abort starts, bit is cleared.
-	if (ADLC.control4 & CONTROL_REG4_TX_ABORT)
+	if (ADLC.Control4 & CONTROL_REG4_TX_ABORT)
 	{
 		#ifdef DEBUG_ECONET
 		DebugTrace("EconetPoll: TxABORT is set\n");
 		#endif
 
-		ADLC.txfptr = 0; // reset FIFO
-		ADLC.txftl = 0; // reset FIFO flags
-		ADLC.control4 &= ~CONTROL_REG4_TX_ABORT; // reset flag.
+		ADLC.TxFifoPtr = 0; // reset FIFO
+		ADLC.TxFifoTxLast = 0; // reset FIFO flags
+		ADLC.Control4 &= ~CONTROL_REG4_TX_ABORT; // reset flag.
 
 		BeebTx.Pointer = 0;
 		BeebTx.BytesInBuffer = 0;
@@ -1402,9 +1403,9 @@ bool EconetPollReal()
 		// Trickle data between FIFO registers and IP packets.
 
 		// Transmit data.
-		if (!(ADLC.control1 & CONTROL_REG1_TX_RESET))
+		if (!(ADLC.Control1 & CONTROL_REG1_TX_RESET))
 		{
-			if (ADLC.txfptr > 0) // There is data in the transmit FIFO.
+			if (ADLC.TxFifoPtr > 0) // There is data in the transmit FIFO.
 			{
 				#ifdef DEBUG_ECONET
 				DebugTrace("EconetPoll: Write to FIFO noticed\n");
@@ -1412,22 +1413,22 @@ bool EconetPollReal()
 
 				bool TxLast = false;
 
-				if (ADLC.txftl & powers[ADLC.txfptr - 1]) // TxLast set
+				if (ADLC.TxFifoTxLast & powers[ADLC.TxFifoPtr - 1]) // TxLast set
 				{
 					TxLast = true;
 				}
 
 				if (BeebTx.Pointer >= sizeof(BeebTx.Buffer) || // Overflow in IP buffer
-				    (ADLC.txfptr > 4)) // Overflowed FIFO
+				    (ADLC.TxFifoPtr > 4)) // Overflowed FIFO
 				{
-					ADLC.status1 |= STATUS_REG1_TX_UNDERRUN;
+					ADLC.Status1 |= STATUS_REG1_TX_UNDERRUN;
 
 					// Wipe buffer
 					BeebTx.Pointer = 0;
 					BeebTx.BytesInBuffer = 0;
 
-					ADLC.txfptr = 0;
-					ADLC.txftl = 0;
+					ADLC.TxFifoPtr = 0;
+					ADLC.TxFifoTxLast = 0;
 
 					#ifdef DEBUG_ECONET
 					DebugTrace("EconetPoll: TxUnderun!\n");
@@ -1435,7 +1436,7 @@ bool EconetPollReal()
 				}
 				else
 				{
-					BeebTx.Buffer[BeebTx.Pointer] = ADLC.txfifo[--ADLC.txfptr];
+					BeebTx.Buffer[BeebTx.Pointer] = ADLC.TxFifo[--ADLC.TxFifoPtr];
 					BeebTx.Pointer++;
 				}
 
@@ -1795,33 +1796,33 @@ bool EconetPollReal()
 		}
 
 		// Receive data.
-		if (!(ADLC.control1 & CONTROL_REG1_RX_RESET)) // RX reset off
+		if (!(ADLC.Control1 & CONTROL_REG1_RX_RESET)) // RX reset off
 		{
 			if (BeebRx.Pointer < BeebRx.BytesInBuffer)
 			{
 				// There's something waiting to be given to the processor.
-				if (ADLC.rxfptr < 3) // space in FIFO
+				if (ADLC.RxFifoPtr < 3) // space in FIFO
 				{
 					#ifdef DEBUG_ECONET
 					DebugTrace("EconetPoll: Time to give another byte to the Beeb\n");
 					#endif
 
-					ADLC.rxfifo[2] = ADLC.rxfifo[1];
-					ADLC.rxfifo[1] = ADLC.rxfifo[0];
-					ADLC.rxfifo[0] = BeebRx.Buffer[BeebRx.Pointer];
-					ADLC.rxfptr++;
-					ADLC.rxffc = (ADLC.rxffc << 1) & 7;
-					ADLC.rxap = (ADLC.rxap << 1) & 7;
+					ADLC.RxFifo[2] = ADLC.RxFifo[1];
+					ADLC.RxFifo[1] = ADLC.RxFifo[0];
+					ADLC.RxFifo[0] = BeebRx.Buffer[BeebRx.Pointer];
+					ADLC.RxFifoPtr++;
+					ADLC.RxFifoFCFlags = (ADLC.RxFifoFCFlags << 1) & 7;
+					ADLC.RxFifoAPFlags = (ADLC.RxFifoAPFlags << 1) & 7;
 
 					if (BeebRx.Pointer == 0)
 					{
-						ADLC.rxap |= 1; // 2 bytes? adr extention mode
+						ADLC.RxFifoAPFlags |= 1; // 2 bytes? adr extention mode
 					}
 
 					if (++BeebRx.Pointer >= BeebRx.BytesInBuffer) // that was last byte!
 					{
 						// Set Frame Valid flag (this was last byte of frame).
-						ADLC.rxffc |= 1;
+						ADLC.RxFifoFCFlags |= 1;
 
 						// Reset read for next packet.
 						BeebRx.Pointer = 0;
@@ -1830,13 +1831,13 @@ bool EconetPollReal()
 				}
 			}
 
-			if (ADLC.rxfptr == 0)
+			if (ADLC.RxFifoPtr == 0)
 			{
 				// Still nothing in buffers (and thus nothing in EconetRx buffer).
-				ADLC.control1 &= ~CONTROL_REG1_RX_FRAME_DISCONTINUE;
+				ADLC.Control1 &= ~CONTROL_REG1_RX_FRAME_DISCONTINUE;
 
 				// Wait for CPU to clear Frame Valid flag from last frame received.
-				if (!(ADLC.status2 & STATUS_REG2_FRAME_VALID))
+				if (!(ADLC.Status2 & STATUS_REG2_FRAME_VALID))
 				{
 					if (!AUNMode ||
 					    fourwaystage == FourWayStage::Idle ||
@@ -2191,16 +2192,16 @@ bool EconetPollReal()
 		}
 
 		// Update idle status
-		if (!(ADLC.control1 & CONTROL_REG1_RX_RESET) && // Not RxReset
-		    ADLC.rxfptr == 0 && // Nothing in FIFO
-		    !(ADLC.status2 & STATUS_REG2_FRAME_VALID) && // No FV
+		if (!(ADLC.Control1 & CONTROL_REG1_RX_RESET) && // Not RxReset
+		    ADLC.RxFifoPtr == 0 && // Nothing in FIFO
+		    !(ADLC.Status2 & STATUS_REG2_FRAME_VALID) && // No FV
 		    BeebRx.BytesInBuffer == 0) // Nothing in IP buffer
 		{
-			ADLC.idle = true;
+			ADLC.Idle = true;
 		}
 		else
 		{
-			ADLC.idle = false;
+			ADLC.Idle = false;
 		}
 
 		// How long before we come back in here?
@@ -2221,8 +2222,8 @@ bool EconetPollReal()
 	if (AUNMode &&
 	    fourwaystage == FourWayStage::WaitForIdle &&
 	    BeebRx.BytesInBuffer == 0 &&
-	    ADLC.rxfptr == 0 &&
-	    ADLC.txfptr == 0 // ??
+	    ADLC.RxFifoPtr == 0 &&
+	    ADLC.TxFifoPtr == 0 // ??
 	    // && EconetScoutAckTrigger > TotalCycles
 	    )
 	{
@@ -2254,18 +2255,18 @@ bool EconetPollReal()
 	// Status bits need changing?
 
 	// SR1b0 - RDA - received data available.
-	if (!(ADLC.control1 & CONTROL_REG1_RX_RESET)) // rx reset off
+	if (!(ADLC.Control1 & CONTROL_REG1_RX_RESET)) // rx reset off
 	{
-		if ((ADLC.rxfptr > 0 && !(ADLC.control2 & CONTROL_REG2_2_BYTE_TRANSFER)) || // 1 byte mode
-		    (ADLC.rxfptr > 1 &&  (ADLC.control2 & CONTROL_REG2_2_BYTE_TRANSFER))) // 2 byte mode
+		if ((ADLC.RxFifoPtr > 0 && !(ADLC.Control2 & CONTROL_REG2_2_BYTE_TRANSFER)) || // 1 byte mode
+		    (ADLC.RxFifoPtr > 1 &&  (ADLC.Control2 & CONTROL_REG2_2_BYTE_TRANSFER))) // 2 byte mode
 		{
-			ADLC.status1 |= STATUS_REG1_RX_DATA_AVAILABLE; // set RDA copy
-			ADLC.status2 |= STATUS_REG2_RX_DATA_AVAILABLE;
+			ADLC.Status1 |= STATUS_REG1_RX_DATA_AVAILABLE; // set RDA copy
+			ADLC.Status2 |= STATUS_REG2_RX_DATA_AVAILABLE;
 		}
 		else
 		{
-			ADLC.status1 &= ~STATUS_REG1_RX_DATA_AVAILABLE;
-			ADLC.status2 &= ~STATUS_REG2_RX_DATA_AVAILABLE;
+			ADLC.Status1 &= ~STATUS_REG1_RX_DATA_AVAILABLE;
+			ADLC.Status2 &= ~STATUS_REG2_RX_DATA_AVAILABLE;
 		}
 	}
 
@@ -2274,11 +2275,11 @@ bool EconetPollReal()
 	// SR1b3 - FD - Flag detected. Hmm.
 	if (FlagFillActive)
 	{
-		ADLC.status1 |= STATUS_REG1_FLAG_DETECTED;
+		ADLC.Status1 |= STATUS_REG1_FLAG_DETECTED;
 	}
 	else
 	{
-		ADLC.status1 &= ~STATUS_REG1_FLAG_DETECTED;
+		ADLC.Status1 &= ~STATUS_REG1_FLAG_DETECTED;
 	}
 
 	// SR1b4 - CTS - Set by ~CTS line going up, and causes IRQ if enabled.
@@ -2298,123 +2299,123 @@ bool EconetPollReal()
 	// sockets true means DCD low means not DCD high means CTS low
 	// doing it this way finally works !!  great :-) :-)
 
-	if (Socket != INVALID_SOCKET && (ADLC.control2 & CONTROL_REG2_RTS_CONTROL)) // clock + RTS
+	if (Socket != INVALID_SOCKET && (ADLC.Control2 & CONTROL_REG2_RTS_CONTROL)) // clock + RTS
 	{
-		ADLC.cts = false;
-		ADLC.status1 &= ~STATUS_REG1_CTS;
+		ADLC.CTS = false;
+		ADLC.Status1 &= ~STATUS_REG1_CTS;
 	}
 	else
 	{
-		ADLC.cts = true;
+		ADLC.CTS = true;
 	}
 
 	// And then set the status bit if the line is high! (status bit stays
 	// up until the CPU tries to clear it) (and still stays up if the CTS
 	// line is still high)
 
-	if (!(ADLC.control1 & CONTROL_REG1_RX_RESET) && ADLC.cts)
+	if (!(ADLC.Control1 & CONTROL_REG1_RX_RESET) && ADLC.CTS)
 	{
-		ADLC.status1 |= STATUS_REG1_CTS; // set CTS now
+		ADLC.Status1 |= STATUS_REG1_CTS; // set CTS now
 	}
 
 	// SR1b5 - TXU - Tx Underrun.
-	if (ADLC.txfptr > 4) // probably not needed
+	if (ADLC.TxFifoPtr > 4) // probably not needed
 	{
 		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: TX Underrun - TXfptr %02x\n", (unsigned int)ADLC.txfptr);
+		DebugTrace("Econet: TX Underrun - TXfptr %02x\n", (unsigned int)ADLC.TxFifoPtr);
 		#endif
 
-		ADLC.status1 |= STATUS_REG1_TX_UNDERRUN;
-		ADLC.txfptr = 4;
+		ADLC.Status1 |= STATUS_REG1_TX_UNDERRUN;
+		ADLC.TxFifoPtr = 4;
 	}
 
 	// SR1b6 TDRA flag - another complicated derivation
-	if (!(ADLC.control1 & CONTROL_REG1_TX_RESET)) // not TxReset
+	if (!(ADLC.Control1 & CONTROL_REG1_TX_RESET)) // not TxReset
 	{
-		if (!(ADLC.control2 & CONTROL_REG2_TDRA_SELECT)) // TDRA mode
+		if (!(ADLC.Control2 & CONTROL_REG2_TDRA_SELECT)) // TDRA mode
 		{
-			if (   (   ((ADLC.txfptr < 3) && !(ADLC.control2 & CONTROL_REG2_2_BYTE_TRANSFER)) // space in FIFO?
-			        || ((ADLC.txfptr < 2) && (ADLC.control2 & CONTROL_REG2_2_BYTE_TRANSFER))) // space in FIFO?
-			    && (!(ADLC.status1 & STATUS_REG1_CTS)) // Clear to send is ok
-			    && (!(ADLC.status2 & STATUS_REG2_DCD)) ) // DTR not high
+			if (   (   ((ADLC.TxFifoPtr < 3) && !(ADLC.Control2 & CONTROL_REG2_2_BYTE_TRANSFER)) // space in FIFO?
+			        || ((ADLC.TxFifoPtr < 2) && (ADLC.Control2 & CONTROL_REG2_2_BYTE_TRANSFER))) // space in FIFO?
+			    && (!(ADLC.Status1 & STATUS_REG1_CTS)) // Clear to send is ok
+			    && (!(ADLC.Status2 & STATUS_REG2_DCD)) ) // DTR not high
 			{
 				#ifdef DEBUG_ECONET
-				if (!(ADLC.status1 & STATUS_REG1_TDRA))
+				if (!(ADLC.Status1 & STATUS_REG1_TDRA))
 				{
 					DebugTrace("ADLC: Set TDRA\n");
 				}
 				#endif
 
-				ADLC.status1 |= STATUS_REG1_TDRA;
+				ADLC.Status1 |= STATUS_REG1_TDRA;
 			}
 			else
 			{
 				#ifdef DEBUG_ECONET
-				if (ADLC.status1 & STATUS_REG1_TDRA)
+				if (ADLC.Status1 & STATUS_REG1_TDRA)
 				{
 					DebugTrace("ADLC: Clear TDRA\n");
 				}
 				#endif
 
-				ADLC.status1 &= ~STATUS_REG1_TDRA;
+				ADLC.Status1 &= ~STATUS_REG1_TDRA;
 			}
 		}
 		else // FC mode
 		{
-			if (ADLC.txfptr == 0) // Nothing in FIFO.
+			if (ADLC.TxFifoPtr == 0) // Nothing in FIFO.
 			{
 				#ifdef DEBUG_ECONET
-				if (!(ADLC.status1 & STATUS_REG1_TDRA))
+				if (!(ADLC.Status1 & STATUS_REG1_TDRA))
 				{
 					DebugTrace("ADLC: Set FC\n");
 				}
 				#endif
 
-				ADLC.status1 |= STATUS_REG1_TDRA;
+				ADLC.Status1 |= STATUS_REG1_TDRA;
 			}
 			else
 			{
 				#ifdef DEBUG_ECONET
-				if (ADLC.status1 & STATUS_REG1_TDRA)
+				if (ADLC.Status1 & STATUS_REG1_TDRA)
 				{
 					DebugTrace("ADLC: Clear FC\n");
 				}
 				#endif
 
-				ADLC.status1 &= ~STATUS_REG1_TDRA;
+				ADLC.Status1 &= ~STATUS_REG1_TDRA;
 			}
 		}
 	}
 	// SR1b7 IRQ flag - see below
 
 	// SR2b0 - AP - Address Present
-	if (!(ADLC.control1 & CONTROL_REG1_RX_RESET))
+	if (!(ADLC.Control1 & CONTROL_REG1_RX_RESET))
 	{
-		if (ADLC.rxfptr > 0 &&
-		    (ADLC.rxap & (powers[ADLC.rxfptr - 1]))) // AP bits set on FIFO
+		if (ADLC.RxFifoPtr > 0 &&
+		    (ADLC.RxFifoAPFlags & (powers[ADLC.RxFifoPtr - 1]))) // AP bits set on FIFO
 		{
-			ADLC.status2 |= STATUS_REG2_ADDRESS_PRESENT;
+			ADLC.Status2 |= STATUS_REG2_ADDRESS_PRESENT;
 		}
 		else
 		{
-			ADLC.status2 &= ~STATUS_REG2_ADDRESS_PRESENT;
+			ADLC.Status2 &= ~STATUS_REG2_ADDRESS_PRESENT;
 		}
 
 		// SR2b1 - FV - Frame Valid - set in RX - only reset by ClearRx or RxReset
-		if (ADLC.rxfptr > 0 &&
-		    (ADLC.rxffc & (powers[ADLC.rxfptr - 1])))
+		if (ADLC.RxFifoPtr > 0 &&
+		    (ADLC.RxFifoFCFlags & (powers[ADLC.RxFifoPtr - 1])))
 		{
-			ADLC.status2 |= STATUS_REG2_FRAME_VALID;
+			ADLC.Status2 |= STATUS_REG2_FRAME_VALID;
 		}
 
 		// SR2b2 - Inactive Idle Received - sets IRQ!
-		if (ADLC.idle && !FlagFillActive)
+		if (ADLC.Idle && !FlagFillActive)
 		{
-			ADLC.status2 |= STATUS_REG2_INACTIVE_IDLE_RECEIVED;
+			ADLC.Status2 |= STATUS_REG2_INACTIVE_IDLE_RECEIVED;
 		}
 		else
 		{
-			ADLC.status2 &= ~STATUS_REG2_INACTIVE_IDLE_RECEIVED;
+			ADLC.Status2 &= ~STATUS_REG2_INACTIVE_IDLE_RECEIVED;
 		}
 	}
 
@@ -2423,18 +2424,18 @@ bool EconetPollReal()
 	// SR2b5 - DCD
 	if (Socket == INVALID_SOCKET) // is line down?
 	{
-		ADLC.status2 |= STATUS_REG2_DCD; // Flag error
+		ADLC.Status2 |= STATUS_REG2_DCD; // Flag error
 	}
 	else
 	{
-		ADLC.status2 &= ~STATUS_REG2_DCD;
+		ADLC.Status2 &= ~STATUS_REG2_DCD;
 	}
 
 	// SR2b6 - OVRN - Receipt Overrun. Probably not needed.
-	if (ADLC.rxfptr > 4)
+	if (ADLC.RxFifoPtr > 4)
 	{
-		ADLC.status2 |= STATUS_REG2_RX_OVERRUN;
-		ADLC.rxfptr = 4;
+		ADLC.Status2 |= STATUS_REG2_RX_OVERRUN;
+		ADLC.RxFifoPtr = 4;
 	}
 
 	// SR2b7 - RDA. As per SR1b0 - set above.
@@ -2442,99 +2443,99 @@ bool EconetPollReal()
 	// Handle PSE - only for SR2 Rx bits at the moment.
 
 	#ifdef DEBUG_ECONET
-	int PrevSr2pse = ADLC.sr2pse;
+	int PrevPriorityStatus = ADLC.PriorityStatus;
 	#endif
 
-	if (ADLC.control2 & CONTROL_REG2_PRIORITIZED_STATUS_ENABLE)
+	if (ADLC.Control2 & CONTROL_REG2_PRIORITIZED_STATUS_ENABLE)
 	{
-		if (ADLC.sr2pse <= 1 && (ADLC.status2 & (STATUS_REG2_FRAME_VALID |
-		                                         STATUS_REG2_ABORT_RECEIVED |
-		                                         STATUS_REG2_FCS_ERROR |
-		                                         STATUS_REG2_DCD |
-		                                         STATUS_REG2_RX_OVERRUN)))
+		if (ADLC.PriorityStatus <= 1 && (ADLC.Status2 & (STATUS_REG2_FRAME_VALID |
+		                                                 STATUS_REG2_ABORT_RECEIVED |
+		                                                 STATUS_REG2_FCS_ERROR |
+		                                                 STATUS_REG2_DCD |
+		                                                 STATUS_REG2_RX_OVERRUN)))
 		{
-			ADLC.sr2pse = 1;
-			ADLC.status2 &= ~(STATUS_REG2_ADDRESS_PRESENT |
+			ADLC.PriorityStatus = 1;
+			ADLC.Status2 &= ~(STATUS_REG2_ADDRESS_PRESENT |
 			                  STATUS_REG2_INACTIVE_IDLE_RECEIVED |
 			                  STATUS_REG2_RX_DATA_AVAILABLE);
 		}
-		else if (ADLC.sr2pse <= 2 && (ADLC.status2 & STATUS_REG2_INACTIVE_IDLE_RECEIVED)) // Idle
+		else if (ADLC.PriorityStatus <= 2 && (ADLC.Status2 & STATUS_REG2_INACTIVE_IDLE_RECEIVED)) // Idle
 		{
-			ADLC.sr2pse = 2;
-			ADLC.status2 &= ~(STATUS_REG2_ADDRESS_PRESENT |
+			ADLC.PriorityStatus = 2;
+			ADLC.Status2 &= ~(STATUS_REG2_ADDRESS_PRESENT |
 			                  STATUS_REG2_RX_DATA_AVAILABLE);
 		}
-		else if (ADLC.sr2pse <= 3 && (ADLC.status2 & STATUS_REG2_ADDRESS_PRESENT))
+		else if (ADLC.PriorityStatus <= 3 && (ADLC.Status2 & STATUS_REG2_ADDRESS_PRESENT))
 		{
-			ADLC.sr2pse = 3;
-			ADLC.status2 &= ~STATUS_REG2_RX_DATA_AVAILABLE;
+			ADLC.PriorityStatus = 3;
+			ADLC.Status2 &= ~STATUS_REG2_RX_DATA_AVAILABLE;
 		}
-		else if (ADLC.status2 & STATUS_REG2_RX_DATA_AVAILABLE)
+		else if (ADLC.Status2 & STATUS_REG2_RX_DATA_AVAILABLE)
 		{
-			ADLC.sr2pse = 4;
-			ADLC.status2 &= ~STATUS_REG2_FRAME_VALID;
+			ADLC.PriorityStatus = 4;
+			ADLC.Status2 &= ~STATUS_REG2_FRAME_VALID;
 		}
 		else
 		{
-			ADLC.sr2pse = 0; // No relevant bits set.
+			ADLC.PriorityStatus = 0; // No relevant bits set.
 		}
 
 		// Set SR1 RDA copy.
-		if (ADLC.status2 & STATUS_REG2_RX_DATA_AVAILABLE)
+		if (ADLC.Status2 & STATUS_REG2_RX_DATA_AVAILABLE)
 		{
-			ADLC.status1 |= STATUS_REG1_RX_DATA_AVAILABLE;
+			ADLC.Status1 |= STATUS_REG1_RX_DATA_AVAILABLE;
 		}
 		else
 		{
-			ADLC.status1 &= ~STATUS_REG1_RX_DATA_AVAILABLE;
+			ADLC.Status1 &= ~STATUS_REG1_RX_DATA_AVAILABLE;
 		}
 	}
 	else
 	{
 		// PSE inactive.
-		ADLC.sr2pse = 0;
+		ADLC.PriorityStatus = 0;
 	}
 
 	#ifdef DEBUG_ECONET
-	if (ADLC.sr2pse != PrevSr2pse)
+	if (ADLC.PriorityStatus != PrevPriorityStatus)
 	{
-		DebugTrace("ADLC: PSE SR2Rx priority changed to %d\n", ADLC.sr2pse);
+		DebugTrace("ADLC: PSE SR2Rx priority changed to %d\n", ADLC.PriorityStatus);
 	}
 	#endif
 
 	// Do we need to flag an interrupt?
-	if (ADLC.status1 != ADLCtemp.status1 || ADLC.status2 != ADLCtemp.status2) // Something changed.
+	if (ADLC.Status1 != ADLCtemp.Status1 || ADLC.Status2 != ADLCtemp.Status2) // Something changed.
 	{
 		// SR1b1 - S2RQ - Status2 request. New bit set in S2?
-		unsigned char tempcause = ((ADLC.status2 ^ ADLCtemp.status2) & ADLC.status2) & ~STATUS_REG2_RX_DATA_AVAILABLE;
+		unsigned char tempcause = ((ADLC.Status2 ^ ADLCtemp.Status2) & ADLC.Status2) & ~STATUS_REG2_RX_DATA_AVAILABLE;
 
-		if (!(ADLC.control1 & CONTROL_REG1_RX_INT_ENABLE))
+		if (!(ADLC.Control1 & CONTROL_REG1_RX_INT_ENABLE))
 		{
 			tempcause = 0;
 		}
 
 		if (tempcause) // Something got set.
 		{
-			ADLC.status1 |= STATUS_REG1_STATUS2_READ_REQUEST;
+			ADLC.Status1 |= STATUS_REG1_STATUS2_READ_REQUEST;
 			sr1b2cause = sr1b2cause | tempcause;
 		}
-		else if (!(ADLC.status2 & sr1b2cause)) // Cause has gone.
+		else if (!(ADLC.Status2 & sr1b2cause)) // Cause has gone.
 		{
-			ADLC.status1 &= ~STATUS_REG1_STATUS2_READ_REQUEST;
+			ADLC.Status1 &= ~STATUS_REG1_STATUS2_READ_REQUEST;
 			sr1b2cause = 0;
 		}
 
 		// New bit set in S1?
-		tempcause = ((ADLC.status1 ^ ADLCtemp.status1) & ADLC.status1) & ~STATUS_REG1_IRQ;
+		tempcause = ((ADLC.Status1 ^ ADLCtemp.Status1) & ADLC.Status1) & ~STATUS_REG1_IRQ;
 
-		if (!(ADLC.control1 & CONTROL_REG1_RX_INT_ENABLE))
+		if (!(ADLC.Control1 & CONTROL_REG1_RX_INT_ENABLE))
 		{
 			tempcause &= ~(STATUS_REG1_RX_DATA_AVAILABLE |
 			               STATUS_REG1_STATUS2_READ_REQUEST |
 			               STATUS_REG1_FLAG_DETECTED);
 		}
 
-		if (!(ADLC.control1 & CONTROL_REG1_TX_INT_ENABLE))
+		if (!(ADLC.Control1 & CONTROL_REG1_TX_INT_ENABLE))
 		{
 			tempcause &= ~(STATUS_REG1_CTS |
 			               STATUS_REG1_TX_UNDERRUN |
@@ -2546,7 +2547,7 @@ bool EconetPollReal()
 			Interrupt = true;
 			irqcause |= tempcause; // Remember which bit went high to flag IRQ.
 
-			ADLC.status1 |= STATUS_REG1_IRQ;
+			ADLC.Status1 |= STATUS_REG1_IRQ;
 
 			#ifdef DEBUG_ECONET
 			DebugTrace("ADLC: Status1 bit got set %02x, interrupt\n", (int)tempcause);
@@ -2554,7 +2555,7 @@ bool EconetPollReal()
 		}
 
 		// Bit cleared in S1?
-		unsigned char temp2 = ((ADLC.status1 ^ ADLCtemp.status1) & ADLCtemp.status1) & ~STATUS_REG1_IRQ;
+		unsigned char temp2 = ((ADLC.Status1 ^ ADLCtemp.Status1) & ADLCtemp.Status1) & ~STATUS_REG1_IRQ;
 
 		if (temp2 != 0) // Something went off.
 		{
@@ -2563,12 +2564,12 @@ bool EconetPollReal()
 			if (irqcause == 0) // All flags gone off now.
 			{
 				// Clear IRQ status bit when cause has gone.
-				ADLC.status1 &= ~STATUS_REG1_IRQ;
+				ADLC.Status1 &= ~STATUS_REG1_IRQ;
 			}
 			else
 			{
 				// Interrupt again because we still have flags set.
-				if (ADLC.control2 & CONTROL_REG2_PRIORITIZED_STATUS_ENABLE)
+				if (ADLC.Control2 & CONTROL_REG2_PRIORITIZED_STATUS_ENABLE)
 				{
 					Interrupt = true;
 
@@ -2596,9 +2597,9 @@ void DebugEconetState()
 	DebugDisplayTraceF(DebugType::Econet,
 	                   true,
 	                   "ADLC: Ctl:%02X %02X %02X %02X St:%02X %02X TXptr:%01x rx:%01x FF:%d IRQc:%02x SR2c:%02x PC:%04x 4W:%i",
-	                   (int)ADLC.control1, (int)ADLC.control2, (int)ADLC.control3, (int)ADLC.control4,
-	                   (int)ADLC.status1, (int)ADLC.status2,
-	                   (int)ADLC.txfptr, (int)ADLC.rxfptr, FlagFillActive ? 1 : 0,
+	                   (int)ADLC.Control1, (int)ADLC.Control2, (int)ADLC.Control3, (int)ADLC.Control4,
+	                   (int)ADLC.Status1, (int)ADLC.Status2,
+	                   (int)ADLC.TxFifoPtr, (int)ADLC.RxFifoPtr, FlagFillActive ? 1 : 0,
 	                   (int)irqcause, (int)sr1b2cause, (int)ProgramCounter, (int)fourwaystage);
 }
 
