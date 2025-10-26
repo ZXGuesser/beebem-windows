@@ -396,6 +396,8 @@ static MC6854 ADLCtemp;
 
 static bool ReadNetwork();
 static bool EconetPollReal();
+static void EconetSendPacket();
+static void EconetReceivePacket();
 static void EconetError(const char *Format, ...);
 
 //---------------------------------------------------------------------------
@@ -1442,355 +1444,7 @@ bool EconetPollReal()
 
 				if (TxLast) // TxLast set
 				{
-					if (DebugEnabled)
-					{
-						DebugDisplayTraceF(DebugType::Econet,
-						                   true,
-						                   "Econet: TXLast set - Send packet to network %d station %d",
-						                   (int)BeebTx.EconetHeader.DestNet,
-						                   (int)BeebTx.EconetHeader.DestStn);
-					}
-
-					// First two bytes of BeebTx.buff contain the destination address
-					// (or one zero byte for broadcast)
-
-					sockaddr_in RecvAddr;
-					bool SendMe = false;
-					int SendLen = 0;
-					int i = 0;
-
-					if (AUNMode && IsBroadcastStation(BeebTx.EconetHeader.DestStn))
-					{
-						// TODO something
-						// Somewhere that I cannot now find suggested that
-						// AUN buffers broadcast packet, and broadcasts a simple flag. Stations
-						// poll us to get the actual broadcast data ..
-						// Hmmm...
-						//
-						// ok, just send it to the local broadcast address.
-						// TODO: lookup destnet in AUNNet and use proper IP address!
-						RecvAddr.sin_family = AF_INET;
-						RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
-						S_ADDR(RecvAddr) = INADDR_BROADCAST; // ((EconetListenIP & 0x00FFFFFF) | 0xFF000000);
-						SendMe = true;
-					}
-					else
-					{
-						do {
-							// Does the packet match this network table entry?
-							// // check for 0.stn and mynet.stn.
-							// AUNNet won't be populated if not in AUN mode, but we don't need to not check
-							// it because it won't matter.
-							if ((stations[i].network == BeebTx.EconetHeader.DestNet ||
-							    (stations[i].network == networks[myaunnet].network && stations[i].network != 0)) &&
-							    stations[i].station == BeebTx.EconetHeader.DestStn)
-							{
-								SendMe = true;
-								break;
-							}
-							i++;
-						} while (i < stationsp);
-
-						// Guess address if not found in table.
-						if (!SendMe && StrictAUNMode) // Didn't find it and allowed to guess.
-						{
-							if (DebugEnabled)
-							{
-								DebugDisplayTrace(DebugType::Econet,
-								                  true,
-								                  "Econet: Send to unknown host; make assumptions & add entry!");
-							}
-
-							if (BeebTx.EconetHeader.DestNet == 0 || BeebTx.EconetHeader.DestNet == networks[myaunnet].network)
-							{
-								stations[i].inet_addr = networks[myaunnet].inet_addr | (BeebTx.EconetHeader.DestNet << 24);
-								stations[i].port = DEFAULT_AUN_PORT;
-								stations[i].network = BeebTx.EconetHeader.DestNet;
-								stations[i].station = BeebTx.EconetHeader.DestStn;
-								stations[++stationsp].station = 0;
-
-								SendMe = true;
-							}
-							else
-							{
-								int j = 0;
-
-								do {
-									if (networks[j].network == BeebTx.EconetHeader.DestNet)
-									{
-										stations[i].inet_addr = networks[j].inet_addr | (BeebTx.EconetHeader.DestStn << 24);
-										stations[i].port = DEFAULT_AUN_PORT;
-										stations[i].network = BeebTx.EconetHeader.DestNet;
-										stations[i].station = BeebTx.EconetHeader.DestStn;
-										stations[++stationsp].station = 0;
-
-										SendMe = true;
-										break;
-									}
-									j++;
-								} while (j < networksp);
-							}
-						}
-
-						RecvAddr.sin_family = AF_INET;
-						RecvAddr.sin_port = htons(stations[i].port);
-						S_ADDR(RecvAddr) = stations[i].inet_addr;
-					}
-
-					if (DebugEnabled)
-					{
-						DebugDisplayTraceF(DebugType::Econet,
-						                   true,
-						                   "Econet: TXLast set: Send %d byte packet to network %d station %d (%s port %u)",
-						                   BeebTx.Pointer,
-						                   (int)BeebTx.EconetHeader.DestNet,
-						                   (int)BeebTx.EconetHeader.DestStn,
-						                   IpAddressStr(S_ADDR(RecvAddr)),
-						                   (unsigned int)htons(RecvAddr.sin_port));
-
-						std::string str = "Econet: Packet data:" + BytesToString(BeebTx.Buffer, BeebTx.Pointer);
-
-						DebugDisplayTrace(DebugType::Econet, true, str.c_str());
-					}
-
-					// Send a datagram to the receiver.
-					if (SendMe)
-					{
-						// Reset the network & station where the last send error occurred.
-						LastError.network = 0;
-						LastError.station = 0;
-
-						#ifdef DEBUG_ECONET
-						DebugTrace("Econet: Sending a packet\n");
-						#endif
-
-						if (AUNMode)
-						{
-							unsigned int j = 0;
-							// OK. Lets do AUN ...
-							// The Beeb has given us a packet .. what is it?
-							SendMe = false;
-
-							switch (fourwaystage)
-							{
-							case FourWayStage::ScoutAckReceived:
-								// It came in response to our ack of a scout.
-								// What we have /should/ be the data block.
-								// CLUDGE WARNING is this a scout sent again immediately?? TODO fix this?!?!
-								if (EconetTx.AUNHeader.Port == 0x00)
-								{
-									if (EconetTx.AUNHeader.CtrlByte == (0x82 & 0x7f))
-									{
-										j = 8;
-									}
-									else if (EconetTx.AUNHeader.CtrlByte >= (0x83 & 0x7f) &&
-									         EconetTx.AUNHeader.CtrlByte <= (0x85 & 0x7f))
-									{
-										j = 4;
-									}
-								}
-
-								if (BeebTx.Pointer != sizeof(BeebTx.EconetHeader) + j || memcmp(BeebTx.Buffer, BeebTxCopy, sizeof(BeebTx.EconetHeader) + j) != 0) // nope
-								{
-									for (unsigned int k = 4; k < BeebTx.Pointer; k++, j++) {
-										EconetTx.Buffer[j] = BeebTx.Buffer[k];
-									}
-									EconetTx.Pointer = j;
-
-									SendMe = true;
-									SendLen = sizeof(AUNHeaderType) + EconetTx.Pointer;
-
-									fourwaystage = FourWayStage::DataSent;
-
-									#ifdef DEBUG_ECONET
-									DebugTrace("Econet: Set FourWayStage::DataSent\n");
-									#endif
-									break;
-								} // else fall through...
-
-							case FourWayStage::Idle:
-								// Not currently doing anything, so this will be a scout,
-								// maybe a long scout or a broadcast.
-								memcpy(BeebTxCopy, BeebTx.Buffer, sizeof(BeebTx.EconetHeader));
-								EconetTx.AUNHeader.CtrlByte = BeebTx.EconetHeader.CtrlByte & 127; // | 128;
-								EconetTx.AUNHeader.Port = BeebTx.EconetHeader.Port;
-								EconetTx.AUNHeader.Pad = 0;
-								EconetTx.AUNHeader.Handle = (ec_sequence += 4);
-
-								EconetTx.DestNet = BeebTx.EconetHeader.DestNet | outmask; //30JUN
-								EconetTx.DestStn = BeebTx.EconetHeader.DestStn;
-
-								for (unsigned int k = 6; k < BeebTx.Pointer; k++, j++) {
-									EconetTx.Buffer[j] = BeebTx.Buffer[k];
-								}
-
-								EconetTx.Pointer = j;
-
-								if (IsBroadcastStation(EconetTx.DestStn))
-								{
-									EconetTx.AUNHeader.Type = AUNType::Broadcast;
-
-									fourwaystage = FourWayStage::WaitForIdle; // no response to broadcasts...
-
-									SendMe = true; // Send packet.
-									SendLen = sizeof(AUNHeaderType) + 8;
-
-									#ifdef DEBUG_ECONET
-									DebugTrace("Econet: Set FourWayStage::WaitForIdle (broadcast sent)\n");
-									#endif
-								}
-								else if (EconetTx.AUNHeader.Port == 0 &&
-								         (EconetTx.AUNHeader.CtrlByte < (0x82 & 0x7f) || EconetTx.AUNHeader.CtrlByte > (0x85 & 0x7f)))
-								{
-									EconetTx.AUNHeader.Type = AUNType::Immediate;
-
-									fourwaystage = FourWayStage::ImmediateSent;
-
-									SendMe = true; // Send packet.
-									SendLen = sizeof(AUNHeaderType) + EconetTx.Pointer;
-
-									#ifdef DEBUG_ECONET
-									DebugTrace("Econet: Set FourWayStage::ImmediateSent\n");
-									#endif
-								}
-								else
-								{
-									EconetTx.AUNHeader.Type = AUNType::Unicast;
-
-									fourwaystage = FourWayStage::ScoutSent;
-
-									// Don't send anything but set wait anyway.
-									SetTrigger(EconetScoutAckTimeout, EconetScoutAckTrigger);
-
-									#ifdef DEBUG_ECONET
-									DebugTrace("Econet: Set FourWayStage::ScoutSent\n");
-									DebugTrace("Econet: Scout Ack Timeout set\n");
-									#endif
-								} // else BROADCAST !!!!
-								break;
-
-							case FourWayStage::ScoutReceived:
-								// It's an ack for a scout which we sent the Beeb.
-								// Just drop it, but move on.
-								fourwaystage = FourWayStage::ScoutAckSent;
-
-								SetTrigger(EconetScoutAckTimeout, EconetScoutAckTrigger);
-
-								#ifdef DEBUG_ECONET
-								DebugTrace("Econet: Set FourWayStage::ScoutAckSent\n");
-								DebugTrace("Econet: Scout Ack Timeout set\n");
-								#endif
-								break;
-
-							case FourWayStage::DataReceived:
-								// This must be ack for data just received.
-								// Now we really need to send an ack to the far AUN host...
-								// Send header of last block received straight back.
-								// This ought to work, but only because the Beeb can only
-								// talk to one machine at any time.
-								EconetTx.AUNHeader = EconetRx.AUNHeader;
-								EconetTx.AUNHeader.Type = AUNType::Ack;
-
-								SendLen = sizeof(AUNHeaderType);
-								SendMe = true;
-
-								fourwaystage = FourWayStage::WaitForIdle;
-
-								#ifdef DEBUG_ECONET
-								DebugTrace("Econet: Set FourWayStage::WaitForIdle (final ack sent)\n");
-								#endif
-								break;
-
-							case FourWayStage::ImmediateReceived:
-								// It's a reply to an immediate command we just had.
-								for (unsigned int k = 4; k < BeebTx.Pointer; k++, j++) {
-									EconetTx.Buffer[j] = BeebTx.Buffer[k];
-								}
-
-								EconetTx.Pointer = j;
-
-								EconetTx.AUNHeader = EconetRx.AUNHeader;
-								EconetTx.AUNHeader.Type = AUNType::ImmReply;
-
-								SendMe = true;
-								SendLen = sizeof(AUNHeaderType) + EconetTx.Pointer;
-
-								fourwaystage = FourWayStage::WaitForIdle;
-
-								#ifdef DEBUG_ECONET
-								DebugTrace("Econet: Set FourWayStage::WaitForIdle (immediate received)\n");
-								#endif
-								break;
-
-							default:
-								// Shouldn't be here. Ignore packet and abort fourway.
-								fourwaystage = FourWayStage::WaitForIdle;
-
-								#ifdef DEBUG_ECONET
-								DebugTrace("Econet: Set FourWayStage::WaitForIdle (unexpected mode, packet ignored)\n");
-								#endif
-								break;
-							}
-
-							if (SendMe)
-							{
-								if (sendto(Socket, (char *)&EconetTx, SendLen, 0,
-								           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
-								{
-									EconetError("Econet: Failed to send packet to station %d (%s port %u)",
-									            (int)stations[i].station,
-									            IpAddressStr(stations[i].inet_addr), (unsigned int)stations[i].port);
-								}
-							}
-						}
-						else
-						{
-							if (sendto(Socket, (char *)BeebTx.Buffer, BeebTx.Pointer, 0,
-							           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
-							{
-								EconetError("Econet: Failed to send packet to network %d station %d (%s port %u)",
-								            (int)BeebTx.EconetHeader.DestNet, (int)BeebTx.EconetHeader.DestStn,
-								            IpAddressStr(stations[i].inet_addr), (unsigned int)stations[i].port);
-							}
-						}
-
-						// Sending packet will mean peer goes into flag fill while
-						// it deals with it.
-						FlagFillActive = true;
-						SetTrigger(EconetFlagFillTimeout, EconetFlagFillTimeoutTrigger);
-
-						#ifdef DEBUG_ECONET
-						DebugTrace("Econet: FlagFill set (packet sent)\n");
-						#endif
-
-						// Wipe buffer.
-						BeebTx.Pointer = 0;
-						BeebTx.BytesInBuffer = 0;
-					}
-					else
-					{
-						if (LastError.network != BeebTx.EconetHeader.DestNet &&
-						    LastError.station != BeebTx.EconetHeader.DestStn)
-						{
-							if (AUNMode)
-							{
-								EconetError("Econet: Station %d.%d not found in AUNMap or Econet.cfg",
-								            (int)BeebTx.EconetHeader.DestNet,
-								            (int)BeebTx.EconetHeader.DestStn);
-							}
-							else
-							{
-								EconetError("Econet: Station %d.%d not found in Econet.cfg",
-								            (int)BeebTx.EconetHeader.DestNet,
-								            (int)BeebTx.EconetHeader.DestStn);
-							}
-
-							// If there is a send error, remember the network and station
-							// to prevent the user being notified on each retry.
-							LastError.network = BeebTx.EconetHeader.DestNet;
-							LastError.station = BeebTx.EconetHeader.DestStn;
-						}
-					}
+					EconetSendPacket();
 				}
 			}
 		}
@@ -1839,354 +1493,7 @@ bool EconetPollReal()
 				// Wait for CPU to clear Frame Valid flag from last frame received.
 				if (!(ADLC.Status2 & STATUS_REG2_FRAME_VALID))
 				{
-					if (!AUNMode ||
-					    fourwaystage == FourWayStage::Idle ||
-					    fourwaystage == FourWayStage::ImmediateSent ||
-					    fourwaystage == FourWayStage::DataSent)
-					{
-						// Try to get another packet from the network.
-						// Check if packet is waiting without blocking.
-						fd_set ReadFds;
-						FD_ZERO(&ReadFds);
-						FD_SET(Socket, &ReadFds);
-
-						timeval TimeOut = {0, 0};
-
-						int NumReady = select((int)Socket + 1, &ReadFds, NULL, NULL, &TimeOut);
-
-						if (NumReady > 0)
-						{
-							// Read the packet.
-							sockaddr_in RecvAddr;
-							int RecvAddrSize = sizeof(RecvAddr);
-							int BytesReceived;
-
-							if (AUNMode)
-							{
-								BytesReceived = recvfrom(Socket,
-								                         (char *)&EconetRx,
-								                         sizeof(AUNHeaderType) + sizeof(EconetRx.Buffer),
-								                         0,
-								                         (SOCKADDR *)&RecvAddr,
-								                         &RecvAddrSize);
-
-								EconetRx.BytesInBuffer = BytesReceived;
-							}
-							else
-							{
-								BytesReceived = recvfrom(Socket,
-								                         (char *)BeebRx.Buffer,
-								                         sizeof(BeebRx.Buffer),
-								                         0,
-								                         (SOCKADDR *)&RecvAddr,
-								                         &RecvAddrSize);
-							}
-
-							if (BytesReceived > 0)
-							{
-								if (DebugEnabled)
-								{
-									DebugDisplayTraceF(DebugType::Econet,
-									                   true,
-									                   "EconetPoll: Packet received: %d bytes from %s port %u",
-									                   BytesReceived,
-									                   IpAddressStr(S_ADDR(RecvAddr)),
-									                   htons(RecvAddr.sin_port));
-
-									std::string str = "EconetPoll: Packet data:" + BytesToString(AUNMode ? (const unsigned char*)&EconetRx : BeebRx.Buffer, BytesReceived);
-
-									DebugDisplayTrace(DebugType::Econet, true, str.c_str());
-								}
-
-								if (AUNMode)
-								{
-									// Convert from AUN format.
-									// Find station number of sender.
-									EconetHost* pHost = FindHost(&RecvAddr);
-
-									if (pHost == nullptr)
-									{
-										// Packet from unknown host.
-										if (LearnMode)
-										{
-											pHost = AddHost(&RecvAddr);
-										}
-									}
-
-									if (pHost == nullptr)
-									{
-										// Didn't find it in the table. Ignore the packet.
-										BeebRx.BytesInBuffer = 0;
-
-										#ifdef DEBUG_ECONET
-										DebugTrace("Econet: Packet ignored\n");
-										#endif
-									}
-									else
-									{
-										if (DebugEnabled)
-										{
-											DebugDisplayTraceF(DebugType::Econet,
-											                   true,
-											                   "Econet: Packet was from %d.%d",
-											                   (int)pHost->network,
-											                   (int)pHost->station);
-										}
-
-										switch (fourwaystage)
-										{
-										case FourWayStage::Idle:
-											// We weren't doing anything when this packet came in.
-											BeebRx.EconetHeader.DestStn = EconetStationID; // Must be for us.
-											BeebRx.EconetHeader.DestNet = 0;
-
-											BeebRx.EconetHeader.SrcStn = pHost->station;
-											BeebRx.EconetHeader.SrcNet = pHost->network;
-
-											BeebRx.EconetHeader.CtrlByte = EconetRx.AUNHeader.CtrlByte | 128;
-											BeebRx.EconetHeader.Port     = EconetRx.AUNHeader.Port;
-
-											switch (EconetRx.AUNHeader.Type)
-											{
-												case AUNType::Broadcast: {
-													BeebRx.EconetHeader.DestStn = 255; // Wasn't just for us.
-													BeebRx.EconetHeader.DestNet = 255;
-
-													const int Offset = sizeof(LongEconetPacket);
-													const int Length = BytesReceived - sizeof(AUNHeaderType);
-													memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
-													BeebRx.BytesInBuffer = Offset + Length;
-
-													fourwaystage = FourWayStage::WaitForIdle;
-
-													#ifdef DEBUG_ECONET
-													DebugTrace("Econet: Set FourWayStage::WaitForIdle (broadcast received)\n");
-													#endif
-													break;
-												}
-
-												case AUNType::Immediate: {
-													const int Offset = sizeof(LongEconetPacket);
-													const int Length = BytesReceived - sizeof(AUNHeaderType);
-													memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
-													BeebRx.BytesInBuffer = Offset + Length;
-
-													fourwaystage = FourWayStage::ImmediateReceived;
-
-													#ifdef DEBUG_ECONET
-													DebugTrace("Econet: Set FourWayStage::ImmediateReceived\n");
-													#endif
-													break;
-												}
-
-												case AUNType::Unicast:
-													// We're assuming things here.
-													if (EconetRx.AUNHeader.Port == 0 && EconetRx.AUNHeader.CtrlByte == (0x82 & 0x7f))
-													{
-														const int Offset = sizeof(LongEconetPacket);
-														const int Length = 8;
-														memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
-														BeebRx.BytesInBuffer = Offset + Length;
-													}
-													else if (EconetRx.AUNHeader.Port == 0 &&
-													         EconetRx.AUNHeader.CtrlByte >= (0x83 & 0x7f) &&
-													         EconetRx.AUNHeader.CtrlByte <= (0x85 & 0x7f))
-													{
-														const int Offset = sizeof(LongEconetPacket);
-														const int Length = 4;
-														memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
-														BeebRx.BytesInBuffer = Offset + Length;
-													}
-													else
-													{
-														BeebRx.BytesInBuffer = sizeof(LongEconetPacket);
-													}
-
-													fourwaystage = FourWayStage::ScoutReceived;
-
-													#ifdef DEBUG_ECONET
-													DebugTrace("Econet: Set FourWayStage::ScoutReceived\n");
-													#endif
-													break;
-
-												default:
-													// Ignore anything else.
-													BeebRx.BytesInBuffer = 0;
-													break;
-											}
-
-											BeebRx.Pointer = 0;
-											break;
-
-										case FourWayStage::ImmediateSent: {
-											// It should be reply to an immediate instruction.
-											// TODO  check that it is!!! Example scenario where it will not
-											// be - *STATIONs poll sends packet to itself... packet we get
-											// here is the one we just sent out..!!!
-											// I'm pretty sure that real Econet can't send to itself.
-											BeebRx.EconetHeader.DestStn = EconetStationID; // Must be for us.
-											BeebRx.EconetHeader.DestNet = 0;
-
-											BeebRx.EconetHeader.SrcStn = pHost->station;
-											BeebRx.EconetHeader.SrcNet = pHost->network;
-
-											const int Offset = 4;
-											const int Length = BytesReceived - sizeof(AUNHeaderType);
-											memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
-											BeebRx.BytesInBuffer = Offset + Length;
-											BeebRx.Pointer = 0;
-
-											fourwaystage = FourWayStage::WaitForIdle;
-
-											#ifdef DEBUG_ECONET
-											DebugTrace("Econet: Set FourWayStage::WaitForIdle (ack received from remote AUN server)\n");
-											#endif
-											break;
-										}
-
-										case FourWayStage::DataSent:
-											// We sent block of data, awaiting final ack.
-											if (EconetRx.AUNHeader.Type == AUNType::Ack || EconetRx.AUNHeader.Type == AUNType::NAck)
-											{
-												// Are we expecting a (N)ACK?
-												// TODO check it is a (n)ack for the packet we just sent. Deal with nacks!
-												// Construct a final ack for the Beeb.
-												BeebRx.EconetHeader.DestStn = EconetStationID; // Must be for us.
-												BeebRx.EconetHeader.DestNet = 0;
-
-												BeebRx.EconetHeader.SrcStn = pHost->station;
-												BeebRx.EconetHeader.SrcNet = pHost->network;
-
-												BeebRx.BytesInBuffer = 4;
-												BeebRx.Pointer = 0;
-
-												fourwaystage = FourWayStage::WaitForIdle;
-
-												#ifdef DEBUG_ECONET
-												DebugTrace("Econet: Set FourWayStage::WaitForIdle (AUN ack received)\n");
-												#endif
-												break;
-											} // else unexpected packet - ignore it. TODO: queue it?
-
-										default:
-											// Erm, what are we doing here? Ignore packet.
-											fourwaystage = FourWayStage::WaitForIdle;
-
-											#ifdef DEBUG_ECONET
-											DebugTrace("Econet: Set FourWayStage::WaitForIdle (ack received from remote AUN server)\n");
-											#endif
-											break;
-										}
-									}
-								}
-								else
-								{
-									BeebRx.BytesInBuffer = BytesReceived;
-									BeebRx.Pointer = 0;
-								}
-
-								if ((BeebRx.EconetHeader.DestStn == EconetStationID || IsBroadcastStation(BeebRx.EconetHeader.DestStn)) &&
-								    BeebRx.BytesInBuffer > 0)
-								{
-									// Peer sent us packet - no longer in flag fill.
-									FlagFillActive = false;
-
-									#ifdef DEBUG_ECONET
-									DebugTrace("Econet: FlagFill reset\n");
-									#endif
-								}
-								else
-								{
-									// Two other stations communicating - assume one of them will flag fill.
-									FlagFillActive = true;
-									SetTrigger(EconetFlagFillTimeout, EconetFlagFillTimeoutTrigger);
-
-									#ifdef DEBUG_ECONET
-									DebugTrace("Econet: FlagFill set - other station comms\n");
-									#endif
-								}
-							}
-							/* else if (RetVal == SOCKET_ERROR)
-							{
-								EconetError("Econet: Failed to receive packet (error %ld)", GetLastSocketError());
-							} */
-						}
-						else if (NumReady == SOCKET_ERROR)
-						{
-							EconetError("Econet: Failed to check for new packet");
-						}
-					}
-
-					// This bit fakes the bits of the 4-way handshake that AUN doesn't do.
-
-					if (AUNMode && EconetScoutAckTrigger > TotalCycles)
-					{
-						switch (fourwaystage) {
-						case FourWayStage::ScoutSent:
-							// Just got a scout from the Beeb, fake an acknowledgement.
-							BeebRx.EconetHeader.DestStn = EconetStationID;
-							BeebRx.EconetHeader.DestNet = 0;
-
-							BeebRx.EconetHeader.SrcStn = EconetTx.DestStn; // Use scout's dest as source of ack.
-							BeebRx.EconetHeader.SrcNet = EconetTx.DestNet;
-
-							BeebRx.BytesInBuffer = 4;
-							BeebRx.Pointer = 0;
-
-							fourwaystage = FourWayStage::ScoutAckReceived;
-
-							#ifdef DEBUG_ECONET
-							DebugTrace("Econet: Set FourWayStage::ScoutAckReceived\n");
-							#endif
-							break;
-
-						case FourWayStage::ScoutAckSent: {
-							// Beeb acked the scout we gave it, so give it the data AUN sent us earlier.
-							BeebRx.EconetHeader.DestStn = EconetStationID; // As it is data it must be for us.
-							BeebRx.EconetHeader.DestNet = 0;
-
-							BeebRx.EconetHeader.SrcStn  = EconetTx.DestStn; //30jun dont think this is right..
-							BeebRx.EconetHeader.SrcNet  = EconetTx.DestNet & inmask;
-
-							const int DestOffset = sizeof(EconetHeaderType);
-
-							if (EconetRx.AUNHeader.Port == 0 && EconetRx.AUNHeader.CtrlByte == (0x82 & 0x7f))
-							{
-								const int SrcOffset = 8;
-								const int Length = EconetRx.BytesInBuffer - sizeof(AUNHeaderType) - SrcOffset;
-								memcpy(BeebRx.Buffer + DestOffset, EconetRx.Buffer + SrcOffset, Length);
-								BeebRx.BytesInBuffer = DestOffset + Length;
-							}
-							else if (EconetRx.AUNHeader.Port == 0 &&
-							         EconetRx.AUNHeader.CtrlByte >= (0x83 & 0x7f) &&
-							         EconetRx.AUNHeader.CtrlByte <= (0x85 & 0x7f))
-							{
-								const int SrcOffset = 4;
-								const int Length = EconetRx.BytesInBuffer - sizeof(AUNHeaderType) - SrcOffset;
-								memcpy(BeebRx.Buffer + DestOffset, EconetRx.Buffer + SrcOffset, Length);
-								BeebRx.BytesInBuffer = DestOffset + Length;
-							}
-							else
-							{
-								const int Length = EconetRx.BytesInBuffer - sizeof(AUNHeaderType);
-								memcpy(BeebRx.Buffer + DestOffset, EconetRx.Buffer, Length);
-								BeebRx.BytesInBuffer = DestOffset + Length;
-							}
-
-							BeebRx.Pointer = 0;
-
-							fourwaystage = FourWayStage::DataReceived;
-
-							#ifdef DEBUG_ECONET
-							DebugTrace("Econet: Set FourWayStage::DataReceived\n");
-							#endif
-							break;
-						}
-
-						default:
-							break;
-						}
-					}
+					EconetReceivePacket();
 				}
 			}
 		}
@@ -2592,6 +1899,715 @@ bool EconetPollReal()
 
 //--------------------------------------------------------------------------------------------
 
+static void EconetSendPacket()
+{
+	if (DebugEnabled)
+	{
+		DebugDisplayTraceF(DebugType::Econet,
+		                   true,
+		                   "Econet: TXLast set - Send packet to network %d station %d",
+		                   (int)BeebTx.EconetHeader.DestNet,
+		                   (int)BeebTx.EconetHeader.DestStn);
+	}
+
+	// First two bytes of BeebTx.buff contain the destination address
+	// (or one zero byte for broadcast)
+
+	sockaddr_in RecvAddr;
+	bool SendMe = false;
+	int SendLen = 0;
+	int i = 0;
+
+	if (AUNMode && IsBroadcastStation(BeebTx.EconetHeader.DestStn))
+	{
+		// TODO something
+		// Somewhere that I cannot now find suggested that
+		// AUN buffers broadcast packet, and broadcasts a simple flag. Stations
+		// poll us to get the actual broadcast data ..
+		// Hmmm...
+		//
+		// ok, just send it to the local broadcast address.
+		// TODO: lookup destnet in AUNNet and use proper IP address!
+		RecvAddr.sin_family = AF_INET;
+		RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
+		S_ADDR(RecvAddr) = INADDR_BROADCAST; // ((EconetListenIP & 0x00FFFFFF) | 0xFF000000);
+		SendMe = true;
+	}
+	else
+	{
+		do {
+			// Does the packet match this network table entry?
+			// // check for 0.stn and mynet.stn.
+			// AUNNet won't be populated if not in AUN mode, but we don't need to not check
+			// it because it won't matter.
+			if ((stations[i].network == BeebTx.EconetHeader.DestNet ||
+			    (stations[i].network == networks[myaunnet].network && stations[i].network != 0)) &&
+			    stations[i].station == BeebTx.EconetHeader.DestStn)
+			{
+				SendMe = true;
+				break;
+			}
+			i++;
+		} while (i < stationsp);
+
+		// Guess address if not found in table.
+		if (!SendMe && StrictAUNMode) // Didn't find it and allowed to guess.
+		{
+			if (DebugEnabled)
+			{
+				DebugDisplayTrace(DebugType::Econet,
+				                  true,
+				                  "Econet: Send to unknown host; make assumptions & add entry!");
+			}
+
+			if (BeebTx.EconetHeader.DestNet == 0 || BeebTx.EconetHeader.DestNet == networks[myaunnet].network)
+			{
+				stations[i].inet_addr = networks[myaunnet].inet_addr | (BeebTx.EconetHeader.DestNet << 24);
+				stations[i].port = DEFAULT_AUN_PORT;
+				stations[i].network = BeebTx.EconetHeader.DestNet;
+				stations[i].station = BeebTx.EconetHeader.DestStn;
+				stations[++stationsp].station = 0;
+
+				SendMe = true;
+			}
+			else
+			{
+				int j = 0;
+
+				do {
+					if (networks[j].network == BeebTx.EconetHeader.DestNet)
+					{
+						stations[i].inet_addr = networks[j].inet_addr | (BeebTx.EconetHeader.DestStn << 24);
+						stations[i].port = DEFAULT_AUN_PORT;
+						stations[i].network = BeebTx.EconetHeader.DestNet;
+						stations[i].station = BeebTx.EconetHeader.DestStn;
+						stations[++stationsp].station = 0;
+
+						SendMe = true;
+						break;
+					}
+					j++;
+				} while (j < networksp);
+			}
+		}
+
+		RecvAddr.sin_family = AF_INET;
+		RecvAddr.sin_port = htons(stations[i].port);
+		S_ADDR(RecvAddr) = stations[i].inet_addr;
+	}
+
+	if (DebugEnabled)
+	{
+		DebugDisplayTraceF(DebugType::Econet,
+		                   true,
+		                   "Econet: TXLast set: Send %d byte packet to network %d station %d (%s port %u)",
+		                   BeebTx.Pointer,
+		                   (int)BeebTx.EconetHeader.DestNet,
+		                   (int)BeebTx.EconetHeader.DestStn,
+		                   IpAddressStr(S_ADDR(RecvAddr)),
+		                   (unsigned int)htons(RecvAddr.sin_port));
+
+		std::string str = "Econet: Packet data:" + BytesToString(BeebTx.Buffer, BeebTx.Pointer);
+
+		DebugDisplayTrace(DebugType::Econet, true, str.c_str());
+	}
+
+	// Send a datagram to the receiver.
+	if (SendMe)
+	{
+		// Reset the network & station where the last send error occurred.
+		LastError.network = 0;
+		LastError.station = 0;
+
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: Sending a packet\n");
+		#endif
+
+		if (AUNMode)
+		{
+			unsigned int j = 0;
+			// OK. Lets do AUN ...
+			// The Beeb has given us a packet .. what is it?
+			SendMe = false;
+
+			switch (fourwaystage)
+			{
+			case FourWayStage::ScoutAckReceived:
+				// It came in response to our ack of a scout.
+				// What we have /should/ be the data block.
+				// CLUDGE WARNING is this a scout sent again immediately?? TODO fix this?!?!
+				if (EconetTx.AUNHeader.Port == 0x00)
+				{
+					if (EconetTx.AUNHeader.CtrlByte == (0x82 & 0x7f))
+					{
+						j = 8;
+					}
+					else if (EconetTx.AUNHeader.CtrlByte >= (0x83 & 0x7f) &&
+								EconetTx.AUNHeader.CtrlByte <= (0x85 & 0x7f))
+					{
+						j = 4;
+					}
+				}
+
+				if (BeebTx.Pointer != sizeof(BeebTx.EconetHeader) + j || memcmp(BeebTx.Buffer, BeebTxCopy, sizeof(BeebTx.EconetHeader) + j) != 0) // nope
+				{
+					for (unsigned int k = 4; k < BeebTx.Pointer; k++, j++) {
+						EconetTx.Buffer[j] = BeebTx.Buffer[k];
+					}
+					EconetTx.Pointer = j;
+
+					SendMe = true;
+					SendLen = sizeof(AUNHeaderType) + EconetTx.Pointer;
+
+					fourwaystage = FourWayStage::DataSent;
+
+					#ifdef DEBUG_ECONET
+					DebugTrace("Econet: Set FourWayStage::DataSent\n");
+					#endif
+					break;
+				} // else fall through...
+
+			case FourWayStage::Idle:
+				// Not currently doing anything, so this will be a scout,
+				// maybe a long scout or a broadcast.
+				memcpy(BeebTxCopy, BeebTx.Buffer, sizeof(BeebTx.EconetHeader));
+				EconetTx.AUNHeader.CtrlByte = BeebTx.EconetHeader.CtrlByte & 127; // | 128;
+				EconetTx.AUNHeader.Port = BeebTx.EconetHeader.Port;
+				EconetTx.AUNHeader.Pad = 0;
+				EconetTx.AUNHeader.Handle = (ec_sequence += 4);
+
+				EconetTx.DestNet = BeebTx.EconetHeader.DestNet | outmask; //30JUN
+				EconetTx.DestStn = BeebTx.EconetHeader.DestStn;
+
+				for (unsigned int k = 6; k < BeebTx.Pointer; k++, j++) {
+					EconetTx.Buffer[j] = BeebTx.Buffer[k];
+				}
+
+				EconetTx.Pointer = j;
+
+				if (IsBroadcastStation(EconetTx.DestStn))
+				{
+					EconetTx.AUNHeader.Type = AUNType::Broadcast;
+
+					fourwaystage = FourWayStage::WaitForIdle; // no response to broadcasts...
+
+					SendMe = true; // Send packet.
+					SendLen = sizeof(AUNHeaderType) + 8;
+
+					#ifdef DEBUG_ECONET
+					DebugTrace("Econet: Set FourWayStage::WaitForIdle (broadcast sent)\n");
+					#endif
+				}
+				else if (EconetTx.AUNHeader.Port == 0 &&
+				         (EconetTx.AUNHeader.CtrlByte < (0x82 & 0x7f) || EconetTx.AUNHeader.CtrlByte > (0x85 & 0x7f)))
+				{
+					EconetTx.AUNHeader.Type = AUNType::Immediate;
+
+					fourwaystage = FourWayStage::ImmediateSent;
+
+					SendMe = true; // Send packet.
+					SendLen = sizeof(AUNHeaderType) + EconetTx.Pointer;
+
+					#ifdef DEBUG_ECONET
+					DebugTrace("Econet: Set FourWayStage::ImmediateSent\n");
+					#endif
+				}
+				else
+				{
+					EconetTx.AUNHeader.Type = AUNType::Unicast;
+
+					fourwaystage = FourWayStage::ScoutSent;
+
+					// Don't send anything but set wait anyway.
+					SetTrigger(EconetScoutAckTimeout, EconetScoutAckTrigger);
+
+					#ifdef DEBUG_ECONET
+					DebugTrace("Econet: Set FourWayStage::ScoutSent\n");
+					DebugTrace("Econet: Scout Ack Timeout set\n");
+					#endif
+				} // else BROADCAST !!!!
+				break;
+
+			case FourWayStage::ScoutReceived:
+				// It's an ack for a scout which we sent the Beeb.
+				// Just drop it, but move on.
+				fourwaystage = FourWayStage::ScoutAckSent;
+
+				SetTrigger(EconetScoutAckTimeout, EconetScoutAckTrigger);
+
+				#ifdef DEBUG_ECONET
+				DebugTrace("Econet: Set FourWayStage::ScoutAckSent\n");
+				DebugTrace("Econet: Scout Ack Timeout set\n");
+				#endif
+				break;
+
+			case FourWayStage::DataReceived:
+				// This must be ack for data just received.
+				// Now we really need to send an ack to the far AUN host...
+				// Send header of last block received straight back.
+				// This ought to work, but only because the Beeb can only
+				// talk to one machine at any time.
+				EconetTx.AUNHeader = EconetRx.AUNHeader;
+				EconetTx.AUNHeader.Type = AUNType::Ack;
+
+				SendLen = sizeof(AUNHeaderType);
+				SendMe = true;
+
+				fourwaystage = FourWayStage::WaitForIdle;
+
+				#ifdef DEBUG_ECONET
+				DebugTrace("Econet: Set FourWayStage::WaitForIdle (final ack sent)\n");
+				#endif
+				break;
+
+			case FourWayStage::ImmediateReceived:
+				// It's a reply to an immediate command we just had.
+				for (unsigned int k = 4; k < BeebTx.Pointer; k++, j++) {
+					EconetTx.Buffer[j] = BeebTx.Buffer[k];
+				}
+
+				EconetTx.Pointer = j;
+
+				EconetTx.AUNHeader = EconetRx.AUNHeader;
+				EconetTx.AUNHeader.Type = AUNType::ImmReply;
+
+				SendMe = true;
+				SendLen = sizeof(AUNHeaderType) + EconetTx.Pointer;
+
+				fourwaystage = FourWayStage::WaitForIdle;
+
+				#ifdef DEBUG_ECONET
+				DebugTrace("Econet: Set FourWayStage::WaitForIdle (immediate received)\n");
+				#endif
+				break;
+
+			default:
+				// Shouldn't be here. Ignore packet and abort fourway.
+				fourwaystage = FourWayStage::WaitForIdle;
+
+				#ifdef DEBUG_ECONET
+				DebugTrace("Econet: Set FourWayStage::WaitForIdle (unexpected mode, packet ignored)\n");
+				#endif
+				break;
+			}
+
+			if (SendMe)
+			{
+				if (sendto(Socket, (char *)&EconetTx, SendLen, 0,
+				           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+				{
+					EconetError("Econet: Failed to send packet to station %d (%s port %u)",
+					            (int)stations[i].station,
+					            IpAddressStr(stations[i].inet_addr), (unsigned int)stations[i].port);
+					}
+			}
+		}
+		else
+		{
+			if (sendto(Socket, (char *)BeebTx.Buffer, BeebTx.Pointer, 0,
+			           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+			{
+				EconetError("Econet: Failed to send packet to network %d station %d (%s port %u)",
+				            (int)BeebTx.EconetHeader.DestNet, (int)BeebTx.EconetHeader.DestStn,
+				            IpAddressStr(stations[i].inet_addr), (unsigned int)stations[i].port);
+			}
+		}
+
+		// Sending packet will mean peer goes into flag fill while
+		// it deals with it.
+		FlagFillActive = true;
+		SetTrigger(EconetFlagFillTimeout, EconetFlagFillTimeoutTrigger);
+
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: FlagFill set (packet sent)\n");
+		#endif
+
+		// Wipe buffer.
+		BeebTx.Pointer = 0;
+		BeebTx.BytesInBuffer = 0;
+	}
+	else
+	{
+		if (LastError.network != BeebTx.EconetHeader.DestNet &&
+		    LastError.station != BeebTx.EconetHeader.DestStn)
+		{
+			if (AUNMode)
+			{
+				EconetError("Econet: Station %d.%d not found in AUNMap or Econet.cfg",
+				            (int)BeebTx.EconetHeader.DestNet,
+				            (int)BeebTx.EconetHeader.DestStn);
+			}
+			else
+			{
+				EconetError("Econet: Station %d.%d not found in Econet.cfg",
+				            (int)BeebTx.EconetHeader.DestNet,
+				            (int)BeebTx.EconetHeader.DestStn);
+			}
+
+			// If there is a send error, remember the network and station
+			// to prevent the user being notified on each retry.
+			LastError.network = BeebTx.EconetHeader.DestNet;
+			LastError.station = BeebTx.EconetHeader.DestStn;
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+
+static void EconetReceivePacket()
+{
+	if (!AUNMode ||
+	    fourwaystage == FourWayStage::Idle ||
+	    fourwaystage == FourWayStage::ImmediateSent ||
+	    fourwaystage == FourWayStage::DataSent)
+	{
+		// Try to get another packet from the network.
+		// Check if packet is waiting without blocking.
+		fd_set ReadFds;
+		FD_ZERO(&ReadFds);
+		FD_SET(Socket, &ReadFds);
+
+		timeval TimeOut = {0, 0};
+
+		int NumReady = select((int)Socket + 1, &ReadFds, NULL, NULL, &TimeOut);
+
+		if (NumReady > 0)
+		{
+			// Read the packet.
+			sockaddr_in RecvAddr;
+			int RecvAddrSize = sizeof(RecvAddr);
+			int BytesReceived;
+
+			if (AUNMode)
+			{
+				BytesReceived = recvfrom(Socket,
+				                         (char *)&EconetRx,
+				                         sizeof(AUNHeaderType) + sizeof(EconetRx.Buffer),
+				                         0,
+				                         (SOCKADDR *)&RecvAddr,
+				                         &RecvAddrSize);
+
+				EconetRx.BytesInBuffer = BytesReceived;
+			}
+			else
+			{
+				BytesReceived = recvfrom(Socket,
+				                         (char *)BeebRx.Buffer,
+				                         sizeof(BeebRx.Buffer),
+				                         0,
+				                         (SOCKADDR *)&RecvAddr,
+				                         &RecvAddrSize);
+			}
+
+			if (BytesReceived > 0)
+			{
+				if (DebugEnabled)
+				{
+					DebugDisplayTraceF(DebugType::Econet,
+					                   true,
+					                   "EconetPoll: Packet received: %d bytes from %s port %u",
+					                   BytesReceived,
+					                   IpAddressStr(S_ADDR(RecvAddr)),
+					                   htons(RecvAddr.sin_port));
+
+					std::string str = "EconetPoll: Packet data:" + BytesToString(AUNMode ? (const unsigned char*)&EconetRx : BeebRx.Buffer, BytesReceived);
+
+					DebugDisplayTrace(DebugType::Econet, true, str.c_str());
+				}
+
+				if (AUNMode)
+				{
+					// Convert from AUN format.
+					// Find station number of sender.
+					EconetHost* pHost = FindHost(&RecvAddr);
+
+					if (pHost == nullptr)
+					{
+						// Packet from unknown host.
+						if (LearnMode)
+						{
+							pHost = AddHost(&RecvAddr);
+						}
+					}
+
+					if (pHost == nullptr)
+					{
+						// Didn't find it in the table. Ignore the packet.
+						BeebRx.BytesInBuffer = 0;
+
+						#ifdef DEBUG_ECONET
+						DebugTrace("Econet: Packet ignored\n");
+						#endif
+					}
+					else
+					{
+						if (DebugEnabled)
+						{
+							DebugDisplayTraceF(DebugType::Econet,
+							                   true,
+							                   "Econet: Packet was from %d.%d",
+							                   (int)pHost->network,
+							                   (int)pHost->station);
+						}
+
+						switch (fourwaystage)
+						{
+						case FourWayStage::Idle:
+							// We weren't doing anything when this packet came in.
+							BeebRx.EconetHeader.DestStn = EconetStationID; // Must be for us.
+							BeebRx.EconetHeader.DestNet = 0;
+
+							BeebRx.EconetHeader.SrcStn = pHost->station;
+							BeebRx.EconetHeader.SrcNet = pHost->network;
+
+							BeebRx.EconetHeader.CtrlByte = EconetRx.AUNHeader.CtrlByte | 128;
+							BeebRx.EconetHeader.Port     = EconetRx.AUNHeader.Port;
+
+							switch (EconetRx.AUNHeader.Type)
+							{
+								case AUNType::Broadcast: {
+									BeebRx.EconetHeader.DestStn = 255; // Wasn't just for us.
+									BeebRx.EconetHeader.DestNet = 255;
+
+									const int Offset = sizeof(LongEconetPacket);
+									const int Length = BytesReceived - sizeof(AUNHeaderType);
+									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
+									BeebRx.BytesInBuffer = Offset + Length;
+
+									fourwaystage = FourWayStage::WaitForIdle;
+
+									#ifdef DEBUG_ECONET
+									DebugTrace("Econet: Set FourWayStage::WaitForIdle (broadcast received)\n");
+									#endif
+									break;
+								}
+
+								case AUNType::Immediate: {
+									const int Offset = sizeof(LongEconetPacket);
+									const int Length = BytesReceived - sizeof(AUNHeaderType);
+									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
+									BeebRx.BytesInBuffer = Offset + Length;
+
+									fourwaystage = FourWayStage::ImmediateReceived;
+
+									#ifdef DEBUG_ECONET
+									DebugTrace("Econet: Set FourWayStage::ImmediateReceived\n");
+									#endif
+									break;
+								}
+
+								case AUNType::Unicast:
+									// We're assuming things here.
+									if (EconetRx.AUNHeader.Port == 0 && EconetRx.AUNHeader.CtrlByte == (0x82 & 0x7f))
+									{
+										const int Offset = sizeof(LongEconetPacket);
+										const int Length = 8;
+										memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
+										BeebRx.BytesInBuffer = Offset + Length;
+									}
+									else if (EconetRx.AUNHeader.Port == 0 &&
+									         EconetRx.AUNHeader.CtrlByte >= (0x83 & 0x7f) &&
+									         EconetRx.AUNHeader.CtrlByte <= (0x85 & 0x7f))
+									{
+										const int Offset = sizeof(LongEconetPacket);
+										const int Length = 4;
+										memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
+										BeebRx.BytesInBuffer = Offset + Length;
+									}
+									else
+									{
+										BeebRx.BytesInBuffer = sizeof(LongEconetPacket);
+									}
+
+									fourwaystage = FourWayStage::ScoutReceived;
+
+									#ifdef DEBUG_ECONET
+									DebugTrace("Econet: Set FourWayStage::ScoutReceived\n");
+									#endif
+									break;
+
+								default:
+									// Ignore anything else.
+									BeebRx.BytesInBuffer = 0;
+									break;
+							}
+
+							BeebRx.Pointer = 0;
+							break;
+
+						case FourWayStage::ImmediateSent: {
+							// It should be reply to an immediate instruction.
+							// TODO  check that it is!!! Example scenario where it will not
+							// be - *STATIONs poll sends packet to itself... packet we get
+							// here is the one we just sent out..!!!
+							// I'm pretty sure that real Econet can't send to itself.
+							BeebRx.EconetHeader.DestStn = EconetStationID; // Must be for us.
+							BeebRx.EconetHeader.DestNet = 0;
+
+							BeebRx.EconetHeader.SrcStn = pHost->station;
+							BeebRx.EconetHeader.SrcNet = pHost->network;
+
+							const int Offset = 4;
+							const int Length = BytesReceived - sizeof(AUNHeaderType);
+							memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
+							BeebRx.BytesInBuffer = Offset + Length;
+							BeebRx.Pointer = 0;
+
+							fourwaystage = FourWayStage::WaitForIdle;
+
+							#ifdef DEBUG_ECONET
+							DebugTrace("Econet: Set FourWayStage::WaitForIdle (ack received from remote AUN server)\n");
+							#endif
+							break;
+						}
+
+						case FourWayStage::DataSent:
+							// We sent block of data, awaiting final ack.
+							if (EconetRx.AUNHeader.Type == AUNType::Ack || EconetRx.AUNHeader.Type == AUNType::NAck)
+							{
+								// Are we expecting a (N)ACK?
+								// TODO check it is a (n)ack for the packet we just sent. Deal with nacks!
+								// Construct a final ack for the Beeb.
+								BeebRx.EconetHeader.DestStn = EconetStationID; // Must be for us.
+								BeebRx.EconetHeader.DestNet = 0;
+
+								BeebRx.EconetHeader.SrcStn = pHost->station;
+								BeebRx.EconetHeader.SrcNet = pHost->network;
+
+								BeebRx.BytesInBuffer = 4;
+								BeebRx.Pointer = 0;
+
+								fourwaystage = FourWayStage::WaitForIdle;
+
+								#ifdef DEBUG_ECONET
+								DebugTrace("Econet: Set FourWayStage::WaitForIdle (AUN ack received)\n");
+								#endif
+								break;
+							} // else unexpected packet - ignore it. TODO: queue it?
+
+						default:
+							// Erm, what are we doing here? Ignore packet.
+							fourwaystage = FourWayStage::WaitForIdle;
+
+							#ifdef DEBUG_ECONET
+							DebugTrace("Econet: Set FourWayStage::WaitForIdle (ack received from remote AUN server)\n");
+							#endif
+							break;
+						}
+					}
+				}
+				else
+				{
+					BeebRx.BytesInBuffer = BytesReceived;
+					BeebRx.Pointer = 0;
+				}
+
+				if ((BeebRx.EconetHeader.DestStn == EconetStationID || IsBroadcastStation(BeebRx.EconetHeader.DestStn)) &&
+				    BeebRx.BytesInBuffer > 0)
+				{
+					// Peer sent us packet - no longer in flag fill.
+					FlagFillActive = false;
+
+					#ifdef DEBUG_ECONET
+					DebugTrace("Econet: FlagFill reset\n");
+					#endif
+				}
+				else
+				{
+					// Two other stations communicating - assume one of them will flag fill.
+					FlagFillActive = true;
+					SetTrigger(EconetFlagFillTimeout, EconetFlagFillTimeoutTrigger);
+
+					#ifdef DEBUG_ECONET
+					DebugTrace("Econet: FlagFill set - other station comms\n");
+					#endif
+				}
+			}
+			/* else if (RetVal == SOCKET_ERROR)
+			{
+				EconetError("Econet: Failed to receive packet (error %ld)", GetLastSocketError());
+			} */
+		}
+		else if (NumReady == SOCKET_ERROR)
+		{
+			EconetError("Econet: Failed to check for new packet");
+		}
+	}
+
+	// This bit fakes the bits of the 4-way handshake that AUN doesn't do.
+
+	if (AUNMode && EconetScoutAckTrigger > TotalCycles)
+	{
+		switch (fourwaystage) {
+		case FourWayStage::ScoutSent:
+			// Just got a scout from the Beeb, fake an acknowledgement.
+			BeebRx.EconetHeader.DestStn = EconetStationID;
+			BeebRx.EconetHeader.DestNet = 0;
+
+			BeebRx.EconetHeader.SrcStn = EconetTx.DestStn; // Use scout's dest as source of ack.
+			BeebRx.EconetHeader.SrcNet = EconetTx.DestNet;
+
+			BeebRx.BytesInBuffer = 4;
+			BeebRx.Pointer = 0;
+
+			fourwaystage = FourWayStage::ScoutAckReceived;
+
+			#ifdef DEBUG_ECONET
+			DebugTrace("Econet: Set FourWayStage::ScoutAckReceived\n");
+			#endif
+			break;
+
+		case FourWayStage::ScoutAckSent: {
+			// Beeb acked the scout we gave it, so give it the data AUN sent us earlier.
+			BeebRx.EconetHeader.DestStn = EconetStationID; // As it is data it must be for us.
+			BeebRx.EconetHeader.DestNet = 0;
+
+			BeebRx.EconetHeader.SrcStn  = EconetTx.DestStn; //30jun dont think this is right..
+			BeebRx.EconetHeader.SrcNet  = EconetTx.DestNet & inmask;
+
+			const int DestOffset = sizeof(EconetHeaderType);
+
+			if (EconetRx.AUNHeader.Port == 0 && EconetRx.AUNHeader.CtrlByte == (0x82 & 0x7f))
+			{
+				const int SrcOffset = 8;
+				const int Length = EconetRx.BytesInBuffer - sizeof(AUNHeaderType) - SrcOffset;
+				memcpy(BeebRx.Buffer + DestOffset, EconetRx.Buffer + SrcOffset, Length);
+				BeebRx.BytesInBuffer = DestOffset + Length;
+			}
+			else if (EconetRx.AUNHeader.Port == 0 &&
+			         EconetRx.AUNHeader.CtrlByte >= (0x83 & 0x7f) &&
+			         EconetRx.AUNHeader.CtrlByte <= (0x85 & 0x7f))
+			{
+				const int SrcOffset = 4;
+				const int Length = EconetRx.BytesInBuffer - sizeof(AUNHeaderType) - SrcOffset;
+				memcpy(BeebRx.Buffer + DestOffset, EconetRx.Buffer + SrcOffset, Length);
+				BeebRx.BytesInBuffer = DestOffset + Length;
+			}
+			else
+			{
+				const int Length = EconetRx.BytesInBuffer - sizeof(AUNHeaderType);
+				memcpy(BeebRx.Buffer + DestOffset, EconetRx.Buffer, Length);
+				BeebRx.BytesInBuffer = DestOffset + Length;
+			}
+
+			BeebRx.Pointer = 0;
+
+			fourwaystage = FourWayStage::DataReceived;
+
+			#ifdef DEBUG_ECONET
+			DebugTrace("Econet: Set FourWayStage::DataReceived\n");
+			#endif
+			break;
+		}
+
+		default:
+			break;
+		}
+	}
+}
+
+//--------------------------------------------------------------------------------------------
+
 void DebugEconetState()
 {
 	DebugDisplayTraceF(DebugType::Econet,
@@ -2621,3 +2637,5 @@ static void EconetError(const char *Format, ...)
 
 	va_end(Args);
 }
+
+//--------------------------------------------------------------------------------------------
