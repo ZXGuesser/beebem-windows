@@ -2228,7 +2228,7 @@ static void DebugChompString(char *str)
 int DebugParseLabel(char *label)
 {
 	auto it = std::find_if(Labels.begin(), Labels.end(), [=](const Label& Label) {
-		return _stricmp(label, Label.name.c_str()) == 0;
+		return StrCaseCmp(label, Label.name.c_str()) == 0;
 	});
 
 	return it != Labels.end() ? it->addr : -1;
@@ -2239,7 +2239,7 @@ static void DebugHistoryAdd(const char *command)
 	// Do nothing if this is the same as the last command
 
 	if (DebugHistory.size() == 0 ||
-	    (DebugHistory.size() > 0 && _stricmp(DebugHistory[0].c_str(), command) != 0))
+	    (DebugHistory.size() > 0 && StrCaseCmp(DebugHistory[0].c_str(), command) != 0))
 	{
 		// Otherwise insert command string at index 0.
 		DebugHistory.push_front(command);
@@ -2286,7 +2286,7 @@ static void DebugSetCommandString(const char* str)
 {
 	if (DebugHistoryIndex == -1 &&
 	    DebugHistory.size() > 0 &&
-	    _stricmp(DebugHistory[0].c_str(), str) == 0)
+	    StrCaseCmp(DebugHistory[0].c_str(), str) == 0)
 	{
 		// The string we're about to set is the same as the top history one,
 		// so use history to set it. This is just a nicety to make the up
@@ -2375,7 +2375,7 @@ static void DebugParseCommand(const char *command)
 
 	for (int i = 0; i < _countof(DebugCmdTable); i++)
 	{
-		if (_stricmp(DebugCmdTable[i].name, cmd.c_str()) == 0)
+		if (StrCaseCmp(DebugCmdTable[i].name, cmd.c_str()) == 0)
 		{
 			if (!DebugCmdTable[i].handler(args))
 			{
@@ -2982,11 +2982,14 @@ static bool DebugCmdHelp(const char* args)
 		for (int i = 0; i < _countof(DebugCmdTable); i++)
 		{
 			// Remember the last index with args and help so we can support aliases.
-			if(strlen(DebugCmdTable[i].help) > 0 && strlen(DebugCmdTable[i].argdesc) > 0)
-				li = i;
-			if(_stricmp(args, DebugCmdTable[i].name) == 0)
+			if (strlen(DebugCmdTable[i].help) > 0 && strlen(DebugCmdTable[i].argdesc) > 0)
 			{
-				if(strlen(DebugCmdTable[i].help) == 0 && strlen(DebugCmdTable[i].argdesc) == 0
+				li = i;
+			}
+
+			if (StrCaseCmp(args, DebugCmdTable[i].name) == 0)
+			{
+				if (strlen(DebugCmdTable[i].help) == 0 && strlen(DebugCmdTable[i].argdesc) == 0
 					&& DebugCmdTable[li].handler == DebugCmdTable[i].handler)
 				{
 					// This is an alias:
