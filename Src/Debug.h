@@ -35,20 +35,22 @@ Boston, MA  02110-1301, USA.
 
 extern bool DebugEnabled;
 
-enum class DebugType {
+enum class DebugType
+{
 	None,
 	Video,
-	UserVIA,
 	SysVIA,
+	UserVIA,
 	Tube,
 	Serial,
 	Econet,
-	Teletext,
 	RemoteServer,
-	Manual,
-	Breakpoint,
+	Teletext,
 	CMOS,
 	BRK,
+	Manual,
+	Breakpoint,
+	Last
 };
 
 //*******************************************************************

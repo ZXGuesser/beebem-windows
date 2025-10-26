@@ -127,7 +127,6 @@
 #define IDC_DEBUG_SERIAL_BRK            1037
 #define IDC_DEBUG_ECONET                1038
 #define IDC_DEBUG_ECONET_BRK            1039
-#define IDC_DEBUGTRCBRK                 1040
 #define IDC_OB7                         1041
 #define IDC_OB6                         1042
 #define IDC_OB5                         1043
