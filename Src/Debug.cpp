@@ -1182,8 +1182,7 @@ INT_PTR CALLBACK DebugDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM 
 				hCurrentDialog = hwndDebug;
 				hCurrentAccelTable = haccelDebug;
 			}
-
-			return FALSE;
+			break;
 
 		case WM_COMMAND:
 			switch (LOWORD(wParam))
@@ -1193,23 +1192,23 @@ INT_PTR CALLBACK DebugDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM 
 					{
 						DebugHistoryMove(-1);
 					}
-					return TRUE;
+					break;
 
 				case ID_ACCELDOWN:
 					if (GetFocus() == GetDlgItem(hwndDebug, IDC_DEBUGCOMMAND))
 					{
 						DebugHistoryMove(1);
 					}
-					return TRUE;
+					break;
 
 				case IDC_DEBUGBREAK:
 					DebugToggleRun();
-					return TRUE;
+					break;
 
 				case IDC_DEBUGEXECUTE:
 					DebugExecuteCommand();
 					SetFocus(GetDlgItem(hwndDebug, IDC_DEBUGCOMMAND));
-					return TRUE;
+					break;
 
 				case IDC_DEBUGBPS:
 					BPSOn = IsDlgItemChecked(hwndDebug, IDC_DEBUGBPS);
@@ -1316,7 +1315,7 @@ INT_PTR CALLBACK DebugDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM 
 
 				case IDCANCEL:
 					DebugCloseDialog();
-					return TRUE;
+					break;
 			}
 	}
 
