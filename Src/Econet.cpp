@@ -2046,7 +2046,7 @@ static void EconetSendPacket()
 						j = 8;
 					}
 					else if (EconetTx.AUNHeader.CtrlByte >= (0x83 & 0x7f) &&
-								EconetTx.AUNHeader.CtrlByte <= (0x85 & 0x7f))
+					         EconetTx.AUNHeader.CtrlByte <= (0x85 & 0x7f))
 					{
 						j = 4;
 					}
@@ -2102,7 +2102,8 @@ static void EconetSendPacket()
 					#endif
 				}
 				else if (EconetTx.AUNHeader.Port == 0 &&
-				         (EconetTx.AUNHeader.CtrlByte < (0x82 & 0x7f) || EconetTx.AUNHeader.CtrlByte > (0x85 & 0x7f)))
+				         (EconetTx.AUNHeader.CtrlByte < (0x82 & 0x7f) ||
+				          EconetTx.AUNHeader.CtrlByte > (0x85 & 0x7f)))
 				{
 					EconetTx.AUNHeader.Type = AUNType::Immediate;
 
@@ -2202,7 +2203,7 @@ static void EconetSendPacket()
 					EconetError("Econet: Failed to send packet to station %d (%s port %u)",
 					            (int)stations[i].station,
 					            IpAddressStr(stations[i].inet_addr), (unsigned int)stations[i].port);
-					}
+				}
 			}
 		}
 		else
@@ -2401,7 +2402,8 @@ static void EconetReceivePacket()
 
 								case AUNType::Unicast:
 									// We're assuming things here.
-									if (EconetRx.AUNHeader.Port == 0 && EconetRx.AUNHeader.CtrlByte == (0x82 & 0x7f))
+									if (EconetRx.AUNHeader.Port == 0 &&
+									    EconetRx.AUNHeader.CtrlByte == (0x82 & 0x7f))
 									{
 										const int Offset = sizeof(LongEconetPacket);
 										const int Length = 8;
