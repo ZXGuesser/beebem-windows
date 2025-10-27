@@ -1902,6 +1902,8 @@ bool EconetPollReal()
 
 //--------------------------------------------------------------------------------------------
 
+// BeebTx.Buffer contains the data to send, length BeebTx.Pointer
+
 static void EconetSendPacket()
 {
 	if (DebugEnabled)
@@ -1913,13 +1915,13 @@ static void EconetSendPacket()
 		                   (int)BeebTx.EconetHeader.DestStn);
 	}
 
-	// First two bytes of BeebTx.buff contain the destination address
-	// (or one zero byte for broadcast)
-
 	sockaddr_in RecvAddr;
 	bool SendMe = false;
 	int SendLen = 0;
 	int i = 0;
+
+	// First two bytes of BeebTx.Buffer contain the destination address
+	// (or one zero byte for broadcast).
 
 	if (AUNMode && IsBroadcastStation(BeebTx.EconetHeader.DestStn))
 	{
