@@ -365,8 +365,8 @@ static int stationsp = 0; // How many individual stations do I know about?
 static int networksp = 0;  // How many networks do I know about?
 static int myaunnet = 0; // aunnet table entry that I match. should be -1 as 0 is valid
 
-static unsigned char irqcause;   // flag to indicate cause of irq sr1b7
-static unsigned char sr1b2cause; // flag to indicate cause of irq sr1b2
+static unsigned char IRQCause;  // Flag to indicate cause of IRQ (SR1 bit 7)
+static unsigned char S2RQCause; // Flag to indicate cause of S2RQ (SR1 bit 2)
 
 char EconetCfgPath[MAX_PATH];
 char AUNMapPath[MAX_PATH];
@@ -391,9 +391,7 @@ static int EconetScoutAckTrigger; // Trigger point for scout ack
 static int EconetScoutAckTimeout = DEFAULT_SCOUT_ACK_TIMEOUT; // Cycles to delay before sending ack to scout (AUN mode only)
 static int EconetFourWayTrigger;
 
-// Device and temp copy!
 static MC6854 ADLC;
-static MC6854 ADLCtemp;
 
 //---------------------------------------------------------------------------
 
@@ -547,8 +545,8 @@ bool EconetReset()
 	ADLC.Idle = true;
 	ADLC.CTS = false;
 
-	irqcause = 0;
-	sr1b2cause = 0;
+	IRQCause = 0;
+	S2RQCause = 0;
 
 	FlagFillActive = false;
 	EconetFlagFillTimeoutTrigger = 0;
@@ -1224,9 +1222,9 @@ bool EconetPollReal()
 {
 	bool Interrupt = false;
 
-	// save flags
-	ADLCtemp.Status1 = ADLC.Status1;
-	ADLCtemp.Status2 = ADLC.Status2;
+	// Save flags.
+	unsigned char PrevStatus1 = ADLC.Status1;
+	unsigned char PrevStatus2 = ADLC.Status2;
 
 	// okie dokie. This is where the brunt of the ADLC emulation & network handling will happen.
 
@@ -1314,7 +1312,7 @@ bool EconetPollReal()
 			ADLC.PriorityStatus = 0;
 		}
 
-		sr1b2cause = 0; // Clear cause of sr2b1 going up.
+		S2RQCause = 0; // Clear cause of SR2 bit 1 (S2RQ) going up.
 
 		// Clear buffers on RX reset.
 		if (ADLC.Control1 & CONTROL_REG1_RX_RESET)
@@ -1343,7 +1341,7 @@ bool EconetPollReal()
 		if (ADLC.CTS)
 		{
 			ADLC.Status1 |= STATUS_REG1_CTS; // CTS follows signal, reset high again.
-			ADLCtemp.Status1 |= STATUS_REG1_CTS; // Don't trigger another interrupt instantly.
+			PrevStatus1 |= STATUS_REG1_CTS; // Don't trigger another interrupt instantly.
 		}
 
 		// Clear buffers on TX reset.
@@ -1814,64 +1812,64 @@ bool EconetPollReal()
 	#endif
 
 	// Do we need to flag an interrupt?
-	if (ADLC.Status1 != ADLCtemp.Status1 || ADLC.Status2 != ADLCtemp.Status2) // Something changed.
+	if (ADLC.Status1 != PrevStatus1 || ADLC.Status2 != PrevStatus2) // Something changed.
 	{
 		// SR1b1 - S2RQ - Status2 request. New bit set in S2?
-		unsigned char tempcause = ((ADLC.Status2 ^ ADLCtemp.Status2) & ADLC.Status2) & ~STATUS_REG2_RX_DATA_AVAILABLE;
+		unsigned char TempCause = ((ADLC.Status2 ^ PrevStatus2) & ADLC.Status2) & ~STATUS_REG2_RX_DATA_AVAILABLE;
 
 		if (!(ADLC.Control1 & CONTROL_REG1_RX_INT_ENABLE))
 		{
-			tempcause = 0;
+			TempCause = 0;
 		}
 
-		if (tempcause) // Something got set.
+		if (TempCause) // Something got set.
 		{
 			ADLC.Status1 |= STATUS_REG1_STATUS2_READ_REQUEST;
-			sr1b2cause = sr1b2cause | tempcause;
+			S2RQCause |= TempCause;
 		}
-		else if (!(ADLC.Status2 & sr1b2cause)) // Cause has gone.
+		else if (!(ADLC.Status2 & S2RQCause)) // Cause has gone.
 		{
 			ADLC.Status1 &= ~STATUS_REG1_STATUS2_READ_REQUEST;
-			sr1b2cause = 0;
+			S2RQCause = 0;
 		}
 
 		// New bit set in S1?
-		tempcause = ((ADLC.Status1 ^ ADLCtemp.Status1) & ADLC.Status1) & ~STATUS_REG1_IRQ;
+		TempCause = ((ADLC.Status1 ^ PrevStatus1) & ADLC.Status1) & ~STATUS_REG1_IRQ;
 
 		if (!(ADLC.Control1 & CONTROL_REG1_RX_INT_ENABLE))
 		{
-			tempcause &= ~(STATUS_REG1_RX_DATA_AVAILABLE |
+			TempCause &= ~(STATUS_REG1_RX_DATA_AVAILABLE |
 			               STATUS_REG1_STATUS2_READ_REQUEST |
 			               STATUS_REG1_FLAG_DETECTED);
 		}
 
 		if (!(ADLC.Control1 & CONTROL_REG1_TX_INT_ENABLE))
 		{
-			tempcause &= ~(STATUS_REG1_CTS |
+			TempCause &= ~(STATUS_REG1_CTS |
 			               STATUS_REG1_TX_UNDERRUN |
 			               STATUS_REG1_TDRA);
 		}
 
-		if (tempcause != 0) // Something got set.
+		if (TempCause != 0) // Something got set.
 		{
 			Interrupt = true;
-			irqcause |= tempcause; // Remember which bit went high to flag IRQ.
+			IRQCause |= TempCause; // Remember which bit went high to flag IRQ.
 
 			ADLC.Status1 |= STATUS_REG1_IRQ;
 
 			#ifdef DEBUG_ECONET
-			DebugTrace("ADLC: Status1 bit got set %02x, interrupt\n", (int)tempcause);
+			DebugTrace("ADLC: Status1 bit got set %02x, interrupt\n", (int)TempCause);
 			#endif
 		}
 
 		// Bit cleared in S1?
-		unsigned char temp2 = ((ADLC.Status1 ^ ADLCtemp.Status1) & ADLCtemp.Status1) & ~STATUS_REG1_IRQ;
+		TempCause = ((ADLC.Status1 ^ PrevStatus1) & PrevStatus1) & ~STATUS_REG1_IRQ;
 
-		if (temp2 != 0) // Something went off.
+		if (TempCause != 0) // Something went off.
 		{
-			irqcause &= ~temp2; // Clear flags that went off.
+			IRQCause &= ~TempCause; // Clear flags that went off.
 
-			if (irqcause == 0) // All flags gone off now.
+			if (IRQCause == 0) // All flags gone off now.
 			{
 				// Clear IRQ status bit when cause has gone.
 				ADLC.Status1 &= ~STATUS_REG1_IRQ;
@@ -1890,7 +1888,7 @@ bool EconetPollReal()
 			}
 
 			#ifdef DEBUG_ECONET
-			DebugTrace("ADLC: IRQ cause reset, irqcause %02x\n",(int)irqcause);
+			DebugTrace("ADLC: IRQ cause reset, irqcause %02x\n", (int)IRQCause);
 			#endif
 		}
 	}
@@ -2054,7 +2052,7 @@ static void EconetSendPacket()
 					}
 				}
 
-				if (BeebTx.Pointer != sizeof(BeebTx.EconetHeader) + j || memcmp(BeebTx.Buffer, BeebTxCopy, sizeof(BeebTx.EconetHeader) + j) != 0) // nope
+				if (BeebTx.Pointer != sizeof(LongEconetPacket) + j || memcmp(BeebTx.Buffer, BeebTxCopy, sizeof(LongEconetPacket) + j) != 0) // nope
 				{
 					for (unsigned int k = 4; k < BeebTx.Pointer; k++, j++) {
 						EconetTx.Buffer[j] = BeebTx.Buffer[k];
@@ -2075,8 +2073,8 @@ static void EconetSendPacket()
 			case FourWayStage::Idle:
 				// Not currently doing anything, so this will be a scout,
 				// maybe a long scout or a broadcast.
-				memcpy(BeebTxCopy, BeebTx.Buffer, sizeof(BeebTx.EconetHeader));
-				EconetTx.AUNHeader.CtrlByte = BeebTx.EconetHeader.CtrlByte & 127; // | 128;
+				memcpy(BeebTxCopy, BeebTx.Buffer, sizeof(LongEconetPacket));
+				EconetTx.AUNHeader.CtrlByte = BeebTx.EconetHeader.CtrlByte & 0x7f; // | 128;
 				EconetTx.AUNHeader.Port = BeebTx.EconetHeader.Port;
 				EconetTx.AUNHeader.Pad = 0;
 				EconetTx.AUNHeader.Handle = (ec_sequence += 4);
@@ -2366,7 +2364,7 @@ static void EconetReceivePacket()
 							BeebRx.EconetHeader.SrcStn = pHost->station;
 							BeebRx.EconetHeader.SrcNet = pHost->network;
 
-							BeebRx.EconetHeader.CtrlByte = EconetRx.AUNHeader.CtrlByte | 128;
+							BeebRx.EconetHeader.CtrlByte = EconetRx.AUNHeader.CtrlByte | 0x80;
 							BeebRx.EconetHeader.Port     = EconetRx.AUNHeader.Port;
 
 							switch (EconetRx.AUNHeader.Type)
@@ -2619,11 +2617,11 @@ void DebugEconetState()
 {
 	DebugDisplayTraceF(DebugType::Econet,
 	                   true,
-	                   "ADLC: Ctl:%02X %02X %02X %02X St:%02X %02X TXptr:%01x rx:%01x FF:%d IRQc:%02x SR2c:%02x PC:%04x 4W:%i",
+	                   "ADLC: Ctl:%02X %02X %02X %02X St:%02X %02X TXptr:%01x rx:%01x FF:%d IRQc:%02x SR2Qc:%02x PC:%04x 4W:%i",
 	                   (int)ADLC.Control1, (int)ADLC.Control2, (int)ADLC.Control3, (int)ADLC.Control4,
 	                   (int)ADLC.Status1, (int)ADLC.Status2,
 	                   (int)ADLC.TxFifoPtr, (int)ADLC.RxFifoPtr, FlagFillActive ? 1 : 0,
-	                   (int)irqcause, (int)sr1b2cause, (int)ProgramCounter, (int)fourwaystage);
+	                   (int)IRQCause, (int)S2RQCause, (int)ProgramCounter, (int)fourwaystage);
 }
 
 //--------------------------------------------------------------------------------------------
