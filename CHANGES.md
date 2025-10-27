@@ -4,7 +4,7 @@ BeebEm Change History
 Unreleased Changes
 ------------
 
-Contributors: Chris Needham, Alistair Cree, Ken Kowe
+Contributors: Chris Needham, Alistair Cree, Ken Lowe
 
 * Added an option to show the Econet network and station in the window title.
 * The SINGLESOCKET option in Econet.cfg has been removed.
@@ -12,7 +12,7 @@ Contributors: Chris Needham, Alistair Cree, Ken Kowe
 Version 4.21 (19 September 2025)
 ------------
 
-Contributors: Chris Needham, Ken Kowe
+Contributors: Chris Needham, Ken Lowe
 
 * Fixed tape audio output.
 * Changed Master 128 CMOS defaults so no ROMs are unplugged, and removed
@@ -147,7 +147,7 @@ Contributors: Chris Needham, Mike Wyatt, Steve Inglis, Alistair Cree
   text output reader by default when text-to-speech is enabled.
 * Fixed crash in the debugger, where sideways RAM does not contain a normal
   ROM image.
-* Fixed Econet source code cross-compatiblity issue.
+* Fixed Econet source code cross-compatibility issue.
 * Serial and tape emulation improvements:
   - Fixed serial transmit state: Writing a master reset to the ACIA control
     register should stop transmitting data. This was causing extra bytes to
@@ -210,7 +210,7 @@ Contributors: Chris Needham, Tadek Kijkowski
 * Writes to the sound chip are now allowed while sound is disabled.
   This ensures that the sound chip is in the right state if sound is later
   enabled.
-* Fixed sound frequency write. Setting frequency to zero should initalise
+* Fixed sound frequency write. Setting frequency to zero should initialise
   the counter to 1024.
 * The cursor is now disabled based on CRTC register R8 (see AUG p.366).
   This fixes the cursor display in Wizzy's Mansion and Pedro.
@@ -334,7 +334,7 @@ Ken Lowe, Dominic Beesley
 * Fixed issue where BeebEm would always use the primary monitor when going
   fullscreen.
   - Now uses monitor on which the BeebEm window is positioned. As with all
-    DX9 applications, this works best when "Maintain Desktop Resolultion" is
+    DX9 applications, this works best when "Maintain Desktop Resolution" is
     selected.
 * Changed the default fullscreen resolution to "Maintain Desktop Resolution".
 * Added `-AutoBootDelay` CLI argument taking a delay parameter set in
@@ -707,7 +707,7 @@ Contributors: Mike Wyatt
 * Improved VIA and interrupt timing and fixed instruction cycle count for
   branches. The following programs now run:
     Nightshade (tape), Lancelot, The Empire Strikes Back, Dabs Fingerprint,
-    Yie Ar Kung-Foo (tape)
+    Yie Ar Kung-Fu (tape)
 * Added "Eject Disc" options to the file menu. The name of the currently
   loaded image file is shown next to the menu option.
 * Added two new debugger commands:
@@ -780,14 +780,14 @@ Contributors: Mike Wyatt
 * Improved VIA timing emulation and fixed some instruction cycle counts.
   Its still not perfect but its good enough to run various versions of the
   infamous "Kevin Edwards" protection code!  The following tapes now load
-  and run: Knight Lore, Alien 8, Daley Thompson Supertest, Strykers Run,
+  and run: Knight Lore, Alien 8, Daley Thompson Supertest, Stryker's Run,
   Exile, Joust, Galaforce. These are the only ones I've tried, others may
   work as well.
 * Fixed bug in horizontal displayed register emulation. Joust tape loading
   screen now appears centered correctly.
-* Fixed bug in virtical sync position register emulation. Stops DirectX
+* Fixed bug in vertical sync position register emulation. Stops DirectX
   errors occurring when running Micropower Roulette.
-* Fixed bug in virtical displayed/total register emulation for mode 7.
+* Fixed bug in vertical displayed/total register emulation for mode 7.
   Screen is now cleared below lines that are displayed.
 * Added AVI video capture to the file menu (now with resolution and frame
   skip options).
@@ -945,7 +945,7 @@ Windows update only:
 * Fixed Teletext "Hold Graphics" and Double Height bugs.
 * More 6845 Registers implemented, including Cursor delay, and Sync delay.
 * UEF State save/load implemented.
-* Sound system tweeks implemented.
+* Sound system tweaks implemented.
 * Speed optimisations implemented.
 * Non-Directsound code removed.
 * BeebDiscLoad variable in Master 128 mode fixed.
@@ -1099,7 +1099,7 @@ Contributors: Mike Wyatt, Laurie Whiffen
 * Changed disc load code to give a warning if disc image loaded looks like its
   been loaded using wrong type (single/doubled sided).
 * MS Windows version only:
-  - Fixed so all key presses are released when windows looses focus.
+  - Fixed so all key presses are released when windows loses focus.
   - Rom slots can be individually changed between ROM and RAM using the menus.
   - Added user definable keyboard mapping options.
   - User preferences (including the keyboard mapping) can be saved in an INI
@@ -1112,7 +1112,7 @@ Version 0.71 (5 Aug 1997)
 Contributors: Mike Wyatt
 
 * Changed VIA timer latches initial value to 0xffff (Castle Quest now works).
-* Fixed BCD addition and substraction and prevented mode 7 code from dividing
+* Fixed BCD addition and subtraction and prevented mode 7 code from dividing
   by zero (Exile now works).
 * Changed VIA code so the data direction registers can be read (Codename Droid
   now works).
