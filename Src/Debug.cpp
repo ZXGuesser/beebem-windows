@@ -1462,8 +1462,10 @@ void DebugAssertBreak(int addr, int prevAddr, bool host)
 
 	if (DebugSource == DebugType::Breakpoint)
 	{
-		for (const Breakpoint& bp : Breakpoints)
+		for (size_t i = 0; i < Breakpoints.size(); ++i)
 		{
+			const Breakpoint& bp = Breakpoints[i];
+
 			if (bp.start == addr)
 			{
 				if (DebugLookupAddress(addr, &addrInfo))
