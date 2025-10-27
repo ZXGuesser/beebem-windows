@@ -28,6 +28,9 @@ Boston, MA  02110-1301, USA.
 //
 // Resources:
 // * http://www.riscos.com/support/developers/prm/aun.html
+// * https://mdfs.net/Docs/Comp/Econet/Specs/ISOLayer.txt
+// * https://mdfs.net/Docs/Comp/Econet/Specs/Ports
+// * https://mdfs.net/Docs/Comp/Econet/Specs/Packets
 
 #include <windows.h>
 
