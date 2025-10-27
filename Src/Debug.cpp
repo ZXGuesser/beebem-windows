@@ -3233,7 +3233,7 @@ static void DebugShowLabels()
 
 static bool DebugCmdLabels(const char* args)
 {
-	if (stricmp(args, "show") == 0)
+	if (StrCaseCmp(args, "show") == 0)
 	{
 		DebugShowLabels();
 		return true;

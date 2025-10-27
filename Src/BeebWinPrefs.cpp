@@ -46,6 +46,7 @@ Boston, MA  02110-1301, USA.
 #include "SoundStreamer.h"
 #include "Speech.h"
 #include "SprowCoPro.h"
+#include "StringUtils.h"
 #include "SysVia.h"
 #include "Teletext.h"
 #include "Tube.h"
@@ -217,7 +218,7 @@ int BeebWin::FindEnum(const std::string& Value, const char* const* Names, int De
 
 	while (Names[i] != nullptr)
 	{
-		if (stricmp(Value.c_str(), Names[i]) == 0)
+		if (StrCaseCmp(Value.c_str(), Names[i]) == 0)
 		{
 			Index = i;
 			break;
