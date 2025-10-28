@@ -228,19 +228,19 @@ static unsigned long ec_sequence = 0;
 
 enum class FourWayStage
 {
-	Idle = 0,
-	ScoutSent = 1,
-	ScoutAckReceived = 2,
-	DataSent = 3,
-	WaitForIdle = 4,
-	ScoutReceived = 11,
-	ScoutAckSent = 12,
-	DataReceived = 13,
-	ImmediateSent = 7,
-	ImmediateReceived = 8
+	Idle,
+	ScoutSent,
+	ScoutAckReceived,
+	DataSent,
+	WaitForIdle,
+	ScoutReceived,
+	ScoutAckSent,
+	DataReceived,
+	ImmediateSent,
+	ImmediateReceived
 };
 
-static FourWayStage fourwaystage;
+static FourWayStage AUNState;
 
 struct EconetHeaderType
 {
@@ -534,7 +534,7 @@ bool EconetReset()
 	BeebTx.Pointer = 0;
 	BeebTx.BytesInBuffer = 0;
 
-	fourwaystage = FourWayStage::Idle; // used for AUN mode translation stage.
+	AUNState = FourWayStage::Idle; // Used for AUN mode translation stage.
 
 	ADLC.RxFifoPtr = 0;
 	ADLC.RxFifoAPFlags = 0;
@@ -551,10 +551,10 @@ bool EconetReset()
 	FlagFillActive = false;
 	EconetFlagFillTimeoutTrigger = 0;
 
-	// Kill anything that was in use
+	// Kill anything that was in use.
 	EconetCloseSockets();
 
-	// Stop here if not enabled
+	// Stop here if not enabled.
 	if (!EconetEnabled)
 	{
 		return true;
@@ -1258,7 +1258,7 @@ bool EconetPollReal()
 
 		ADLC.Control1 &= ~CONTROL_REG1_RX_FRAME_DISCONTINUE;
 
-		fourwaystage = FourWayStage::Idle;
+		AUNState = FourWayStage::Idle;
 	}
 
 	// CR1b6 - RxRs - Receiver reset. set by cpu or when reset line goes low.
@@ -1388,7 +1388,7 @@ bool EconetPollReal()
 		BeebTx.Pointer = 0;
 		BeebTx.BytesInBuffer = 0;
 
-		fourwaystage = FourWayStage::Idle;
+		AUNState = FourWayStage::Idle;
 
 		#ifdef DEBUG_ECONET
 		DebugTrace("Econet: Set FourWayStage::Idle (abort)");
@@ -1528,14 +1528,14 @@ bool EconetPollReal()
 
 	// Waiting for AUN to become idle?
 	if (AUNMode &&
-	    fourwaystage == FourWayStage::WaitForIdle &&
+	    AUNState == FourWayStage::WaitForIdle &&
 	    BeebRx.BytesInBuffer == 0 &&
 	    ADLC.RxFifoPtr == 0 &&
 	    ADLC.TxFifoPtr == 0 // ??
 	    // && EconetScoutAckTrigger > TotalCycles
 	    )
 	{
-		fourwaystage = FourWayStage::Idle;
+		AUNState = FourWayStage::Idle;
 		EconetFourWayTrigger = 0;
 		EconetScoutAckTrigger = 0;
 		FlagFillActive = false;
@@ -1544,7 +1544,7 @@ bool EconetPollReal()
 	// timeout four way handshake - for when we get lost..
 	if (EconetFourWayTrigger == 0)
 	{
-		if (fourwaystage != FourWayStage::Idle)
+		if (AUNState != FourWayStage::Idle)
 		{
 			SetTrigger(FourWayStageTimeout, EconetFourWayTrigger);
 		}
@@ -1553,7 +1553,7 @@ bool EconetPollReal()
 	{
 		EconetScoutAckTrigger = 0;
 		EconetFourWayTrigger = 0;
-		fourwaystage = FourWayStage::Idle;
+		AUNState = FourWayStage::Idle;
 
 		#ifdef DEBUG_ECONET
 		DebugTrace("Econet: FourWayStage timeout. Set FourWayStage::Idle\n");
@@ -2033,7 +2033,7 @@ static void EconetSendPacket()
 			// The Beeb has given us a packet .. what is it?
 			SendMe = false;
 
-			switch (fourwaystage)
+			switch (AUNState)
 			{
 			case FourWayStage::ScoutAckReceived:
 				// It came in response to our ack of a scout.
@@ -2062,7 +2062,7 @@ static void EconetSendPacket()
 					SendMe = true;
 					SendLen = sizeof(AUNHeaderType) + EconetTx.Pointer;
 
-					fourwaystage = FourWayStage::DataSent;
+					AUNState = FourWayStage::DataSent;
 
 					#ifdef DEBUG_ECONET
 					DebugTrace("Econet: Set FourWayStage::DataSent\n");
@@ -2074,6 +2074,7 @@ static void EconetSendPacket()
 				// Not currently doing anything, so this will be a scout,
 				// maybe a long scout or a broadcast.
 				memcpy(BeebTxCopy, BeebTx.Buffer, sizeof(LongEconetPacket));
+
 				EconetTx.AUNHeader.CtrlByte = BeebTx.EconetHeader.CtrlByte & 0x7f; // | 128;
 				EconetTx.AUNHeader.Port = BeebTx.EconetHeader.Port;
 				EconetTx.AUNHeader.Pad = 0;
@@ -2092,7 +2093,7 @@ static void EconetSendPacket()
 				{
 					EconetTx.AUNHeader.Type = AUNType::Broadcast;
 
-					fourwaystage = FourWayStage::WaitForIdle; // no response to broadcasts...
+					AUNState = FourWayStage::WaitForIdle; // no response to broadcasts...
 
 					SendMe = true; // Send packet.
 					SendLen = sizeof(AUNHeaderType) + 8;
@@ -2107,7 +2108,7 @@ static void EconetSendPacket()
 				{
 					EconetTx.AUNHeader.Type = AUNType::Immediate;
 
-					fourwaystage = FourWayStage::ImmediateSent;
+					AUNState = FourWayStage::ImmediateSent;
 
 					SendMe = true; // Send packet.
 					SendLen = sizeof(AUNHeaderType) + EconetTx.Pointer;
@@ -2120,7 +2121,7 @@ static void EconetSendPacket()
 				{
 					EconetTx.AUNHeader.Type = AUNType::Unicast;
 
-					fourwaystage = FourWayStage::ScoutSent;
+					AUNState = FourWayStage::ScoutSent;
 
 					// Don't send anything but set wait anyway.
 					SetTrigger(EconetScoutAckTimeout, EconetScoutAckTrigger);
@@ -2135,7 +2136,7 @@ static void EconetSendPacket()
 			case FourWayStage::ScoutReceived:
 				// It's an ack for a scout which we sent the Beeb.
 				// Just drop it, but move on.
-				fourwaystage = FourWayStage::ScoutAckSent;
+				AUNState = FourWayStage::ScoutAckSent;
 
 				SetTrigger(EconetScoutAckTimeout, EconetScoutAckTrigger);
 
@@ -2157,7 +2158,7 @@ static void EconetSendPacket()
 				SendLen = sizeof(AUNHeaderType);
 				SendMe = true;
 
-				fourwaystage = FourWayStage::WaitForIdle;
+				AUNState = FourWayStage::WaitForIdle;
 
 				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: Set FourWayStage::WaitForIdle (final ack sent)\n");
@@ -2178,7 +2179,7 @@ static void EconetSendPacket()
 				SendMe = true;
 				SendLen = sizeof(AUNHeaderType) + EconetTx.Pointer;
 
-				fourwaystage = FourWayStage::WaitForIdle;
+				AUNState = FourWayStage::WaitForIdle;
 
 				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: Set FourWayStage::WaitForIdle (immediate received)\n");
@@ -2187,7 +2188,7 @@ static void EconetSendPacket()
 
 			default:
 				// Shouldn't be here. Ignore packet and abort fourway.
-				fourwaystage = FourWayStage::WaitForIdle;
+				AUNState = FourWayStage::WaitForIdle;
 
 				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: Set FourWayStage::WaitForIdle (unexpected mode, packet ignored)\n");
@@ -2261,9 +2262,9 @@ static void EconetSendPacket()
 static void EconetReceivePacket()
 {
 	if (!AUNMode ||
-	    fourwaystage == FourWayStage::Idle ||
-	    fourwaystage == FourWayStage::ImmediateSent ||
-	    fourwaystage == FourWayStage::DataSent)
+	    AUNState == FourWayStage::Idle ||
+	    AUNState == FourWayStage::ImmediateSent ||
+	    AUNState == FourWayStage::DataSent)
 	{
 		// Try to get another packet from the network.
 		// Check if packet is waiting without blocking.
@@ -2354,7 +2355,7 @@ static void EconetReceivePacket()
 							                   (int)pHost->station);
 						}
 
-						switch (fourwaystage)
+						switch (AUNState)
 						{
 						case FourWayStage::Idle:
 							// We weren't doing anything when this packet came in.
@@ -2378,7 +2379,7 @@ static void EconetReceivePacket()
 									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
 									BeebRx.BytesInBuffer = Offset + Length;
 
-									fourwaystage = FourWayStage::WaitForIdle;
+									AUNState = FourWayStage::WaitForIdle;
 
 									#ifdef DEBUG_ECONET
 									DebugTrace("Econet: Set FourWayStage::WaitForIdle (broadcast received)\n");
@@ -2392,7 +2393,7 @@ static void EconetReceivePacket()
 									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
 									BeebRx.BytesInBuffer = Offset + Length;
 
-									fourwaystage = FourWayStage::ImmediateReceived;
+									AUNState = FourWayStage::ImmediateReceived;
 
 									#ifdef DEBUG_ECONET
 									DebugTrace("Econet: Set FourWayStage::ImmediateReceived\n");
@@ -2424,7 +2425,7 @@ static void EconetReceivePacket()
 										BeebRx.BytesInBuffer = sizeof(LongEconetPacket);
 									}
 
-									fourwaystage = FourWayStage::ScoutReceived;
+									AUNState = FourWayStage::ScoutReceived;
 
 									#ifdef DEBUG_ECONET
 									DebugTrace("Econet: Set FourWayStage::ScoutReceived\n");
@@ -2458,7 +2459,7 @@ static void EconetReceivePacket()
 							BeebRx.BytesInBuffer = Offset + Length;
 							BeebRx.Pointer = 0;
 
-							fourwaystage = FourWayStage::WaitForIdle;
+							AUNState = FourWayStage::WaitForIdle;
 
 							#ifdef DEBUG_ECONET
 							DebugTrace("Econet: Set FourWayStage::WaitForIdle (ack received from remote AUN server)\n");
@@ -2482,7 +2483,7 @@ static void EconetReceivePacket()
 								BeebRx.BytesInBuffer = 4;
 								BeebRx.Pointer = 0;
 
-								fourwaystage = FourWayStage::WaitForIdle;
+								AUNState = FourWayStage::WaitForIdle;
 
 								#ifdef DEBUG_ECONET
 								DebugTrace("Econet: Set FourWayStage::WaitForIdle (AUN ack received)\n");
@@ -2492,7 +2493,7 @@ static void EconetReceivePacket()
 
 						default:
 							// Erm, what are we doing here? Ignore packet.
-							fourwaystage = FourWayStage::WaitForIdle;
+							AUNState = FourWayStage::WaitForIdle;
 
 							#ifdef DEBUG_ECONET
 							DebugTrace("Econet: Set FourWayStage::WaitForIdle (ack received from remote AUN server)\n");
@@ -2543,7 +2544,7 @@ static void EconetReceivePacket()
 
 	if (AUNMode && EconetScoutAckTrigger > TotalCycles)
 	{
-		switch (fourwaystage) {
+		switch (AUNState) {
 		case FourWayStage::ScoutSent:
 			// Just got a scout from the Beeb, fake an acknowledgement.
 			BeebRx.EconetHeader.DestStn = EconetStationID;
@@ -2555,7 +2556,7 @@ static void EconetReceivePacket()
 			BeebRx.BytesInBuffer = 4;
 			BeebRx.Pointer = 0;
 
-			fourwaystage = FourWayStage::ScoutAckReceived;
+			AUNState = FourWayStage::ScoutAckReceived;
 
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Set FourWayStage::ScoutAckReceived\n");
@@ -2597,7 +2598,7 @@ static void EconetReceivePacket()
 
 			BeebRx.Pointer = 0;
 
-			fourwaystage = FourWayStage::DataReceived;
+			AUNState = FourWayStage::DataReceived;
 
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Set FourWayStage::DataReceived\n");
@@ -2617,11 +2618,11 @@ void DebugEconetState()
 {
 	DebugDisplayTraceF(DebugType::Econet,
 	                   true,
-	                   "ADLC: Ctl:%02X %02X %02X %02X St:%02X %02X TXptr:%01x rx:%01x FF:%d IRQc:%02x SR2Qc:%02x PC:%04x 4W:%i",
+	                   "ADLC: Ctl:%02X %02X %02X %02X St:%02X %02X TXptr:%01x rx:%01x FF:%d IRQc:%02x SR2Qc:%02x PC:%04x AUN:%d",
 	                   (int)ADLC.Control1, (int)ADLC.Control2, (int)ADLC.Control3, (int)ADLC.Control4,
 	                   (int)ADLC.Status1, (int)ADLC.Status2,
 	                   (int)ADLC.TxFifoPtr, (int)ADLC.RxFifoPtr, FlagFillActive ? 1 : 0,
-	                   (int)IRQCause, (int)S2RQCause, (int)ProgramCounter, (int)fourwaystage);
+	                   (int)IRQCause, (int)S2RQCause, (int)ProgramCounter, (int)AUNState);
 }
 
 //--------------------------------------------------------------------------------------------
