@@ -2494,8 +2494,18 @@ static void EconetReceivePacket()
 								#ifdef DEBUG_ECONET
 								DebugTrace("Econet: Set FourWayStage::WaitForIdle (AUN ack received)\n");
 								#endif
-								break;
-							} // else unexpected packet - ignore it. TODO: queue it?
+							}
+							else
+							{
+								// Unexpected packet - ignore it.
+								// TODO: queue it?
+								AUNState = FourWayStage::WaitForIdle;
+
+								#ifdef DEBUG_ECONET
+								DebugTrace("Econet: Set FourWayStage::WaitForIdle (ack received from remote AUN server)\n");
+								#endif
+							}
+							break;
 
 						default:
 							// Erm, what are we doing here? Ignore packet.
