@@ -433,6 +433,8 @@ static EconetHost* FindNetworkConfig(unsigned char Station)
 	return nullptr;
 }
 
+//---------------------------------------------------------------------------
+
 static EconetHost* FindHost(sockaddr_in* pAddress)
 {
 	for (int i = 0; i < stationsp; i++)
@@ -549,7 +551,11 @@ bool EconetReset()
 	S2RQCause = 0;
 
 	FlagFillActive = false;
-	EconetFlagFillTimeoutTrigger = 0;
+
+	ClearTrigger(EconetTrigger);
+	ClearTrigger(EconetFlagFillTimeoutTrigger);
+	ClearTrigger(EconetScoutAckTrigger);
+	ClearTrigger(EconetFourWayTrigger)
 
 	// Kill anything that was in use.
 	EconetCloseSockets();
@@ -2544,7 +2550,8 @@ static void EconetReceivePacket()
 
 	if (AUNMode && EconetScoutAckTrigger > TotalCycles)
 	{
-		switch (AUNState) {
+		switch (AUNState)
+		{
 		case FourWayStage::ScoutSent:
 			// Just got a scout from the Beeb, fake an acknowledgement.
 			BeebRx.EconetHeader.DestStn = EconetStationID;
