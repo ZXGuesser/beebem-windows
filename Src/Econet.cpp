@@ -403,6 +403,47 @@ static void EconetError(const char *Format, ...);
 
 //---------------------------------------------------------------------------
 
+static const char* AUNStateStr(FourWayStage State)
+{
+	switch (State)
+	{
+		case FourWayStage::Idle:
+			return "Idle";
+
+		case FourWayStage::ScoutSent:
+			return "ScoutSent";
+
+		case FourWayStage::ScoutAckReceived:
+			return "ScoutAckReceived";
+
+		case FourWayStage::DataSent:
+			return "DataSent";
+
+		case FourWayStage::WaitForIdle:
+			return "WaitForIdle";
+
+		case FourWayStage::ScoutReceived:
+			return "ScoutReceived";
+
+		case FourWayStage::ScoutAckSent:
+			return "ScoutAckSent";
+
+		case FourWayStage::DataReceived:
+			return "DataReceived";
+
+		case FourWayStage::ImmediateSent:
+			return "ImmediateSent";
+
+		case FourWayStage::ImmediateReceived:
+			return "ImmediateReceived";
+
+		default:
+			return "?";
+	}
+}
+
+//---------------------------------------------------------------------------
+
 static bool IsBroadcastStation(unsigned char Station)
 {
 	return Station == 0 || Station == 255;
@@ -2635,11 +2676,11 @@ void DebugEconetState()
 {
 	DebugDisplayTraceF(DebugType::Econet,
 	                   true,
-	                   "ADLC: Ctl:%02X %02X %02X %02X St:%02X %02X TXptr:%01x rx:%01x FF:%d IRQc:%02x SR2Qc:%02x PC:%04x AUN:%d",
+	                   "ADLC: Ctl:%02X %02X %02X %02X St:%02X %02X TXptr:%01x rx:%01x FF:%d IRQc:%02x SR2Qc:%02x PC:%04x AUN:%s",
 	                   (int)ADLC.Control1, (int)ADLC.Control2, (int)ADLC.Control3, (int)ADLC.Control4,
 	                   (int)ADLC.Status1, (int)ADLC.Status2,
 	                   (int)ADLC.TxFifoPtr, (int)ADLC.RxFifoPtr, FlagFillActive ? 1 : 0,
-	                   (int)IRQCause, (int)S2RQCause, (int)ProgramCounter, (int)AUNState);
+	                   (int)IRQCause, (int)S2RQCause, (int)ProgramCounter, AUNStateStr(AUNState));
 }
 
 //--------------------------------------------------------------------------------------------
