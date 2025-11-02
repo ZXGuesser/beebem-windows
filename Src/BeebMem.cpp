@@ -517,7 +517,7 @@ unsigned char BeebReadMem(int Address) {
 		(((MachineType != Model::Master128 && MachineType != Model::MasterET) && (Address & ~3) == 0xfe18) ||
 		 ((MachineType == Model::Master128 || MachineType == Model::MasterET) && (Address & ~3) == 0xfe38)))
 	{
-		#ifdef DEBUG_ECONET
+		#ifdef DEBUG_ECONET_INTERRUPTS
 		DebugTrace("Econet: INTOFF\n");
 		#endif
 
@@ -540,7 +540,7 @@ unsigned char BeebReadMem(int Address) {
 	    (((MachineType != Model::Master128 && MachineType != Model::MasterET) && (Address & ~3) == 0xfe20) ||
 	     ((MachineType == Model::Master128 || MachineType == Model::MasterET) && (Address & ~3) == 0xfe3c)))
 	{
-		#ifdef DEBUG_ECONET
+		#ifdef DEBUG_ECONET_INTERRUPTS
 		DebugTrace("Econet: INTON\n");
 		#endif
 
@@ -552,7 +552,7 @@ unsigned char BeebReadMem(int Address) {
 			{
 				NMIStatus |= 1 << nmi_econet;
 
-				#ifdef DEBUG_ECONET
+				#ifdef DEBUG_ECONET_INTERRUPTS
 				DebugTrace("Econet: Delayed NMI asserted\n");
 				#endif
 			}
@@ -998,7 +998,7 @@ void BeebWriteMem(int Address, unsigned char Value)
 		(((MachineType != Model::Master128 && MachineType != Model::MasterET) && (Address & ~3) == 0xfe18) ||
 		 ((MachineType == Model::Master128 || MachineType == Model::MasterET) && (Address & ~3) == 0xfe38)))
 	{
-		#ifdef DEBUG_ECONET
+		#ifdef DEBUG_ECONET_INTERRUPTS
 		DebugTrace("Econet: INTOFF(w)\n");
 		#endif
 
