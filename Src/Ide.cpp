@@ -86,11 +86,10 @@ void IDEReset()
 
 		if (IDEDisc[i] == nullptr)
 		{
-			char* Error = _strerror(nullptr);
-			Error[strlen(Error) - 1] = '\0'; // Remove trailing '\n'
+			std::string Error = GetSystemError();
 
 			mainWin->Report(MessageType::Error,
-			                "Could not open IDE disc image:\n  %s\n\n%s", FileName, Error);
+			                "Could not open IDE disc image:\n  %s\n\n%s", FileName, Error.c_str());
 		}
 	}
 }

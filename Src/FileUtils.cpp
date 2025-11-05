@@ -220,3 +220,22 @@ bool IsRelativePath(const char* pszPath)
 }
 
 /****************************************************************************/
+
+std::string GetSystemError()
+{
+	char str[256];
+
+	#ifdef WIN32
+
+	strerror_s(str, 256, errno);
+
+	#else
+
+	strerror_r(errno, str, 256);
+
+	#endif
+
+	return str;
+}
+
+/****************************************************************************/

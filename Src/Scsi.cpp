@@ -134,11 +134,10 @@ void SCSIReset()
 
 		if (SCSIDisc[i] == nullptr)
 		{
-			char* Error = _strerror(nullptr);
-			Error[strlen(Error) - 1] = '\0'; // Remove trailing '\n'
+			std::string Error = GetSystemError();
 
 			mainWin->Report(MessageType::Error,
-			                "Could not open SCSI disc image:\n  %s\n\n%s", FileName, Error);
+			                "Could not open SCSI disc image:\n  %s\n\n%s", FileName, Error.c_str());
 		}
 
 		SCSISize[i] = 0;
