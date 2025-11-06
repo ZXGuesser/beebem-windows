@@ -2718,13 +2718,11 @@ static void EconetReceivePacket()
 
 void DebugEconetState()
 {
-	DebugDisplayTraceF(DebugType::Econet,
-	                   true,
-	                   "ADLC: Ctl:%02X %02X %02X %02X St:%02X %02X TXptr:%01x rx:%01x FF:%d IRQc:%02x SR2Qc:%02x PC:%04x AUN:%s",
-	                   (int)ADLC.Control1, (int)ADLC.Control2, (int)ADLC.Control3, (int)ADLC.Control4,
-	                   (int)ADLC.Status1, (int)ADLC.Status2,
-	                   (int)ADLC.TxFifoPtr, (int)ADLC.RxFifoPtr, FlagFillActive ? 1 : 0,
-	                   (int)IRQCause, (int)S2RQCause, (int)ProgramCounter, AUNStateStr(AUNState));
+	DebugDisplayInfoF("ADLC: Ctl:%02X %02X %02X %02X St:%02X %02X TXptr:%01x rx:%01x FF:%d IRQc:%02x SR2Qc:%02x PC:%04x AUN:%s",
+	                  (int)ADLC.Control1, (int)ADLC.Control2, (int)ADLC.Control3, (int)ADLC.Control4,
+	                  (int)ADLC.Status1, (int)ADLC.Status2,
+	                  (int)ADLC.TxFifoPtr, (int)ADLC.RxFifoPtr, FlagFillActive ? 1 : 0,
+	                  (int)IRQCause, (int)S2RQCause, (int)ProgramCounter, AUNStateStr(AUNState));
 }
 
 //--------------------------------------------------------------------------------------------
