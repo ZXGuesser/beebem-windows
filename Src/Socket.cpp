@@ -105,6 +105,15 @@ bool WouldBlock(int Error)
 
 /****************************************************************************/
 
+bool EnableBroadcast(SOCKET Socket)
+{
+	const char broadcast = '1';
+
+	return setsockopt(Socket, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) == 0;
+}
+
+/****************************************************************************/
+
 unsigned long ParseIPAddress(const char* Name, const std::string& Value)
 {
 	unsigned long Address = inet_addr(Value.c_str());

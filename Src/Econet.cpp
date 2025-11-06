@@ -810,10 +810,8 @@ bool EconetReset()
 		RTCWriteData(EconetStationID);
 	}
 
-	// This call is what allows broadcast packets to be sent:
-	const char broadcast = '1';
-
-	if (setsockopt(Socket, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) == -1)
+	// This call is what allows broadcast packets to be sent.
+	if (!EnableBroadcast(Socket))
 	{
 		EconetError("Econet: Failed to set socket for broadcasts (error %d)", GetLastSocketError());
 		goto Fail;
