@@ -4,10 +4,18 @@ BeebEm Change History
 Unreleased Changes
 ------------
 
-Contributors: Chris Needham, Alistair Cree, Ken Lowe
+Contributors: Chris Needham, Alistair Cree, Ken Lowe, Tom Seddon
 
-* Added an option to show the Econet network and station in the window title.
-* The SINGLESOCKET option in Econet.cfg has been removed.
+* Econet changes:
+  - Added an option to show the Econet network and station in the window
+    title.
+  - The SINGLESOCKET option in Econet.cfg has been removed.
+  - Added detail in error messages for invalid Econet config values.
+  - Fixed the "state n" command which shows the Econet ADLC state.
+* Removed the "BeebEm text to speech output enabled" message on startup if
+  Text to Speech is enabled. This message is now only spoken when the user
+  enables Text to Speech via the menu, or on loading a Preferences file that
+  has Text to Speech enabled.
 
 Version 4.21 (19 September 2025)
 ------------
