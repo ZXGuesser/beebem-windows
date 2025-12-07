@@ -204,7 +204,7 @@ extern "C" {
 /*    ASIO control register                          */
 /*****************************************************/
 #define SC_BASE (0xB8002000)    /* base address */
-#define SIOBUF  (SC_BASE+0x00)  /* transmiting/receiving buffer register (RW,16,0x0000) */
+#define SIOBUF  (SC_BASE+0x00)  /* transmitting/receiving buffer register (RW,16,0x0000) */
 #define SIOSTA  (SC_BASE+0x04)  /* SIO status register (RW,16,0x0000) */
 #define SIOCON  (SC_BASE+0x08)  /* SIO control register (RW,16,0x0000) */
 #define SIOBCN  (SC_BASE+0x0C)  /* baud rate control register (RW,16,0x0000) */
@@ -238,7 +238,7 @@ extern "C" {
 #define SIOBT_SIOBT (0x00FF)    /* SIOBT[7:0] */
 
 /* bit field of SIOTCN register */
-#define SIOTCN_MFERR    (0x0001)    /* generate framin error */
+#define SIOTCN_MFERR    (0x0001)    /* generate framing error */
 #define SIOTCN_MPERR    (0x0002)    /* generate parity error */
 #define SIOTCN_LBTST    (0x0080)    /* loop back test */
 
@@ -408,12 +408,12 @@ extern "C" {
 /* bit field of UARTMSR register */
 #define UARTMSR_DCTS    (0x01)  /* delta clear to send */
 #define UARTMSR_DDSR    (0x02)  /* delta data set ready */
-#define UARTMSR_TERI    (0x04)  /* trailing edge of ring endicator */
-#define UARTMSR_DDCD    (0x08)  /* delta data carrer detect */
+#define UARTMSR_TERI    (0x04)  /* trailing edge of ring indicator */
+#define UARTMSR_DDCD    (0x08)  /* delta data carrier detect */
 #define UARTMSR_CTS     (0x10)  /* clear to send */
 #define UARTMSR_DSR     (0x20)  /* data set ready */
 #define UARTMSR_RI      (0x40)  /* ring indicator */
-#define UARTMSR_DCD     (0x80)  /* data carrer detect */
+#define UARTMSR_DCD     (0x80)  /* data carrier detect */
 
 /* bit field of UARTSCR register */
 #define UARTSCR_SCR (0xFF)  /* SCR[7:0] */
@@ -432,11 +432,11 @@ extern "C" {
 #define PWR0        (PWM_BASE+0x00) /* PWM register 0 (RW,16,0x0000) */
 #define PWCY0       (PWM_BASE+0x04) /* PWM cycle register 0 (RW,16,0x0000) */
 #define PWC0        (PWM_BASE+0x08) /* PWM counter 0 (RW,16,0x0000) */
-#define PWCON0      (PWM_BASE+0x0C) /* PWM contrlo register 0 (RW,16,0x0000) */
+#define PWCON0      (PWM_BASE+0x0C) /* PWM control register 0 (RW,16,0x0000) */
 #define PWR1        (PWM_BASE+0x20) /* PWM register 1 (RW,16,0x0000) */
 #define PWCY1       (PWM_BASE+0x24) /* PWM cycle register 1 (RW,16,0x0000) */
 #define PWC1        (PWM_BASE+0x28) /* PWM counter 1 (RW,16,0x0000) */
-#define PWCON1      (PWM_BASE+0x2C) /* PWM contrlo register 1 (RW,16,0x0000) */
+#define PWCON1      (PWM_BASE+0x2C) /* PWM control register 1 (RW,16,0x0000) */
 #define PWINTSTS    (PWM_BASE+0x3C) /* PWM interrupt status register (RW,16,0x0000) */
 
 /* bit field of PWCON0,1 register */
@@ -797,7 +797,7 @@ extern "C" {
 /*    SSIO control register                          */
 /*****************************************************/
 #define SSIO_BASE   (0xB7B01000)        /* base address */
-#define SSIOBUF     (SSIO_BASE+0x00)    /* transmiting/receiving buffer register (RW,8,0x00) */
+#define SSIOBUF     (SSIO_BASE+0x00)    /* transmitting/receiving buffer register (RW,8,0x00) */
 #define SSIOST      (SSIO_BASE+0x04)    /* SSIO status register (RW,8,0x00) */
 #define SSIOINT     (SSIO_BASE+0x08)    /* SSIO interrupt demand register (RW,8,0x00) */
 #define SSIOINTEN   (SSIO_BASE+0x0C)    /* SSIO interrupt enable register (RW,8,0x00) */
@@ -808,7 +808,7 @@ extern "C" {
 #define SSIOSTA_DUMMY   (0xFF)
 
 /* bit field of SSIOST register */
-#define SSIOSTA_BUSY    (0x01)  /* transmiting/receiving buffer busy */
+#define SSIOSTA_BUSY    (0x01)  /* transmitting/receiving buffer busy */
 #define SSIOSTA_OERR    (0x02)  /* overrun error */
 
 /* bit field of SSIOINT register */
@@ -844,7 +844,7 @@ extern "C" {
 #define I2CSR       (I2C_BASE+0x0C) /* I2C status register (R,8,0x00) */
 #define I2CIR       (I2C_BASE+0x10) /* I2C interrupt demand register (RW,8,0x00) */
 #define I2CIMR      (I2C_BASE+0x14) /* I2C interrupt mask register  (RW,8,0x00) */
-#define I2CDR       (I2C_BASE+0x18) /* I2C transmiting/receiving buffer register (RW,8,0x00) */
+#define I2CDR       (I2C_BASE+0x18) /* I2C transmitting/receiving buffer register (RW,8,0x00) */
 #define I2CBC       (I2C_BASE+0x1C) /* I2C transmit speed setting register (RW,8,0x00) */
 
 /* bit field of I2CCON register */
@@ -855,7 +855,7 @@ extern "C" {
 #define I2CCON_START    (0x10)  /* exist START byte */
 
 /* bit field of I2CSAD register */
-#define I2CSAD_RW_SND   (0x00)  /* data transmiting mode */
+#define I2CSAD_RW_SND   (0x00)  /* data transmitting mode */
 #define I2CSAD_RW_REC   (0x01)  /* data receiving mode */
 
 /* bit field of I2CCLR register */
@@ -891,7 +891,7 @@ extern "C" {
 /*****************************************************/
 #define CACHE_BASE  (0x78200000)        /* base address */
 #define CON         (CACHE_BASE+0x04)   /* cache control register */
-#define CACHE       (CACHE_BASE+0x08)   /* cachable register */
+#define CACHE       (CACHE_BASE+0x08)   /* cacheable register */
 #define FLUSH       (CACHE_BASE+0x1C)   /* FLUSH register */
 //#define DBEN        (CACHE_BASE+0x60)   /* DEBUG enable register */
 

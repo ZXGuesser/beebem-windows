@@ -18,9 +18,9 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-/* IDE Support for Beebem       */
-/* Written by Jon Welch         */
-/* Integrated into v4.xx by JGH */
+// IDE Support for BeebEm
+// Written by Jon Welch
+// Integrated into v4.xx by JGH
 
 #ifndef IDE_HEADER
 #define IDE_HEADER

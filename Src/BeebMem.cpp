@@ -138,7 +138,7 @@ bool Sh_Display;
 static bool PrivateRAMSelect;
 static bool FSRAMSelect;
 static bool Sh_CPUX, Sh_CPUE;
-/* End of Master 128 Specific Stuff, note initilised anyway regardless of Model Type in use */
+/* End of Master 128 Specific Stuff, note initialised anyway regardless of Model Type in use */
 
 /* ROM file data */
 char RomPath[MAX_PATH];
@@ -720,12 +720,16 @@ static void DoRomChange(unsigned char NewBank)
 }
 
 /*----------------------------------------------------------------------------*/
-static void FiddleACCCON(unsigned char newValue) {
+
+static void FiddleACCCON(unsigned char newValue)
+{
 	// Master specific, should only execute in Master128 mode
 	// ignore bits TST (6) IFJ (5) and ITU (4)
 //	newValue&=143;
 //	if ((newValue & 128)==128) DoInterrupt();
-	ACCCON=newValue & 127; // mask out the IRR bit so that interrupts dont occur repeatedly
+
+	// Mask out the IRR bit so that interrupts don't occur repeatedly.
+	ACCCON = newValue & 127;
 	if (newValue & 128) intStatus|=128; else intStatus&=127;
 	bool oldshd = Sh_Display;
 	Sh_Display = (ACCCON & 1) != 0;

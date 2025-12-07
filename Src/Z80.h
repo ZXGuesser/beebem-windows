@@ -21,7 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. */
 #ifndef Z80_HEADER
 #define Z80_HEADER
 
-/* SEE limits and BYTE-, WORD- and FASTREG - defintions im MEM_MMU.h */
+/* SEE limits and BYTE-, WORD- and FASTREG - definitions im MEM_MMU.h */
 
 typedef unsigned short WORD;
 

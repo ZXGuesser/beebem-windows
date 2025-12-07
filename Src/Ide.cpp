@@ -237,14 +237,14 @@ void DoIDESeek()
 
 	if (IDEDrive >= IDEDriveMax) {
 		// Drive out of range
-		IDEStatus = 0x01; // Not busy, error occured
+		IDEStatus = 0x01; // Not busy, error occurred
 		IDEError = 0x10;  // Sector not found (no media present)
 		return;
 	}
 
 	if (IDEDisc[IDEDrive] == nullptr) {
 		// No drive image present
-		IDEStatus = 0x01; // Not busy, error occured
+		IDEStatus = 0x01; // Not busy, error occurred
 		IDEError = 0x10;  // Sector not found (no media present)
 		return;
 	}

@@ -18,9 +18,9 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-/* SASI Support for Beebem */
-/* Based on code written by Y. Tanaka */
-/* 26/12/2011 JGH: Disk images at DiscsPath, not AppPath */
+// SASI support for BeebEm
+// Based on code written by Y. Tanaka
+// 26/12/2011 JGH: Disk images at DiscsPath, not AppPath
 
 /*
 Offset  Description                 Access
@@ -58,8 +58,8 @@ static void SASIRead();
 static int SASIReadSector(unsigned char *buf, int block);
 static bool SASIWriteSector(unsigned char *buf, int block);
 static void SASIWrite();
-static void SASISetGeometory();
-static bool SASIWriteGeometory(unsigned char *buf);
+static void SASISetGeometry();
+static bool SASIWriteGeometry(unsigned char *buf);
 static bool SASIDiscFormat(unsigned char *buf);
 static void SASIFormat();
 static bool SASIDiscRezero(unsigned char *buf);
@@ -330,7 +330,7 @@ static void SASIWriteData(unsigned char data)
 					}
 					break;
 				case 0x0c:
-					if (!SASIWriteGeometory(sasi.buffer)) {
+					if (!SASIWriteGeometry(sasi.buffer)) {
 						sasi.status = (sasi.lun << 5) | 0x02;
 						sasi.message = 0;
 						SASIStatus();
@@ -438,7 +438,7 @@ static void SASIExecute()
 			return;
 
 		case 0x0c:
-			SASISetGeometory();
+			SASISetGeometry();
 			return;
 
 		case 0xe0:
@@ -647,7 +647,7 @@ static void SASIWrite()
 	sasi.req = true;
 }
 
-static void SASISetGeometory()
+static void SASISetGeometry()
 {
 	sasi.length = 8;
 	sasi.blocks = 1;
@@ -666,9 +666,9 @@ static void SASISetGeometory()
 	sasi.req = true;
 }
 
-static bool SASIWriteGeometory(unsigned char * /* buf */)
+static bool SASIWriteGeometry(unsigned char * /* buf */)
 {
-	// WriteLog("Write Geometory 0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x\n",
+	// WriteLog("Write Geometry 0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x,0x%02x\n",
 	//          buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8]);
 
 	if (SASIDisc[sasi.lun] == NULL) return false;

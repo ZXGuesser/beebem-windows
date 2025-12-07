@@ -173,7 +173,7 @@ static char *decodeDataProcessing(uint32 /* address */, uint32 instruction, char
 		strcat(buff, registerNumber);
 	}
 
-	// the 'mov' and 'mvn' instructions dosn't use the first operand so don't output it
+	// the 'mov' and 'mvn' instructions doesn't use the first operand so don't output it
 	if( useRn[getField(instruction, 21,24)] )
 	{
 

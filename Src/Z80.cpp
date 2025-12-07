@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. */
 // 18-Jan-2017 JGH:
 //   IN/OUT instructions use full 16-bit address, some were using wrong register
 //   Block instructions loop 65536/256 times for BC=0/B=0
-//   Block I/O decrements B between interations
+//   Block I/O decrements B between interactions
 //   Block I/O was doing B=C-1 instead of B=B-1
 //   Block instructions set flags closer to real hardware
 //   Added repeated EDxx instructions

@@ -102,7 +102,7 @@ static int Speech[4];
 static struct
 {
 	unsigned int ToneFreq[4];
-	unsigned int ChangeSamps[4]; // How often this channel should flip its otuput
+	unsigned int ChangeSamps[4]; // How often this channel should flip its output
 	unsigned int ToneVolume[4]; // In units of /dev/dsp
 	struct
 	{
@@ -517,7 +517,7 @@ static double CyclesToSamples(int BeebCycles)
 	LastBeebCycle = BeebCycles;
 
 	tmp *= SoundSampleRate;
-	tmp /= 2000000.0; // Few - glad thats a double!
+	tmp /= 2000000.0; // Few - glad that's a double!
 
 	LastOurTime += tmp;
 
@@ -745,7 +745,7 @@ void SoundReset()
 
 /****************************************************************************/
 
-// Called in sysvia.cpp when a write is made to the 76489 sound chip
+// Called in SysVia.cpp when a write is made to the 76489 sound chip
 
 void Sound_RegWrite(int value)
 {

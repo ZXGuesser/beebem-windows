@@ -444,7 +444,7 @@ static void HandleData(unsigned char Data)
 
 	if (SerialACIA.RIE)
 	{
-		// interrupt on receive/overun
+		// interrupt on receive/overrun
 		SerialACIA.Status |= MC6850_STATUS_IRQ;
 		intStatus |= 1 << serial;
 	}

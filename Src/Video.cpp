@@ -112,8 +112,8 @@ struct VideoStateT {
   bool IsTeletext; /* This frame is a teletext frame - do things differently */
   const unsigned char *DataPtr;  /* Pointer into host memory of video data */
 
-  int CharLine;   /* 6845 counts in characters vertically - 0 at the top , incs by 1 - -1 means we are in the bit before the actual display starts */
-  int InCharLineUp; /* Scanline within a character line - counts up*/
+  int CharLine; // 6845 counts in characters vertically - 0 at the top, incs by 1 - -1 means we are in the bit before the actual display starts
+  int InCharLineUp; // Scanline within a character line - counts up
   int VSyncState; // Cannot =0 in MSVC $NRM; /* When >0 VSync is high */
   bool IsNewTVFrame; // Specifies the start of a new TV frame, following VSync (used so we only calibrate speed once per frame)
   bool InterlaceFrame;
@@ -566,7 +566,7 @@ static void DoFastTable2() {
 
 /*-------------------------------------------------------------------------------------------------------------*/
 /* Some guess work and experimentation has determined that the left most pixel uses the same pattern as mode 1 */
-/* all the way upto the 5th pixel which uses 31hh then 20hh and hten 1hhh then 0hhhh                           */
+/* all the way upto the 5th pixel which uses 31hh then 20hh and then 1hhh then 0hhhh                           */
 static void DoFastTable2XStep2() {
   for(unsigned long beebpixv = 0; beebpixv < 256; beebpixv++) {
     unsigned long beebpixvt = beebpixv;
@@ -1526,7 +1526,7 @@ void VideoULAWrite(int Address, unsigned char Value) {
   if (Address & 1) {
     VideoULA_Palette[(Value & 0xf0)>>4]=(Value & 0xf) ^ 7;
     FastTable_Valid = false;
-    //fprintf(crtclog,"Pallette written to at line %d\n",VideoState.PixmapLine);
+    //fprintf(crtclog,"Palette written to at line %d\n",VideoState.PixmapLine);
   } else {
     unsigned char oldValue = VideoULA_ControlReg;
     VideoULA_ControlReg = Value;

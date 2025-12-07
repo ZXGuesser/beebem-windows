@@ -1334,7 +1334,7 @@ void Init6502Core()
 
 	ProgramCounter = BeebReadMem(0xfffc) | (BeebReadMem(0xfffd) << 8);
 
-	// For consistancy of execution
+	// For consistency of execution.
 	Accumulator = 0;
 	XReg = 0;
 	YReg = 0;
@@ -2823,7 +2823,7 @@ void Exec6502Instruction()
 					// NOP
 				}
 				else {
-					// Undocument instruction: DCP (zp,X)
+					// Undocumented instruction: DCP (zp,X)
 					int Address = IndXAddrModeHandler_Address();
 					DECInstrHandler(Address);
 					CMPInstrHandler(ReadPaged(Address));
@@ -3359,7 +3359,7 @@ int MillisecondsToCycles(int Time)
 
 /*-------------------------------------------------------------------------*/
 
-// Covert time in microeconds to cycles at 2MHz.
+// Covert time in microseconds to cycles at 2MHz.
 
 int MicrosecondsToCycles(int Time)
 {

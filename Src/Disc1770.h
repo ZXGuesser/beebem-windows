@@ -19,8 +19,8 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-/* 1770 FDC Support for Beebem */
-/* Written by Richard Gellman */
+// 1770 FDC support for BeebEm
+// Written by Richard Gellman
 
 #ifndef DISC1770_HEADER
 #define DISC1770_HEADER

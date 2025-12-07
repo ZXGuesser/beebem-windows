@@ -1983,7 +1983,7 @@ struct PrimaryCommandLookupType {
 	unsigned char CommandNum;
 	unsigned char Mask; // Mask command with this before comparing with CommandNum - allows drive ID to be removed
 	int NParams; // Number of parameters to follow
-	CommandFunc ToCall; // Called after all paameters have arrived
+	CommandFunc ToCall; // Called after all parameters have arrived
 	CommandFunc IntHandler; // Called when interrupt requested by command is about to happen
 	const char *Ident; // Mainly for debugging
 };

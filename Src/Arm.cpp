@@ -3806,7 +3806,7 @@ inline bool CArm::performBlockDataTransferStore(uint rn, uint32 initialAddress, 
 	{
 		// do not update base register if it's r15
 		// ??? according to the ARM ARM and GB it's unpredictable
-		// has no noticable effect on emulation quality
+		// has no noticeable effect on emulation quality
 		//if (rn != 15)
 		//	setRegister(rn, finalAddress);
 
@@ -4499,7 +4499,7 @@ inline void CArm::exceptionReset()
 	setRegisterWithPrefetch(15, RESET_VECTOR);
 }
 
-// note, in each of these cases, calling setProcessorStatusFlags can cahnge the processor
+// note, in each of these cases, calling setProcessorStatusFlags can change the processor
 // mode and cause r14 to be altered by swapping in a different modes shadow register
 // it is therefore essential that the psr to be set is stored before the processor status flags are
 // adjusted

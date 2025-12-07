@@ -84,7 +84,7 @@ struct RomInfo {
 };
 
 extern bool Sh_Display;
-/* End of Master 128 Specific Stuff, note initilised anyway regardless of Model Type in use */
+/* End of Master 128 Specific Stuff, note initialised anyway regardless of Model Type in use */
 
 extern RomConfigFile RomConfig;
 extern char RomPath[MAX_PATH];
@@ -109,7 +109,7 @@ char *ReadRomTitle(int bank, char *Title, int BufSize);
 void SaveMemUEF(FILE *SUEF);
 extern int EFDCAddr; // 1770 FDC location
 extern int EDCAddr; // Drive control location
-extern bool NativeFDC; // see beebmem.cpp for description
+extern bool NativeFDC; // See BeebMem.cpp for description
 void LoadRomRegsUEF(FILE *SUEF);
 void LoadMainMemUEF(FILE *SUEF);
 void LoadShadMemUEF(FILE *SUEF);

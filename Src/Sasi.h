@@ -17,8 +17,9 @@ License along with this program; if not, write to the Free
 Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
-/* SASI Support for Beebem */
-/* Written by Jon Welch */
+
+// SASI Support for BeebEm
+// Written by Jon Welch
 
 #ifndef SASI_HEADER
 #define SASI_HEADER

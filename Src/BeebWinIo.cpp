@@ -1165,7 +1165,7 @@ void BeebWin::QuickLoad()
 	}
 	else
 	{
-		// For backwards compatiblity with existing quicksave files:
+		// For backwards compatibility with existing quicksave files:
 		strcpy(FileName, m_UserDataPath);
 		AppendPath(FileName, "BeebState");
 		AppendPath(FileName, "quicksave.uef");
@@ -1455,7 +1455,7 @@ void BeebWin::SaveBeebEmID(FILE *SUEF)
 void BeebWin::SaveEmuUEF(FILE *SUEF)
 {
 	// Emulator Specifics
-	// Note about this block: It should only be handled by beebem from uefstate.cpp if
+	// Note about this block: It should only be handled by BeebEm from UefState.cpp if
 	// the UEF has been determined to be from BeebEm (Block 046C)
 	UEFWrite8(static_cast<unsigned char>(MachineType), SUEF);
 	UEFWrite8(NativeFDC ? 0 : 1, SUEF);

@@ -1522,9 +1522,9 @@ INLINE static int ZeroPgYAddrModeHandler_Address()
 /* Reset processor */
 static void Reset65C02()
 {
-  Accumulator=XReg=YReg=0; /* For consistancy of execution */
-  StackReg=0xff; /* Initial value ? */
-  PSR=FlagI; /* Interrupts off for starters */
+  Accumulator = XReg = YReg = 0; // For consistency of execution
+  StackReg = 0xff; // Initial value?
+  PSR = FlagI; // Interrupts off for starters
 
   TubeintStatus=0;
   TubeNMIStatus=0;
@@ -2617,8 +2617,9 @@ void WrapTubeCycles(void) {
 	TotalTubeCycles -= CycleCountWrap/2*3;
 }
 
-void SyncTubeProcessor(void) {
-	// This proc syncronises the two processors on a cycle based timing.
+void SyncTubeProcessor()
+{
+	// This proc synchronises the two processors on a cycle based timing.
 	// Second pro runs at 3MHz
 	while (TotalTubeCycles<(TotalCycles/2*3)) {
 		Exec65C02Instruction();

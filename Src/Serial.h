@@ -18,6 +18,7 @@ License along with this program; if not, write to the Free
 Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
+
 // Serial/Cassette Support for BeebEm
 // Written by Richard Gellman
 
@@ -58,7 +59,7 @@ struct SerialACIAType
 	bool DCD; // DCD input
 
 	unsigned int TxRate; // Transmit baud rate
-	unsigned int RxRate; // Recieve baud rate
+	unsigned int RxRate; // Receive baud rate
 	unsigned char ClkDivide; // Clock divide rate
 
 	unsigned char DataBits;

@@ -326,7 +326,7 @@ static INT_PTR CALLBACK UserKeyboardDlgProc(HWND   hwnd,
 
 static void OnDrawItem(UINT CtrlID, LPDRAWITEMSTRUCT lpDrawItemStruct)
 {
-	// set the Pen and Backgorund Brush.
+	// Set the Pen and Background Brush.
 	HBRUSH aBrush = CreateSolidBrush(GetKeyColour(CtrlID));
 	HPEN aPen = CreatePen(PS_NULL, 1, RGB(0, 0, 0));
 
@@ -334,7 +334,7 @@ static void OnDrawItem(UINT CtrlID, LPDRAWITEMSTRUCT lpDrawItemStruct)
 	aBrush = (HBRUSH)SelectObject(lpDrawItemStruct->hDC, aBrush);
 	aPen = (HPEN)SelectObject(lpDrawItemStruct->hDC, aPen);
 
-	// Draw the rectanlge.
+	// Draw the rectangle.
 	SetBkColor(lpDrawItemStruct->hDC, GetKeyColour(CtrlID));
 	Rectangle(lpDrawItemStruct->hDC,
 	          lpDrawItemStruct->rcItem.left,

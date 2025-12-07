@@ -170,7 +170,7 @@ static const unsigned char powers[4] = { 1, 2, 4, 8 };
 // Frequency between network actions.
 // max 250Khz network clock. 2MHz system clock. one click every 8 cycles.
 // say one byte takes about 8 clocks, receive a byte every 64 cpu cycles. ?
-// (The reason for "about" 8 clocks is that as this a continuous syncronous tx,
+// (The reason for "about" 8 clocks is that as this a continuous synchronous tx,
 // there are no start/stop bits, however to avoid detecting a dead line as ffffff
 // zeros are added and removed transparently if you get more than five "1"s
 // during data transmission - more than 5 are flags or errors)
@@ -197,7 +197,7 @@ const u_short DEFAULT_AUN_PORT = 32768;
 // We will be using Econet over Ethernet as per AUN,
 // however I've not got a real Acorn ethernet machine to see how
 // it actually works! The only details I can find is it is:
-// "Standard econet encpsulated in UDP to port 32768" and that
+// "Standard econet encapsulated in UDP to port 32768" and that
 // addressing defaults to "1.0.net.stn" where net >= 128 for Ethernet.
 // but can be overridden, so we won't worry about that.
 
@@ -1322,7 +1322,7 @@ bool EconetPollReal()
 	//         No action needed here.
 	// CR1b3 - RDSR mode. When set, interrupts on received data are inhibited.
 	//         Unsupported - no action needed here
-	// CR1b4 - TDSR mode. When set, interrupts on trasmit data are inhibited.
+	// CR1b4 - TDSR mode. When set, interrupts on transmit data are inhibited.
 	//         Unsupported - no action needed here
 	// CR1b5 - Discontinue - when set, discontinue reception of incoming data.
 	//         Automatically reset this when reach the end of current frame in progress.
@@ -1352,7 +1352,7 @@ bool EconetPollReal()
 	//         all transmit operations blocked (bar CTS monitoring) when this is set.
 	//         no action needed here; watch this bit elsewhere to inhibit actions
 
-	// CR2b0 - PSE - priotitised status enable - adjusts how status bits show up.
+	// CR2b0 - PSE - prioritised status enable - adjusts how status bits show up.
 	//         See PriorityStatus and code in status section
 	// CR2b1 - 2byte/1byte mode. Set to indicate 2 byte mode. See TDRA status bit.
 	// CR2b2 - Flag/Mark idle select. What is transmitted when TX idle.
@@ -1555,7 +1555,7 @@ bool EconetPollReal()
 
 					if (BeebRx.Pointer == 0)
 					{
-						ADLC.RxFifoAPFlags |= 1; // 2 bytes? adr extention mode
+						ADLC.RxFifoAPFlags |= 1; // 2 bytes? adr extension mode
 					}
 
 					if (++BeebRx.Pointer >= BeebRx.BytesInBuffer) // that was last byte!
@@ -2670,7 +2670,7 @@ static void EconetReceivePacket()
 			BeebRx.EconetHeader.DestStn = EconetStationID; // As it is data it must be for us.
 			BeebRx.EconetHeader.DestNet = 0;
 
-			BeebRx.EconetHeader.SrcStn  = EconetTx.DestStn; //30jun dont think this is right..
+			BeebRx.EconetHeader.SrcStn  = EconetTx.DestStn; //30jun don't think this is right..
 			BeebRx.EconetHeader.SrcNet  = EconetTx.DestNet & inmask;
 
 			const int DestOffset = sizeof(EconetHeaderType);

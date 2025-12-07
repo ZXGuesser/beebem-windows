@@ -18,9 +18,9 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-/* SCSI Support for Beebem */
-/* Based on code written by Y. Tanaka */
-/* 26/12/2011 JGH: Disk images at DiscsPath, not AppPath */
+// SCSI support for BeebEm
+// Based on code written by Y. Tanaka
+// 26/12/2011 JGH: Disk images at DiscsPath, not AppPath
 
 /*
 Offset  Description                 Access
@@ -64,7 +64,7 @@ static void Write6();
 static void ModeSense();
 static int DiscModeSense(unsigned char *cdb, unsigned char *buf);
 static void ModeSelect();
-static bool WriteGeometory(unsigned char *buf);
+static bool WriteGeometry(unsigned char *buf);
 static bool DiscFormat(unsigned char *buf);
 static void Format();
 static bool DiscVerify(unsigned char *buf);
@@ -373,7 +373,7 @@ static void WriteData(unsigned char data)
 					break;
 
 				case 0x15:
-					if (!WriteGeometory(scsi.buffer)) {
+					if (!WriteGeometry(scsi.buffer)) {
 						scsi.status = (scsi.lun << 5) | 0x02;
 						scsi.message = 0;
 						Status();
@@ -764,7 +764,7 @@ static void ModeSelect()
 	scsi.req = true;
 }
 
-static bool WriteGeometory(unsigned char *buf)
+static bool WriteGeometry(unsigned char *buf)
 {
 	if (SCSIDisc[scsi.lun] == NULL) return false;
 
