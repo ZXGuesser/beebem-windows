@@ -20,8 +20,8 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-/* User VIA support file for the beeb emulator - David Alan Gilbert 11/12/94 */
-/* Modified from the system via */
+// User VIA support file for the Beeb emulator - David Alan Gilbert 11/12/94
+// Modified from the system via
 
 #ifndef USERVIA_HEADER
 #define USERVIA_HEADER

@@ -496,9 +496,9 @@ static double CyclesToSamples(int BeebCycles)
 {
 	double tmp;
 
-	// OK - beeb cycles are in 2MHz units, ours are in 1/samplerate
+	// OK - Beeb cycles are in 2MHz units, ours are in 1/samplerate
 	// This is all done incrementally - find the number of ticks since the last call
-	// in both domains.  This does mean this should only be called once
+	// in both domains. This does mean this should only be called once.
 
 	// Extract number of cycles since last call
 	if (BeebCycles < LastBeebCycle)

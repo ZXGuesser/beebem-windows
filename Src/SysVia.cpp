@@ -21,9 +21,9 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-/* System VIA support file for the beeb emulator- includes things like the
-keyboard emulation - David Alan Gilbert 30/10/94 */
-/* CMOS Ram finalised 06/01/2001 - Richard Gellman */
+// System VIA support file for the Beeb emulator. Includes things
+// like the keyboard emulation - David Alan Gilbert 30/10/94
+// CMOS Ram finalised 06/01/2001 - Richard Gellman
 
 #include <windows.h>
 

@@ -907,7 +907,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 					DisplayClientAreaText(hdc);
 					pSurface->ReleaseDC(hdc);
 
-					// Scale beeb screen to fill the D3D texture
+					// Scale Beeb screen to fill the D3D texture
 					int width  = TeletextEnabled ? 552 : ActualScreenWidth;
 					int height = TeletextEnabled ? TeletextLines : NLines;
 					// D3DXMatrixScaling(&m_TextureMatrix,
@@ -949,7 +949,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 		}
 		else
 		{
-			// Blit the beeb bitmap onto the secondary buffer
+			// Blit the Beeb bitmap onto the secondary buffer
 			HDC hdc;
 			HRESULT hResult = m_DDS2One->GetDC(&hdc);
 

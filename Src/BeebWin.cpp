@@ -2192,7 +2192,7 @@ void BeebWin::SetAMXPosition(unsigned int x, unsigned int y)
 {
 	if (AMXMouseEnabled && (MachineType != Model::MasterET))
 	{
-		// Scale the window coords to the beeb screen coords
+		// Scale the window coords to the Beeb screen coords
 		AMXTargetX = x * m_AMXXSize * (100 + m_AMXAdjust) / 100 / m_XWinSize;
 		AMXTargetY = y * m_AMXYSize * (100 + m_AMXAdjust) / 100 / m_YWinSize;
 
@@ -2208,7 +2208,7 @@ void BeebWin::ChangeAMXPosition(int deltaX, int deltaY)
 		static int remX = 0;
 		static int remY = 0;
 
-		// Scale the window coords to the beeb screen coords
+		// Scale the window coords to the Beeb screen coords
 		int bigX = deltaX * m_AMXXSize * (100 + m_AMXAdjust);
 		AMXDeltaX += (bigX + remX) / (100 * m_XWinSize);
 		remX = (bigX + remX) % (100 * m_XWinSize);
@@ -2679,7 +2679,7 @@ int BeebWin::TranslateKey(int vkey, bool keyUp, int &row, int &col)
 
 	if (keyUp)
 	{
-		// Key released, lookup beeb row + col that this vkey
+		// Key released, lookup Beeb row + col that this vkey
 		// mapped to when it was pressed.  Need to release
 		// both shifted and non-shifted presses.
 		row = m_vkeyPressed[vkey][0][0];
@@ -2696,7 +2696,7 @@ int BeebWin::TranslateKey(int vkey, bool keyUp, int &row, int &col)
 		if (row >= 0)
 			BeebKeyUp(row, col);
 	}
-	else // New key press - convert to beeb row + col
+	else // New key press - convert to Beeb row + col
 	{
 		row = (*transTable)[vkey][static_cast<int>(m_ShiftPressed)].row;
 		col = (*transTable)[vkey][static_cast<int>(m_ShiftPressed)].col;
@@ -2749,13 +2749,13 @@ int BeebWin::TranslateKey(int vkey, bool keyUp, int &row, int &col)
 
 			BeebKeyDown(row, col);
 
-			// Record beeb row + col for key release
+			// Record Beeb row + col for key release
 			m_vkeyPressed[vkey][0][static_cast<int>(m_ShiftPressed)] = row;
 			m_vkeyPressed[vkey][1][static_cast<int>(m_ShiftPressed)] = col;
 		}
 		else
 		{
-			// Special key!  Record so key up returns correct codes
+			// Special key! Record so key up returns correct codes
 			m_vkeyPressed[vkey][0][1] = row;
 			m_vkeyPressed[vkey][1][1] = col;
 		}

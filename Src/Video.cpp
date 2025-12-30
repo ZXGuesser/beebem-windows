@@ -100,8 +100,8 @@ int ova,ovn; // mem ptr buffers
 /* CharLine counts from the 'reference point' - i.e. the point at which we reset the address pointer - NOT
 the point of the sync. If it is -ve its actually in the adjust time */
 struct VideoStateT {
-  int Addr;       /* Address of start of next visible character line in beeb memory  - raw */
-  int StartAddr;  /* Address of start of first character line in beeb memory  - raw */
+  int Addr; // Address of start of next visible character line in Beeb memory  - raw
+  int StartAddr; // Address of start of first character line in Beeb memory  - raw
   int PixmapLine; /* Current line in the pixmap */
   int FirstPixmapLine; /* The first pixmap line where something is visible.  Used to eliminate the
                           blank vertical retrace lines at the top of the screen. */
@@ -594,9 +594,9 @@ static void DoFastTable2XStep2() {
 
 /*-------------------------------------------------------------------------------------------------------------*/
 
-/* Rebuild fast table.
-   The fast table accelerates the translation of beeb video memory
-   values into X pixel values */
+// Rebuild fast table.
+// The fast table accelerates the translation of Beeb video memory
+// values into X pixel values.
 
 static void DoFastTable()
 {
@@ -847,7 +847,7 @@ static void DoMode7Row(void) {
   int CurrentPixel;
   int FontTypeIndex=0; /* 0=alpha, 1=contiguous graphics, 2=separated graphics */
 
-  if (CRTC_HorizontalDisplayed>80) return; /* Not possible on beeb - and would break the double height lookup array */
+  if (CRTC_HorizontalDisplayed>80) return; // Not possible on Beeb - and would break the double height lookup array
 
   // Reset double-height state for the first character row of the screen.
   if (VideoState.CharLine == 0)
@@ -1103,7 +1103,9 @@ static void DoMode7Row(void) {
 }
 
 /*-------------------------------------------------------------------------------------------------------------*/
-/* Actually does the work of decoding beeb memory and plotting the line to X */
+
+// Actually does the work of decoding Beeb memory and plotting the line to X.
+
 static void LowLevelDoScanLine() {
   if (!FastTable_Valid) {
     // Update acceleration tables

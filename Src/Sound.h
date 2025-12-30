@@ -21,7 +21,7 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-/* Sound emulation for the beeb - David Alan Gilbert 26/11/94 */
+// Sound emulation for the Beeb - David Alan Gilbert 26/11/94
 
 #ifndef SOUND_HEADER
 #define SOUND_HEADER

@@ -2101,7 +2101,7 @@ static void CommandRegWrite(unsigned char Value)
 	FDCState.CommandParamCount = ptr->NParams;
 	FDCState.CurrentParam = 0;
 
-	FDCState.StatusReg |= STATUS_REG_COMMAND_BUSY | STATUS_REG_RESULT_FULL; // Observed on beeb for read special
+	FDCState.StatusReg |= STATUS_REG_COMMAND_BUSY | STATUS_REG_RESULT_FULL; // Observed on Beeb for read special
 	UpdateNMIStatus();
 
 	// No parameters then call routine immediately
@@ -2128,13 +2128,13 @@ static void ParamRegWrite(unsigned char Value)
 	{
 		FDCState.Params[FDCState.CurrentParam++] = Value;
 
-		FDCState.StatusReg &= 0xfe; // Observed on beeb
+		FDCState.StatusReg &= 0xfe; // Observed on Beeb
 		UpdateNMIStatus();
 
 		// Got all params yet?
 		if (FDCState.CurrentParam >= FDCState.CommandParamCount)
 		{
-			FDCState.StatusReg &= 0x7e; // Observed on beeb
+			FDCState.StatusReg &= 0x7e; // Observed on Beeb
 			UpdateNMIStatus();
 
 			const PrimaryCommandLookupType *ptr = CommandPtrFromNumber(FDCState.Command);
