@@ -19,11 +19,10 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-/*
-WD1770 FDC Disc Support for BeebEm
+// WD1770 FDC Disc Support for BeebEm
+// Written by Richard Gellman - Feb 2001
 
-Written by Richard Gellman - Feb 2001
-*/
+#include <windows.h>
 
 #include <stdio.h>
 #include <stdlib.h>

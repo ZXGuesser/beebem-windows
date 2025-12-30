@@ -465,9 +465,18 @@ void BeebWin::SelectFDC()
 	if (Dialog.Open())
 	{
 		// Make path relative to app path
-		if (_strnicmp(FileName, m_AppPath, strlen(m_AppPath)) == 0)
+		const size_t AppPathLen = strlen(m_AppPath);
+
+		if (_strnicmp(FileName, m_AppPath, AppPathLen) == 0)
 		{
-			strcpy(FDCDLL, FileName + strlen(m_AppPath));
+			size_t RelPathStartPos = AppPathLen;
+
+			if (FileName[AppPathLen] == '\\')
+			{
+				RelPathStartPos++;
+			}
+
+			strcpy(FDCDLL, FileName + RelPathStartPos);
 		}
 		else
 		{

@@ -39,6 +39,6 @@ unsigned char GetDriveControl(unsigned char Value);
 
 const char* GetFDCBoardName();
 
-extern char FDCDLL[256];
+extern char FDCDLL[MAX_PATH];
 
 #endif

@@ -35,7 +35,7 @@ struct DriveControlBlock
 };
 
 // FDC Board extension DLL variables
-char FDCDLL[256] = { 0 };
+char FDCDLL[MAX_PATH] = { 0 };
 
 static HMODULE hFDCBoard = nullptr;
 static DriveControlBlock ExtBoard = { 0, 0, nullptr };
