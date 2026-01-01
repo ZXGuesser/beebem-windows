@@ -1410,7 +1410,7 @@ bool EconetPollReal()
 			ADLC.PriorityStatus = 0;
 		}
 
-		// fourwaystage = FourWayStage::Idle; // this really doesn't like being here.
+		// AUNState = FourWayStage::Idle; // this really doesn't like being here.
 	}
 
 	// CR2b6 - CLT TxST - Clear Transmitter Status - reset status bits
