@@ -6,16 +6,20 @@ Unreleased Changes
 
 Contributors: Chris Needham, Alistair Cree, Ken Lowe, Tom Seddon
 
+* Fixed loading floppy disk controller DLLs using the Select FDC Board
+  menu option.
 * Econet changes:
   - Added an option to show the Econet network and station in the window
     title.
-  - The SINGLESOCKET option in Econet.cfg has been removed.
+  - The SINGLESOCKET configuration option has been removed.
   - Added detail in error messages for invalid Econet config values.
-  - Fixed the "state n" command which shows the Econet ADLC state.
+  - Added a "state n" debugger command which shows the Econet ADLC state.
 * Removed the "BeebEm text to speech output enabled" message on startup if
-  Text to Speech is enabled. This message is now only spoken when the user
-  enables Text to Speech via the menu, or on loading a Preferences file that
+  Text to Speech is enabled. This message is now only spoken when you
+  enable Text to Speech via the menu, or on loading a Preferences file that
   has Text to Speech enabled.
+* BeebEm can now be compiled wthout requiring the DirectX9 SDK to be
+  installed.
 
 Version 4.21 (19 September 2025)
 ------------
