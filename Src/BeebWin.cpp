@@ -1786,15 +1786,6 @@ void BeebWin::UpdateModelMenu()
 
 	CheckMenuRadioItem(IDM_MODELB, IDM_MASTER_ET, SelectedMenuItemID);
 
-	if (MachineType == Model::Master128)
-	{
-		EnableMenuItem(IDM_FDC_DLL, false);
-	}
-	else if (MachineType != Model::MasterET)
-	{
-		EnableMenuItem(IDM_FDC_DLL, true);
-	}
-
 	const bool IsMasterET = MachineType == Model::MasterET;
 	const bool IsModelB = MachineType == Model::B || MachineType == Model::BPlus || MachineType == Model::IntegraB;
 
@@ -4618,24 +4609,21 @@ void BeebWin::HandleCommand(UINT MenuID)
 		break;
 
 	case IDM_FDC_DLL:
-		if (MachineType != Model::Master128 && MachineType != Model::MasterET)
-			SelectFDC();
+		SelectFDC();
 		break;
 
-	case IDM_8271:
+	case IDM_8271: {
 		Ext1770Reset();
 		NativeFDC = true;
 
 		CheckMenuItem(IDM_8271, true);
 		CheckMenuItem(IDM_FDC_DLL, false);
 
-		if (MachineType != Model::Master128 && MachineType != Model::MasterET)
-		{
-			char CfgName[20];
-			sprintf(CfgName, "FDCDLL%d", static_cast<int>(MachineType));
-			m_Preferences.SetStringValue(CfgName, "None");
-		}
+		char CfgName[20];
+		sprintf(CfgName, "FDCDLL%d", static_cast<int>(MachineType));
+		m_Preferences.SetStringValue(CfgName, "None");
 		break;
+	}
 
 	case IDM_TAPE_FAST:
 		SetTapeSpeed(750);
