@@ -174,7 +174,7 @@ static const DebugCmd DebugCmdTable[] = {
 	{ "bp",         DebugCmdToggleBreak,   "<start>[-<end>] [<name>]", "Set or clear a breakpoint or break range" },
 	{ "b",          DebugCmdToggleBreak,   "", ""}, // Alias of "bp"
 	{ "breakpoint", DebugCmdToggleBreak,   "", ""}, // Alias of "bp"
-	{ "labels",     DebugCmdLabels,        "<load|show> [<filename>]", "Load labels from VICE file, or display known labels" },
+	{ "labels",     DebugCmdLabels,        "<load|show|clear> [<filename>]", "Load labels from file, display known labels, or clear all labels" },
 	{ "l",          DebugCmdLabels,        "", ""}, // Alias of "labels"
 	{ "help",       DebugCmdHelp,          "[<item>]", "Display help for the specified command or address" },
 	{ "?",          DebugCmdHelp,          "", ""}, // Alias of "help"
@@ -2126,43 +2126,162 @@ bool DebugLoadMemoryMap(const char* filename, int bank)
 
 /****************************************************************************/
 
-void DebugLoadLabels(const char* filename)
-{
-	FILE *infile = fopen(filename, "r");
+// Parse a string containing Swift format labels, used by BeebAsm
 
-	if (infile == NULL)
+static bool DebugParseSwiftLabels(const std::string& Line)
+{
+	bool Valid = true;
+
+	std::size_t i = 2;
+
+	while (Line[i] == '\'')
+	{
+		std::size_t end = Line.find('\'', i + 1);
+
+		if (end == std::string::npos)
+		{
+			Valid = false;
+			break;
+		}
+
+		std::string symbol = Line.substr(i + 1, end - (i + 1));
+		i = end + 1;
+
+		if (Line[i] == ':')
+		{
+			end = Line.find('L', i + 1);
+
+			if (end == std::string::npos)
+			{
+				Valid = false;
+				break;
+			}
+
+			std::string address = Line.substr(i + 1, end - (i + 1));
+			i = end + 1;
+
+			Label label;
+			label.name = symbol;
+
+			try
+			{
+				label.addr = std::stoi(address);
+			}
+			catch (const std::exception&)
+			{
+				Valid = false;
+				break;
+			}
+
+			Labels.push_back(label);
+		}
+
+		if (Line[i] == ',')
+		{
+			i++;
+		}
+		else if (Line[i] == '}')
+		{
+			break;
+		}
+		else
+		{
+			Valid = false;
+			break;
+		}
+	}
+
+	return Valid;
+}
+
+/****************************************************************************/
+
+bool DebugLoadLabels(const char* filename)
+{
+	std::ifstream Input(filename);
+
+	if (!Input)
 	{
 		DebugDisplayInfoF("Error: Failed to open labels from %s", filename);
+		return false;
+	}
+
+	Labels.clear();
+
+	bool Valid = true;
+
+	std::string Line;
+
+	while (std::getline(Input, Line))
+	{
+		// Skip blank lines and comments
+		if (Line.empty() || Line[0] == '#' || Line[0] == ';')
+		{
+			continue;
+		}
+
+		if (Line.length() > 4 && Line[0] == '[' && Line[1] == '{')
+		{
+			if (!DebugParseSwiftLabels(Line))
+			{
+				DebugDisplayInfoF("Failed to load symbols file:\n  %s", filename);
+
+				Valid = false;
+				break;
+			}
+		}
+		else
+		{
+			std::vector<std::string> Tokens;
+
+			ParseLine(Line, Tokens);
+
+			unsigned long Addr;
+
+			if (Tokens.size() != 3)
+			{
+				DebugDisplayInfoF("Error: Invalid labels format in symbols file:\n  %s", filename);
+
+				Valid = false;
+				break;
+			}
+
+			if (Valid && Tokens.size() >= 2)
+			{
+				if (!ParseHexNumber(Tokens[1], &Addr))
+				{
+					DebugDisplayInfoF("Invalid address %s in symbols file:\n  %s", Tokens[1].c_str(), filename);
+
+					Valid = false;
+					break;
+				}
+
+				if (Addr > 0xFFFF)
+				{
+					DebugDisplayInfoF("Invalid address %X in symbols file:\n  %s", Addr, filename);
+
+					Valid = false;
+					break;
+				}
+			}
+
+			if (Valid)
+			{
+				Labels.emplace_back(Tokens[2], Addr);
+			}
+		}
+	}
+
+	if (Valid)
+	{
+		DebugDisplayInfoF("Loaded %u labels from %s", Labels.size(), filename);
 	}
 	else
 	{
 		Labels.clear();
-
-		char buf[1024];
-
-		while (fgets(buf, _countof(buf), infile) != NULL)
-		{
-			DebugChompString(buf);
-
-			int addr;
-			char name[64];
-
-			// Example: al FFEE .oswrch
-			if (sscanf(buf, "%*s %x .%64s", &addr, name) != 2)
-			{
-				DebugDisplayInfoF("Error: Invalid labels format: %s", filename);
-				fclose(infile);
-
-				Labels.clear();
-				return;
-			}
-
-			Labels.emplace_back(std::string(name), addr);
-		}
-
-		DebugDisplayInfoF("Loaded %u labels from %s", Labels.size(), filename);
-		fclose(infile);
 	}
+
+	return Valid;
 }
 
 /****************************************************************************/
@@ -2189,103 +2308,6 @@ void DebugRunScript(const char* FileName)
 
 /****************************************************************************/
 
-// Loads Swift format labels, used by BeebAsm
-
-bool DebugLoadSwiftLabels(const char* filename)
-{
-	std::ifstream input(filename);
-
-	if (input)
-	{
-		bool valid = true;
-
-		std::string line;
-
-		while (std::getline(input, line))
-		{
-			Trim(line);
-
-			// Example: [{'SYMBOL':12345L,'SYMBOL2':12346L}]
-
-			if (line.length() > 4 && line[0] == '[' && line[1] == '{')
-			{
-				std::size_t i = 2;
-
-				while (line[i] == '\'')
-				{
-					std::size_t end = line.find('\'', i + 1);
-
-					if (end == std::string::npos)
-					{
-						valid = false;
-						break;
-					}
-
-					std::string symbol = line.substr(i + 1, end - (i + 1));
-					i = end + 1;
-
-					if (line[i] == ':')
-					{
-						end = line.find('L', i + 1);
-
-						if (end == std::string::npos)
-						{
-							valid = false;
-							break;
-						}
-
-						std::string address = line.substr(i + 1, end - (i + 1));
-						i = end + 1;
-
-						Label label;
-						label.name = symbol;
-
-						try
-						{
-							label.addr = std::stoi(address);
-						}
-						catch (const std::exception&)
-						{
-							valid = false;
-							break;
-						}
-
-						Labels.push_back(label);
-					}
-
-					if (line[i] == ',')
-					{
-						i++;
-					}
-					else if (line[i] == '}')
-					{
-						break;
-					}
-					else
-					{
-						valid = false;
-						break;
-					}
-				}
-			}
-		}
-
-		if (!valid)
-		{
-			Labels.clear();
-		}
-
-		return valid;
-	}
-	else
-	{
-		DebugDisplayInfoF("Failed to load symbols file:\n  %s", filename);
-		return false;
-	}
-}
-
-/****************************************************************************/
-
 static void DebugChompString(char *str)
 {
 	const size_t length = strlen(str);
@@ -2304,7 +2326,7 @@ static void DebugChompString(char *str)
 
 /****************************************************************************/
 
-int DebugParseLabel(char *label)
+static int DebugFindLabel(const char *label)
 {
 	auto it = std::find_if(Labels.begin(), Labels.end(), [=](const Label& Label) {
 		return StrCaseCmp(label, Label.name.c_str()) == 0;
@@ -2427,7 +2449,7 @@ static void DebugParseCommand(const char *command)
 			if (sscanf(&args[2], "%64s", label) == 1)
 			{
 				// Try to resolve label:
-				int addr = DebugParseLabel(label);
+				int addr = DebugFindLabel(label);
 
 				if (addr == -1)
 				{
@@ -3216,7 +3238,7 @@ static void DebugShowLabels()
 {
 	if (Labels.empty())
 	{
-		DebugDisplayInfo("No labels defined.");
+		DebugDisplayInfo("No labels defined");
 	}
 	else
 	{
@@ -3236,7 +3258,12 @@ static bool DebugCmdLabels(const char* args)
 	if (StrCaseCmp(args, "show") == 0)
 	{
 		DebugShowLabels();
-		return true;
+	}
+	else if (StrCaseCmp(args, "clear") == 0)
+	{
+		Labels.clear();
+
+		DebugDisplayInfo("Labels cleared");
 	}
 	else if (_strnicmp(args, "load", 4) == 0)
 	{
@@ -3260,8 +3287,6 @@ static bool DebugCmdLabels(const char* args)
 		{
 			DebugLoadLabels(filename);
 		}
-
-		DebugShowLabels();
 	}
 
 	return true;

@@ -138,7 +138,7 @@ void DebugDisplayInfo(const char *info);
 void DebugDisplayInfoF(const char *format, ...);
 
 void DebugRunScript(const char *filename);
-bool DebugLoadSwiftLabels(const char *filename);
+bool DebugLoadLabels(const char *filename);
 
 unsigned char DebugReadMem(int addr, bool host);
 void DebugBreakExecution(DebugType type);

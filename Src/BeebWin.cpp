@@ -493,7 +493,7 @@ bool BeebWin::Initialise()
 
 	if (!m_DebugLabelsFileName.empty())
 	{
-		if (!DebugLoadSwiftLabels(m_DebugLabelsFileName.c_str()))
+		if (!DebugLoadLabels(m_DebugLabelsFileName.c_str()))
 		{
 			Report(MessageType::Error, "Failed to load symbols file:\n  %s",
 			       m_DebugLabelsFileName.c_str());

@@ -61,6 +61,33 @@ void Trim(std::string& str)
 
 /****************************************************************************/
 
+void ParseLine(const std::string& Line, std::vector<std::string>& Tokens)
+{
+	int i = 0;
+
+	while (Line[i] != '\0')
+	{
+		std::string Token;
+
+		while (Line[i] != '\0' && isspace(Line[i]))
+		{
+			i++;
+		}
+
+		while (Line[i] != '\0' && !isspace(Line[i]))
+		{
+			Token += Line[i++];
+		}
+
+		if (!Token.empty())
+		{
+			Tokens.push_back(Token);
+		}
+	}
+}
+
+/****************************************************************************/
+
 bool ParseNumber(const std::string& str, int* pValue)
 {
 	try
@@ -87,6 +114,22 @@ int ParseNumber(const char* Name, const std::string& str, int Min, int Max)
 	}
 
 	return Value;
+}
+
+/****************************************************************************/
+
+bool ParseHexNumber(const std::string& str, unsigned long* pValue)
+{
+	try
+	{
+		*pValue = std::stoul(str, nullptr, 16);
+	}
+	catch (std::exception&)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 /****************************************************************************/

@@ -833,33 +833,6 @@ Fail:
 
 //---------------------------------------------------------------------------
 
-static void ParseConfigLine(const std::string& Line, std::vector<std::string>& Tokens)
-{
-	int i = 0;
-
-	while (Line[i] != '\0')
-	{
-		std::string Token;
-
-		while (Line[i] != '\0' && isspace(Line[i]))
-		{
-			i++;
-		}
-
-		while (Line[i] != '\0' && !isspace(Line[i]))
-		{
-			Token += Line[i++];
-		}
-
-		if (!Token.empty())
-		{
-			Tokens.push_back(Token);
-		}
-	}
-}
-
-//---------------------------------------------------------------------------
-
 // Read Econet.cfg file into network table
 
 static bool ReadEconetConfigFile()
@@ -910,7 +883,7 @@ static bool ReadEconetConfigFile()
 
 		std::vector<std::string> Tokens;
 
-		ParseConfigLine(Line, Tokens);
+		ParseLine(Line, Tokens);
 
 		if (Tokens.size() == 4)
 		{
@@ -1049,7 +1022,7 @@ static bool ReadAUNConfigFile()
 
 		std::vector<std::string> Tokens;
 
-		ParseConfigLine(Line, Tokens);
+		ParseLine(Line, Tokens);
 
 		if (Tokens.size() == 3 && StrCaseCmp("ADDMAP", Tokens[0].c_str()) == 0)
 		{

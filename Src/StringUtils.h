@@ -22,10 +22,13 @@ Boston, MA  02110-1301, USA.
 #define STRING_UTILS_HEADER
 
 #include <string>
+#include <vector>
 
 void Trim(std::string& str);
+void ParseLine(const std::string& Line, std::vector<std::string>& Tokens);
 bool ParseNumber(const std::string& str, int* pValue);
 int ParseNumber(const char* Name, const std::string& str, int Min, int Max);
+bool ParseHexNumber(const std::string& str, unsigned long* pValue);
 char ToHexDigit(int Value);
 std::string BytesToString(const unsigned char* pData, int Length);
 bool StringEndsWith(const std::string& str, const std::string& suffix);
