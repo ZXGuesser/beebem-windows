@@ -18,6 +18,11 @@ Contributors: Chris Needham, Alistair Cree, Ken Lowe, Tom Seddon
   Text to Speech is enabled. This message is now only spoken when you
   enable Text to Speech via the menu, or on loading a Preferences file that
   has Text to Speech enabled.
+* The -DebugLabels command line option and "labels load" debugger command
+  now accept either BeebAsm or VICE format label files.
+* Added a "labels clear" debugger command to clear all existing labels.
+* The "peek" and "poke" debugger commands can now read and write memory
+  in all Tube coprocessors.
 * BeebEm can now be compiled wthout requiring the DirectX9 SDK to be
   installed.
 
