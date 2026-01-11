@@ -3335,12 +3335,14 @@ static bool DebugCmdHelp(const char* args)
 	char aliasInfo[300];
 	aliasInfo[0] = 0;
 
-	if(args[0] == '\0')
+	if (args[0] == '\0')
 	{
-		DebugDisplayInfo("- BeebEm debugger help -");
-		DebugDisplayInfo("  Parameters in [] are optional. 'p' can be specified in some commands");
-		DebugDisplayInfo("  to specify parasite processor. Words preceded with a . will be");
-		DebugDisplayInfo("  interpreted as labels and may be used in place of addresses.");
+		DebugDisplayInfo("");
+		DebugDisplayInfo("BeebEm debugger help");
+		DebugDisplayInfo("");
+		DebugDisplayInfo("Parameters in [] are optional. 'p' can be specified in some commands");
+		DebugDisplayInfo("to specify parasite processor. Words preceded with a . will be");
+		DebugDisplayInfo("interpreted as labels and may be used in place of addresses.");
 
 		// Display help for basic commands:
 		for (int i = 0; i < _countof(DebugCmdTable); i++)
