@@ -68,6 +68,9 @@ class Master512CoPro
 		void Reset();
 		void Execute(int Cycles);
 
+		uint8_t DebugReadMemory(uint32_t Address);
+		void DebugWriteMemory(uint32_t Address, uint8_t Data);
+
 		void SaveState(FILE *SUEF);
 		void LoadState(FILE *SUEF);
 

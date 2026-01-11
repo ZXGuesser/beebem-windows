@@ -91,15 +91,22 @@ CSprowCoPro::InitResult CSprowCoPro::Init(const char* ROMPath)
 
 void CSprowCoPro::Reset()
 {
-    // ARMul_EmulateInit();
-    // m_State = ARMul_NewState();
-    m_State->ROMDataPtr = m_ROMMemory;
     ticks = GetTickCount();
     m_State->pc = 0x000;
     m_State->Reg[15] = 0x000;
     ARMul_WriteWord(m_State, RMPCON, 0);
     ARMul_WriteWord(m_State, ROMSEL, 1);
     m_CycleCount = 0;
+}
+
+unsigned char CSprowCoPro::DebugReadMemory(int Address)
+{
+	return (unsigned char)ARMul_ReadByte(m_State, Address);
+}
+
+void CSprowCoPro::DebugWriteMemory(int Address, unsigned char Data)
+{
+	ARMul_WriteByte(m_State, Address, Data);
 }
 
 // Execute a number of 64MHz cycles

@@ -42,6 +42,9 @@ class CSprowCoPro
 		void Execute(int Count);
 		void Reset();
 
+		unsigned char DebugReadMemory(int Address);
+		void DebugWriteMemory(int Address, unsigned char Data);
+
 		void SaveState(FILE* SUEF);
 		void LoadState(FILE* SUEF);
 

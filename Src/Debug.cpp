@@ -40,13 +40,16 @@ Boston, MA  02110-1301, USA.
 
 #include "Debug.h"
 #include "6502core.h"
+#include "Arm.h"
 #include "BeebMem.h"
 #include "DebugTrace.h"
 #include "Econet.h"
 #include "FileDialog.h"
 #include "Main.h"
+#include "Master512CoPro.h"
 #include "Resource.h"
 #include "Serial.h"
+#include "SprowCoPro.h"
 #include "StringUtils.h"
 #include "SysVia.h"
 #include "Tube.h"
@@ -1015,6 +1018,91 @@ static const InstInfo* GetOpcodeTable(bool host)
 
 /****************************************************************************/
 
+static int DebugGetAddressBits(bool Host)
+{
+	static int AddressBits[7] =
+	{
+		16, // None (host)
+		16, // Acorn65C02
+		32, // Master512CoPro
+		16, // AcornZ80
+		16, // TorchZ80
+		32, // AcornArm
+		32  // SprowArm
+	};
+
+	if (Host)
+	{
+		return AddressBits[0];
+	}
+	else
+	{
+		return AddressBits[static_cast<int>(TubeType)];
+	}
+}
+
+/****************************************************************************/
+
+static int DebugGetMaxAddress(bool Host)
+{
+	static int MaxAddress[7] =
+	{
+		0xFFFF,    // None (host)
+		0xFFFF,    // Acorn65C02
+		0xFFFFF,   // Master512CoPro
+		0xFFFF,    // AcornZ80
+		0xFFFF,    // TorchZ80
+		0x3FFFFFF, // AcornArm
+		0x3FFFFFF  // SprowArm
+	};
+
+	if (Host)
+	{
+		return MaxAddress[0];
+	}
+	else
+	{
+		return MaxAddress[static_cast<int>(TubeType)];
+	}
+}
+
+/****************************************************************************/
+
+static bool DebugIsIOAddress(unsigned long Address, bool Host)
+{
+	if (Host)
+	{
+		return Address >= 0xFC00 && Address < 0xFF00;
+	}
+	else
+	{
+		switch (TubeType)
+		{
+			case TubeDevice::Acorn65C02:
+				return Address >= 0xFEF8 && Address < 0xFF00;
+
+			case TubeDevice::Master512CoPro:
+			case TubeDevice::AcornZ80:
+			case TubeDevice::TorchZ80:
+				return false;
+
+			case TubeDevice::AcornArm:
+				return (Address & ~0x1f) == 0x1000000;
+
+			case TubeDevice::SprowArm:
+				return Address >= 0xF0000000 && Address <= 0xF0000010;
+
+			case TubeDevice::None:
+			default:
+				break;
+		}
+	}
+
+	return false;
+}
+
+/****************************************************************************/
+
 static int DebugFindLabel(const char *label)
 {
 	for (size_t i = 0; i < Labels.size(); ++i)
@@ -1031,6 +1119,7 @@ static int DebugFindLabel(const char *label)
 /****************************************************************************/
 
 static bool ParseAddressOrLabel(const char* pszAddress,
+                                bool Host,
                                 unsigned long* pAddress,
                                 const char** ppszLabel)
 {
@@ -1060,7 +1149,7 @@ static bool ParseAddressOrLabel(const char* pszAddress,
 	else if (ParseHexNumber(pszAddress, pAddress))
 	{
 		// Wrap values outside the address range
-		*pAddress &= 0xFFFF;
+		*pAddress &= DebugGetMaxAddress(Host);
 	}
 	else
 	{
@@ -2552,7 +2641,7 @@ static bool DebugCmdGoto(const char* args)
 		return false;
 	}
 
-	if (!ParseAddressOrLabel(Args[Index].c_str(), &Address, nullptr))
+	if (!ParseAddressOrLabel(Args[Index].c_str(), Host, &Address, nullptr))
 	{
 		return true;
 	}
@@ -2733,7 +2822,7 @@ static bool DebugCmdPoke(const char* args)
 		return false;
 	}
 
-	if (!ParseAddressOrLabel(Args[Index].c_str(), &StartAddress, nullptr))
+	if (!ParseAddressOrLabel(Args[Index].c_str(), Host, &StartAddress, nullptr))
 	{
 		return true;
 	}
@@ -2964,7 +3053,7 @@ static bool DebugCmdCode(const char* args)
 
 	if (Index < Args.size())
 	{
-		if (!ParseAddressOrLabel(Args[Index].c_str(), &Address, nullptr))
+		if (!ParseAddressOrLabel(Args[Index].c_str(), Host, &Address, nullptr))
 		{
 			return true;
 		}
@@ -3033,7 +3122,7 @@ static bool DebugCmdPeek(const char* args)
 	{
 		unsigned long Address;
 
-		if (!ParseAddressOrLabel(Args[Index].c_str(), &Address, nullptr))
+		if (!ParseAddressOrLabel(Args[Index].c_str(), Host, &Address, nullptr))
 		{
 			return true;
 		}
@@ -3063,7 +3152,7 @@ static bool DebugCmdPeek(const char* args)
 
 	DumpAddress += Count;
 
-	if (DumpAddress > 0xFFFF)
+	if (DumpAddress > DebugGetMaxAddress(Host))
 	{
 		DumpAddress = 0;
 	}
@@ -3484,7 +3573,7 @@ static bool DebugCmdWatch(const char* args)
 
 	unsigned long Address;
 
-	if (!ParseAddressOrLabel(Args[Index].c_str(), &Address, &pszLabel))
+	if (!ParseAddressOrLabel(Args[Index].c_str(), w.host, &Address, &pszLabel))
 	{
 		return true;
 	}
@@ -3587,7 +3676,7 @@ static bool DebugCmdToggleBreak(const char* args)
 
 	if (SeparatorPos == std::string::npos)
 	{
-		if (ParseAddressOrLabel(Args[0].c_str(), &Address, &pszLabel))
+		if (ParseAddressOrLabel(Args[0].c_str(), true, &Address, &pszLabel))
 		{
 			bp.start = (int)Address;
 		}
@@ -3601,7 +3690,7 @@ static bool DebugCmdToggleBreak(const char* args)
 		std::string Start = Args[0].substr(0, SeparatorPos);
 		std::string End   = Args[0].substr(SeparatorPos + 1);
 
-		if (ParseAddressOrLabel(Start.c_str(), &Address, &pszLabel))
+		if (ParseAddressOrLabel(Start.c_str(), true, &Address, &pszLabel))
 		{
 			bp.start = (int)Address;
 		}
@@ -3610,7 +3699,7 @@ static bool DebugCmdToggleBreak(const char* args)
 			return true;
 		}
 
-		if (ParseAddressOrLabel(End.c_str(), &Address, nullptr))
+		if (ParseAddressOrLabel(End.c_str(), true, &Address, nullptr))
 		{
 			bp.end = (int)Address;
 		}
@@ -3689,37 +3778,85 @@ static bool DebugCmdToggleBreak(const char* args)
  * End of debugger command handlers                           *
  **************************************************************/
 
-unsigned char DebugReadMem(int addr, bool host)
+unsigned char DebugReadMem(int Address, bool Host)
 {
-	if (host)
+	if (Host)
 	{
-		return BeebReadMem(addr);
-	}
-	else if (TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80)
-	{
-		return ReadZ80Mem(addr);
+		return BeebReadMem(Address);
 	}
 	else
 	{
-		return TubeReadMem(addr);
+		switch (TubeType)
+		{
+			case TubeDevice::Acorn65C02:
+				return TubeReadMem(Address);
+
+			case TubeDevice::Master512CoPro:
+				return master512CoPro.DebugReadMemory(Address);
+
+			case TubeDevice::AcornZ80:
+			case TubeDevice::TorchZ80:
+				return ReadZ80Mem(Address);
+
+			case TubeDevice::AcornArm: {
+				unsigned char Data;
+
+				if (arm->readByte(Address, Data))
+				{
+					return Data;
+				}
+				break;
+			}
+
+			case TubeDevice::SprowArm:
+				return sprow->DebugReadMemory(Address);
+
+			case TubeDevice::None:
+			default:
+				break;
+		}
 	}
+
+	return 0;
 }
 
 /****************************************************************************/
 
-static void DebugWriteMem(int addr, bool host, unsigned char data)
+static void DebugWriteMem(int Address, bool Host, unsigned char Data)
 {
-	if (host)
+	if (Host)
 	{
-		BeebWriteMem(addr, data);
-	}
-	else if (TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80)
-	{
-		WriteZ80Mem(addr, data);
+		BeebWriteMem(Address, Data);
 	}
 	else
 	{
-		TubeWriteMem(addr, data);
+		switch (TubeType)
+		{
+			case TubeDevice::Acorn65C02:
+				TubeWriteMem(Address, Data);
+				break;
+
+			case TubeDevice::Master512CoPro:
+				master512CoPro.DebugWriteMemory(Address, Data);
+				break;
+
+			case TubeDevice::AcornZ80:
+			case TubeDevice::TorchZ80:
+				WriteZ80Mem(Address, Data);
+				break;
+
+			case TubeDevice::AcornArm:
+				arm->writeByte(Address, Data);
+				break;
+
+			case TubeDevice::SprowArm:
+				sprow->DebugWriteMemory(Address, Data);
+				break;
+
+			case TubeDevice::None:
+			default:
+				break;
+		}
 	}
 }
 
@@ -3946,61 +4083,98 @@ static int DebugDisassembleCommand(int addr, int count, bool host)
 
 /****************************************************************************/
 
-static void DebugMemoryDump(int addr, int count, bool host)
+static void DebugMemoryDump(int StartAddress, int Count, bool Host)
 {
-	if (count > MAX_LINES * 16)
+	if (Count > MAX_LINES * 16)
 	{
-		count = MAX_LINES * 16;
+		Count = MAX_LINES * 16;
 	}
 
-	int s = addr & 0xfff0;
-	int e = (addr + count - 1) | 0xf;
+	StartAddress &= ~0xF;
+	int EndAddress = (StartAddress + Count - 1) | 0xF;
 
-	if (e > 0xffff)
+	const int MaxAddress = DebugGetMaxAddress(Host);
+
+	if (EndAddress > MaxAddress)
 	{
-		e = 0xffff;
+		EndAddress = MaxAddress;
 	}
 
-	DebugDisplayInfo("       0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F 0123456789ABCDEF");
-
-	for (int a = s; a < e; a += 16)
+	if (StartAddress >= EndAddress)
 	{
-		char info[80];
-		char* p = info;
-		p += sprintf(p, "%04X  ", a);
+		return;
+	}
 
-		if (host && a >= 0xfc00 && a < 0xff00)
+	const int AddressWidth = DebugGetAddressBits(Host) / 4;
+
+	DebugDisplayInfo("");
+
+	// Header row
+
+	char Info[80];
+	char* p = Info;
+
+	for (int i = 0; i < AddressWidth; ++i)
+	{
+		*p++ = ' ';
+	}
+
+	*p++ = ' ';
+	*p++ = ' ';
+
+	for (int i = 0; i < 16; ++i)
+	{
+		*p++ = (char)toupper(ToHexDigit(i));
+		*p++ = ' ';
+		*p++ = ' ';
+	}
+
+	*p++ = ' ';
+
+	for (int i = 0; i < 16; ++i)
+	{
+		*p++ = (char)toupper(ToHexDigit(i));
+	}
+
+	*p = '\0';
+
+	DebugDisplayInfo(Info);
+
+	// Data rows
+
+	for (int Address = StartAddress; Address < EndAddress; Address += 16)
+	{
+		ZeroMemory(Info, sizeof(Info));
+		p = Info;
+
+		p += sprintf(p, "%0*X  ", AddressWidth, Address);
+
+		for (int i = 0; i < 16; ++i)
 		{
-			p += sprintf(p, "IO space");
-		}
-		else
-		{
-			for (int b = 0; b < 16; ++b)
+			if (DebugIsIOAddress(Address + i, Host))
 			{
-				if (!host && (a+b) >= 0xfef8 && (a+b) < 0xff00 && !(TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80))
-				{
-					p += sprintf(p, "IO ");
-				}
-				else
-				{
-					p += sprintf(p, "%02X ", DebugReadMem(a + b, host));
-				}
-			}
+				p += sprintf(p, "IO ");
 
-			for (int b = 0; b < 16; ++b)
+				Info[AddressWidth + 2 + 16 * 3 + 1 + i] = '.';
+			}
+			else
 			{
-				if (host || (a+b) < 0xfef8 || (a+b) >= 0xff00)
+				int Value = DebugReadMem(Address + i, Host);
+
+				p += sprintf(p, "%02X ", Value);
+
+				if (!isprint(Value))
 				{
-					int v = DebugReadMem(a+b, host);
-					if (v < 32 || v > 127)
-						v = '.';
-					*p++ = (char)v;
-					*p = '\0';
+					Value = '.';
 				}
+
+				Info[AddressWidth + 2 + 16 * 3 + 1 + i] = (char)Value;
 			}
 		}
 
-		DebugDisplayInfo(info);
+		*p++ = ' ';
+
+		DebugDisplayInfo(Info);
 	}
 }
 

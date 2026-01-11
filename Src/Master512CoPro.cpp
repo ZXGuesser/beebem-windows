@@ -3815,6 +3815,23 @@ void Master512CoPro::DoDMA()
 	}
 }
 
+uint8_t Master512CoPro::DebugReadMemory(uint32_t Address)
+{
+	if (Address < 0x100000)
+	{
+		return read_byte(Address);
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+void Master512CoPro::DebugWriteMemory(uint32_t Address, uint8_t Data)
+{
+	write_byte(Address, Data);
+}
+
 void Master512CoPro::SaveState(FILE *SUEF)
 {
 	UEFWriteBuf(m_Memory, 0x100000, SUEF);
