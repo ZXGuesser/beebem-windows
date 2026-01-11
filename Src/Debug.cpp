@@ -2949,7 +2949,16 @@ static bool DebugCmdSave(const char* args)
 
 static bool DebugCmdState(const char* args)
 {
-	switch (tolower(args[0]))
+	std::vector<std::string> Args;
+
+	ParseLine(args, Args);
+
+	if (Args.size() != 1)
+	{
+		return false;
+	}
+
+	switch (tolower(Args[0][0]))
 	{
 		case 'v': // Video state
 			DebugVideoState();
@@ -3240,73 +3249,71 @@ static bool DebugCmdOver(const char* args)
 
 static bool DebugCmdSet(const char* args)
 {
-	char name[20];
-	char state[4];
-	bool checked = false;
-	int dlgItem = 0;
+	std::vector<std::string> Args;
 
-	if (sscanf(args, "%s %s", name, state) == 2)
+	ParseLine(args, Args);
+
+	if (Args.size() != 2)
 	{
-		//host/parasite/rom/os/bigendian/breakpoint/decimal/brk
-		if (StrCaseCmp(state, "on") == 0)
-		{
-			checked = true;
-		}
+		return false;
+	}
 
-		if (StrCaseCmp(name, "host") == 0)
-		{
-			dlgItem = IDC_DEBUGHOST;
-			DebugHost = checked;
-		}
-		else if (StrCaseCmp(name, "parasite") == 0)
-		{
-			dlgItem = IDC_DEBUGPARASITE;
-			DebugParasite = checked;
-		}
-		else if (StrCaseCmp(name, "rom") == 0)
-		{
-			dlgItem = IDC_DEBUGROM;
-			DebugROM = checked;
-		}
-		else if (StrCaseCmp(name, "os") == 0)
-		{
-			dlgItem = IDC_DEBUGOS;
-			DebugOS = checked;
-		}
-		else if (StrCaseCmp(name, "endian") == 0)
-		{
-			dlgItem = IDC_WATCHENDIAN;
-			WatchBigEndian = checked;
-			DebugUpdateWatches(true);
-		}
-		else if (StrCaseCmp(name, "breakpoints") == 0)
-		{
-			dlgItem = IDC_DEBUGBPS;
-			BPSOn = checked;
-		}
-		else if (StrCaseCmp(name, "decimal") == 0)
-		{
-			dlgItem = IDC_WATCHDECIMAL;
-			WatchDecimal = checked;
-		}
-		else if (StrCaseCmp(name, "brk") == 0)
-		{
-			dlgItem = IDC_DEBUGBRK;
-			DebugBreakEnable[(int)DebugType::BRK] = checked;
-		}
-		else
-		{
-			return false;
-		}
+	const char* pszFlag = Args[0].c_str();
+	const char* pszState = Args[1].c_str();
 
-		SetDlgItemChecked(hwndDebug, dlgItem, checked);
+	bool Checked = StrCaseCmp(pszState, "on") == 0;
 
-		return true;
+	int DlgItemID = 0;
+
+	if (StrCaseCmp(pszFlag, "host") == 0)
+	{
+		DlgItemID = IDC_DEBUGHOST;
+		DebugHost = Checked;
+	}
+	else if (StrCaseCmp(pszFlag, "parasite") == 0)
+	{
+		DlgItemID = IDC_DEBUGPARASITE;
+		DebugParasite = Checked;
+	}
+	else if (StrCaseCmp(pszFlag, "rom") == 0)
+	{
+		DlgItemID = IDC_DEBUGROM;
+		DebugROM = Checked;
+	}
+	else if (StrCaseCmp(pszFlag, "os") == 0)
+	{
+		DlgItemID = IDC_DEBUGOS;
+		DebugOS = Checked;
+	}
+	else if (StrCaseCmp(pszFlag, "endian") == 0)
+	{
+		DlgItemID = IDC_WATCHENDIAN;
+		WatchBigEndian = Checked;
+		DebugUpdateWatches(true);
+	}
+	else if (StrCaseCmp(pszFlag, "breakpoints") == 0)
+	{
+		DlgItemID = IDC_DEBUGBPS;
+		BPSOn = Checked;
+	}
+	else if (StrCaseCmp(pszFlag, "decimal") == 0)
+	{
+		DlgItemID = IDC_WATCHDECIMAL;
+		WatchDecimal = Checked;
+	}
+	else if (StrCaseCmp(pszFlag, "brk") == 0)
+	{
+		DlgItemID = IDC_DEBUGBRK;
+		DebugBreakEnable[(int)DebugType::BRK] = Checked;
 	}
 	else
 	{
 		return false;
 	}
+
+	SetDlgItemChecked(hwndDebug, DlgItemID, Checked);
+
+	return true;
 }
 
 /****************************************************************************/
