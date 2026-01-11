@@ -2669,7 +2669,7 @@ static bool DebugCmdFile(const char* args)
 	unsigned char Buffer[MAX_BUFFER];
 	int Count = MAX_BUFFER;
 	char FileName[MAX_PATH];
-	memset(FileName, 0, MAX_PATH);
+	ZeroMemory(FileName, MAX_PATH);
 
 	int Result = sscanf(args,"%c %x %u %259c", &Mode, &StartAddress, &Count, FileName);
 
@@ -2690,7 +2690,7 @@ static bool DebugCmdFile(const char* args)
 		{
 			if (!Dialog.Save())
 			{
-				return false;
+				return true;
 			}
 
 			// Add a file extension if the user did not specify one
@@ -2703,7 +2703,7 @@ static bool DebugCmdFile(const char* args)
 		{
 			if (!Dialog.Open())
 			{
-				return false;
+				return true;
 			}
 		}
 	}
@@ -2871,7 +2871,7 @@ static bool DebugCmdSave(const char* args)
 	char* info = NULL;
 	int infoSize = 0;
 	char filename[MAX_PATH];
-	memset(filename, 0, MAX_PATH);
+	ZeroMemory(filename, MAX_PATH);
 
 	int result = sscanf(args, "%u %259c", &count, filename);
 
@@ -2887,7 +2887,7 @@ static bool DebugCmdSave(const char* args)
 
 		if (!Dialog.Save())
 		{
-			return false;
+			return true;
 		}
 
 		// Add a file extension if the user did not specify one
@@ -3455,7 +3455,7 @@ static bool DebugCmdScript(const char* args)
 
 		if (!Dialog.Open())
 		{
-			return false;
+			return true;
 		}
 	}
 
@@ -3531,6 +3531,10 @@ static bool DebugCmdLabels(const char* args)
 		{
 			DebugLoadLabels(filename);
 		}
+	}
+	else
+	{
+		return false;
 	}
 
 	return true;
