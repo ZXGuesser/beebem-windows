@@ -95,7 +95,7 @@
 
         <tr>
           <td><span class="ui">Attach to Parasite</span></td>
-          <td>Debugs the second processor</td>
+          <td>Debugs the Tube second processor</td>
         </tr>
 
         <tr>
@@ -145,10 +145,9 @@
       <p>
         Parameters in <span class="cmd">[]</span> are optional.
         <span class="cmd">p</span> can be specified in some commands to specify
-        the parasite processor. Words preceded with a <span class="cmd">.</span>
-        are interpreted as labels and may be used in place of addresses.
+        the parasite (Tube) processor. Labels (preceded by a
+        "<span class="cmd">.</span>") may be used in place of addresses.
       </p>
-
 
       <table class="syntax">
         <tr>
@@ -161,7 +160,9 @@
           <td><span class="cmd">breakpoint &lt;start&gt;[-&lt;end&gt;] [&lt;name&gt;]</span></td>
           <td><span class="cmd">b</span>, <span class="cmd">bp</span></td>
           <td>
-            Set or clear a breakpoint or break range
+            Set or clear a breakpoint or break range. The breakpoint can be
+            given a name, which defaults to the label for the start address
+            if <span class="cmd">name</span> is not given
           </td>
         </tr>
 
@@ -227,7 +228,8 @@
           <td><span class="cmd">peek [p] [&lt;start&gt;] [&lt;count&gt;]</span></td>
           <td><span class="cmd">m</span></td>
           <td>
-            Dump memory to the console
+            Dump memory to the console. If not given, the start address continues
+            from the last memory region dumped
           </td>
         </tr>
 
@@ -235,7 +237,8 @@
           <td><span class="cmd">code [p] [&lt;start&gt;] [&lt;count&gt;]</span></td>
           <td><span class="cmd">d</span></td>
           <td>
-            Disassemble the specified memory range
+            Disassemble the specified memory range. If not given, the start address
+            continues from the last address disassembled
           </td>
         </tr>
 
@@ -243,7 +246,9 @@
           <td><span class="cmd">watch [p] &lt;addr&gt; [&lt;b|w|d&gt;] [&lt;name&gt;]</span></td>
           <td><span class="cmd">e</span></td>
           <td>
-            Set or clear a byte, word, or dword memory watch at a given address
+            Set or clear a byte, word, or dword memory watch at a given address.
+            The watch can be given a name, which defaults to the label for the
+            given address if <span class="cmd">name</span> is not given
           </td>
         </tr>
 
