@@ -2163,11 +2163,13 @@ static bool DebugParseSwiftLabels(const std::string& Line)
 			Label label;
 			label.name = symbol;
 
-			try
+			if (!ParseNumber(address, &label.addr))
 			{
-				label.addr = std::stoi(address);
+				Valid = false;
+				break;
 			}
-			catch (const std::exception&)
+
+			if (label.addr < 0 || label.addr > 0xFFFF)
 			{
 				Valid = false;
 				break;

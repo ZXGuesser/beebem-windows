@@ -92,7 +92,14 @@ bool ParseNumber(const std::string& str, int* pValue)
 {
 	try
 	{
-		*pValue = std::stoi(str);
+		std::size_t Pos = 0;
+
+		*pValue = std::stoi(str, &Pos);
+
+		if (Pos != str.size())
+		{
+			return false;
+		}
 	}
 	catch (std::exception&)
 	{
@@ -106,7 +113,12 @@ bool ParseNumber(const std::string& str, int* pValue)
 
 int ParseNumber(const char* Name, const std::string& str, int Min, int Max)
 {
-	int Value = std::stoi(str);
+	int Value = 0;
+
+	if (!ParseNumber(str, &Value))
+	{
+		throw std::invalid_argument(Name);
+	}
 
 	if (Value < Min || Value > Max)
 	{
@@ -122,7 +134,14 @@ bool ParseHexNumber(const std::string& str, unsigned long* pValue)
 {
 	try
 	{
-		*pValue = std::stoul(str, nullptr, 16);
+		std::size_t Pos = 0;
+
+		*pValue = std::stoul(str, &Pos, 16);
+
+		if (Pos != str.size())
+		{
+			return false;
+		}
 	}
 	catch (std::exception&)
 	{
