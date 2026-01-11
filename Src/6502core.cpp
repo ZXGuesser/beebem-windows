@@ -3350,7 +3350,7 @@ static void PollHardware(unsigned int nCycles)
 
 /*-------------------------------------------------------------------------*/
 
-// Covert time in milliseconds to cycles at 2MHz.
+// Convert time in milliseconds to cycles at 2MHz.
 
 int MillisecondsToCycles(int Time)
 {
@@ -3359,7 +3359,7 @@ int MillisecondsToCycles(int Time)
 
 /*-------------------------------------------------------------------------*/
 
-// Covert time in microseconds to cycles at 2MHz.
+// Convert time in microseconds to cycles at 2MHz.
 
 int MicrosecondsToCycles(int Time)
 {
