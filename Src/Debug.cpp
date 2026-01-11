@@ -2652,10 +2652,28 @@ static bool DebugCmdGoto(const char* args)
 	}
 	else
 	{
-		TubeProgramCounter = (int)Address;
+		switch (TubeType)
+		{
+			case TubeDevice::Acorn65C02:
+				TubeProgramCounter = (int)Address;
+				break;
+
+			case TubeDevice::Master512CoPro:
+			case TubeDevice::AcornZ80:
+			case TubeDevice::TorchZ80:
+			case TubeDevice::AcornArm:
+			case TubeDevice::SprowArm:
+			case TubeDevice::None:
+			default:
+				DebugDisplayInfo("Not implemented for this coprocessor");
+				return true;
+		}
 	}
 
-	DebugDisplayInfoF("Next %s instruction address 0x%04X", Host ? "host" : "parasite", Address);
+	const int AddressWidth = DebugGetAddressBits(Host) / 4;
+
+	DebugDisplayInfoF("Next %s instruction address 0x%0*X",
+	                  Host ? "host" : "parasite", AddressWidth, Address);
 
 	return true;
 }
