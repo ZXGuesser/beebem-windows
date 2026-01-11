@@ -1015,6 +1015,64 @@ static const InstInfo* GetOpcodeTable(bool host)
 
 /****************************************************************************/
 
+static int DebugFindLabel(const char *label)
+{
+	for (size_t i = 0; i < Labels.size(); ++i)
+	{
+		if (StrCaseCmp(label, Labels[i].name.c_str()) == 0)
+		{
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+/****************************************************************************/
+
+static bool ParseAddressOrLabel(const char* pszAddress,
+                                unsigned long* pAddress,
+                                const char** ppszLabel)
+{
+	bool Success = true;
+
+	if (pszAddress[0] == '.')
+	{
+		const char* pszLabel = pszAddress + 1;
+
+		int Index = DebugFindLabel(pszLabel);
+
+		if (Index >= 0)
+		{
+			*pAddress = (unsigned long)Labels[Index].addr;
+
+			if (ppszLabel != nullptr)
+			{
+				*ppszLabel = Labels[Index].name.c_str();
+			}
+		}
+		else
+		{
+			DebugDisplayInfoF("Unknown label: %s", pszLabel);
+			Success = false;
+		}
+	}
+	else if (ParseHexNumber(pszAddress, pAddress))
+	{
+		// Wrap values outside the address range
+		*pAddress &= 0xFFFF;
+	}
+	else
+	{
+		DebugDisplayInfoF("Invalid address: %s", pszAddress);
+		Success = false;
+	}
+
+	return Success;
+}
+
+/****************************************************************************/
+
 static bool IsDlgItemChecked(HWND hDlg, int nIDDlgItem)
 {
 	return SendDlgItemMessage(hDlg, nIDDlgItem, BM_GETCHECK, 0, 0) == BST_CHECKED;
@@ -2328,17 +2386,6 @@ static void DebugChompString(char *str)
 
 /****************************************************************************/
 
-static int DebugFindLabel(const char *label)
-{
-	auto it = std::find_if(Labels.begin(), Labels.end(), [=](const Label& Label) {
-		return StrCaseCmp(label, Label.name.c_str()) == 0;
-	});
-
-	return it != Labels.end() ? it->addr : -1;
-}
-
-/****************************************************************************/
-
 static void DebugHistoryAdd(const char *command)
 {
 	// Do nothing if this is the same as the last command
@@ -2439,58 +2486,20 @@ static void DebugParseCommand(const char *command)
 		p++;
 	}
 
-	const char *args = p;
-
-	// Resolve labels:
-	while (args[0] != '\0')
+	while (isspace(*p) && *p != '\0')
 	{
-		if (isspace(args[0]) && args[1] == '.')
-		{
-			char label[65];
-
-			if (sscanf(&args[2], "%64s", label) == 1)
-			{
-				// Try to resolve label:
-				int addr = DebugFindLabel(label);
-
-				if (addr == -1)
-				{
-					DebugDisplayInfoF("Error: Label %s not found", label);
-					return;
-				}
-
-				char addrStr[6];
-				sprintf(addrStr, " %04X", addr);
-				strncat(info, addrStr, _countof(addrStr));
-				args += strnlen(label,_countof(label)) + 1;
-			}
-		}
-		else
-		{
-			size_t end = strnlen(info, _countof(info));
-			info[end] = args[0];
-			info[end + 1] = '\0';
-		}
-
-		args++;
-	}
-
-	args = info;
-
-	while (isspace(args[0]))
-	{
-		args++;
+		p++;
 	}
 
 	SetDlgItemText(hwndDebug, IDC_DEBUGCOMMAND, "");
 
-	for (int i = 0; i < _countof(DebugCmdTable); i++)
+	for (size_t i = 0; i < _countof(DebugCmdTable); i++)
 	{
 		if (StrCaseCmp(DebugCmdTable[i].name, cmd.c_str()) == 0)
 		{
-			if (!DebugCmdTable[i].handler(args))
+			if (!DebugCmdTable[i].handler(p))
 			{
-				DebugCmdHelp(command);
+				DebugCmdHelp(cmd.c_str());
 			}
 
 			return;
@@ -2514,33 +2523,52 @@ static bool DebugCmdEcho(const char* args)
 
 static bool DebugCmdGoto(const char* args)
 {
-	bool host = true;
-	int addr = 0;
+	std::vector<std::string> Args;
 
-	if (tolower(args[0]) == 'p') // Parasite
+	ParseLine(args, Args);
+
+	if (Args.empty())
 	{
-		host = false;
-		args++;
+		return false;
 	}
 
-	if (sscanf(args, "%x", &addr) == 1)
+	bool Host = true;
+	unsigned long Address = 0;
+	size_t Index = 0;
+
+	// Host / parasite
+
+	if (StrCaseCmp(Args[Index].c_str(), "p") == 0)
 	{
-		addr = addr & 0xffff;
+		Host = false;
 
-		if (host)
-		{
-			ProgramCounter = addr;
-		}
-		else
-		{
-			TubeProgramCounter = addr;
-		}
+		Index++;
+	}
 
-		DebugDisplayInfoF("Next %s instruction address 0x%04X", host ? "host" : "parasite", addr);
+	// Address
+
+	if (Index == Args.size())
+	{
+		return false;
+	}
+
+	if (!ParseAddressOrLabel(Args[Index].c_str(), &Address, nullptr))
+	{
 		return true;
 	}
 
-	return false;
+	if (Host)
+	{
+		ProgramCounter = (int)Address;
+	}
+	else
+	{
+		TubeProgramCounter = (int)Address;
+	}
+
+	DebugDisplayInfoF("Next %s instruction address 0x%04X", Host ? "host" : "parasite", Address);
+
+	return true;
 }
 
 /****************************************************************************/
@@ -2676,58 +2704,74 @@ static bool DebugCmdFile(const char* args)
 
 static bool DebugCmdPoke(const char* args)
 {
-	int addr, data;
-	int i = 0;
-	bool host = true;
+	std::vector<std::string> Args;
 
-	if (tolower(args[0]) == 'p') // Parasite
-	{
-		host = false;
-		args++;
-		while(args[0] == ' ')
-			args++;
-	}
+	ParseLine(args, Args);
 
-	if (sscanf(args, "%x", &addr) == 1)
-	{
-		args = strchr(args, ' ');
-		int start = addr = addr & 0xFFFF;
-		if(args == NULL)
-			return false;
-		while (args[0] != '\0')
-		{
-			while (args[0] == ' ')
-				args++;
-
-			if (sscanf(args, "%x", &data) == 1)
-			{
-				DebugWriteMem(addr, host, (unsigned char)(data & 0xff));
-				i++;
-				addr++;
-			}
-
-			// Spool past last found addr.
-			while (args[0] != ' ' && args[0] != '\0')
-			{
-				args++;
-			}
-		}
-
-		if (i == 0)
-		{
-			return false;
-		}
-		else
-		{
-			DebugUpdateWatches(true);
-			DebugDisplayInfoF("Changed %d bytes starting at 0x%04X", i, start);
-			return true;
-		}
-	}
-	else
+	if (Args.empty())
 	{
 		return false;
 	}
+
+	unsigned long StartAddress = 0;
+	bool Host = true;
+	size_t Index = 0;
+
+	// Host / parasite
+
+	if (StrCaseCmp(Args[Index].c_str(), "p") == 0)
+	{
+		Host = false;
+
+		Index++;
+	}
+
+	// Address
+
+	if (Index == Args.size())
+	{
+		return false;
+	}
+
+	if (!ParseAddressOrLabel(Args[Index].c_str(), &StartAddress, nullptr))
+	{
+		return true;
+	}
+
+	Index++;
+
+	// Data bytes
+
+	if (Index == Args.size())
+	{
+		return false;
+	}
+
+	unsigned long Address = StartAddress;
+
+	while (Index < Args.size())
+	{
+		unsigned long Data;
+
+		bool Valid = ParseHexNumber(Args[Index], &Data);
+
+		if (!Valid || Data > 0xFF)
+		{
+			DebugDisplayInfoF("Invalid data value: %s", Args[Index].c_str());
+			return true;
+		}
+
+		DebugWriteMem(Address, Host, (unsigned char)Data);
+
+		Address++;
+		Index++;
+	}
+
+	DebugUpdateWatches(true);
+
+	DebugDisplayInfoF("Changed %d bytes starting at 0x%04X", Address - StartAddress, StartAddress);
+
+	return true;
 }
 
 /****************************************************************************/
@@ -2895,26 +2939,65 @@ static bool DebugCmdState(const char* args)
 
 static bool DebugCmdCode(const char* args)
 {
-	bool host = true;
-	int count = LINES_IN_INFO;
+	std::vector<std::string> Args;
 
-	if (tolower(args[0]) == 'p') // Parasite
+	ParseLine(args, Args);
+
+	bool Host = true;
+	unsigned long Address = 0;
+	int Count = LINES_IN_INFO;
+	size_t Index = 0;
+
+	// Host / parasite
+
+	if (Index < Args.size())
 	{
-		host = false;
-		args++;
+		if (StrCaseCmp(Args[Index].c_str(), "p") == 0)
+		{
+			Host = false;
+
+			Index++;
+		}
 	}
 
-	sscanf(args, "%x %u", &DisAddress, &count);
+	// Address
 
-	DisAddress &= 0xffff;
-	DisAddress += DebugDisassembleCommand(DisAddress, count, host);
+	if (Index < Args.size())
+	{
+		if (!ParseAddressOrLabel(Args[Index].c_str(), &Address, nullptr))
+		{
+			return true;
+		}
 
-	if (DisAddress > 0xffff)
+		DisAddress = (int)Address;
+
+		Index++;
+	}
+
+	// Count
+
+	if (Index < Args.size())
+	{
+		if (!ParseNumber(Args[Index], &Count))
+		{
+			DebugDisplayInfoF("Invalid count: %s", Args[Index].c_str());
+			return true;
+		}
+
+		if (Count < 0)
+		{
+			Count = 0;
+		}
+	}
+
+	DisAddress += DebugDisassembleCommand(DisAddress, Count, Host);
+
+	if (DisAddress > 0xFFFF)
 	{
 		DisAddress = 0;
 	}
 
-	DebugSetCommandString(host ? "code" : "code p");
+	DebugSetCommandString(Host ? "code" : "code p");
 
 	return true;
 }
@@ -2923,39 +3006,109 @@ static bool DebugCmdCode(const char* args)
 
 static bool DebugCmdPeek(const char* args)
 {
-	int count = 256;
-	bool host = true;
+	int Count = 256;
+	bool Host = true;
 
-	if (tolower(args[0]) == 'p') // Parasite
+	std::vector<std::string> Args;
+
+	ParseLine(args, Args);
+
+	size_t Index = 0;
+
+	// Host / parasite
+
+	if (Index < Args.size())
 	{
-		host = false;
-		args++;
+		if (StrCaseCmp(Args[Index].c_str(), "p") == 0)
+		{
+			Host = false;
+
+			Index++;
+		}
 	}
-	sscanf(args, "%x %u", &DumpAddress, &count);
-	DumpAddress &= 0xffff;
-	DebugMemoryDump(DumpAddress, count, host);
-	DumpAddress += count;
-	if (DumpAddress > 0xffff)
+
+	// Address
+
+	if (Index < Args.size())
+	{
+		unsigned long Address;
+
+		if (!ParseAddressOrLabel(Args[Index].c_str(), &Address, nullptr))
+		{
+			return true;
+		}
+
+		DumpAddress = Address;
+
+		Index++;
+	}
+
+	// Count
+
+	if (Index < Args.size())
+	{
+		if (!ParseNumber(Args[Index], &Count))
+		{
+			DebugDisplayInfoF("Invalid count: %s", Args[Index].c_str());
+			return true;
+		}
+
+		if (Count < 0)
+		{
+			Count = 0;
+		}
+	}
+
+	DebugMemoryDump(DumpAddress, Count, Host);
+
+	DumpAddress += Count;
+
+	if (DumpAddress > 0xFFFF)
+	{
 		DumpAddress = 0;
-	DebugSetCommandString(host ? "peek" : "peek p");
+	}
+
+	DebugSetCommandString(Host ? "peek" : "peek p");
+
 	return true;
 }
 
+/****************************************************************************/
+
 static bool DebugCmdNext(const char* args)
 {
-	int count = 1;
+	std::vector<std::string> Args;
 
-	if (args[0] != '\0' && sscanf(args, "%u", &count) == 0)
+	ParseLine(args, Args);
+
+	if (Args.size() > 1)
 	{
 		return false;
 	}
 
-	if (count > MAX_LINES)
+	int Count = 1;
+
+	if (Args.size() == 1)
 	{
-		count = MAX_LINES;
+		if (!ParseNumber(Args[0], &Count))
+		{
+			DebugDisplayInfoF("Invalid count: %s", Args[0].c_str());
+			return true;
+		}
+
+		if (Count < 1)
+		{
+			DebugDisplayInfoF("Invalid count: %s", Args[0].c_str());
+			return true;
+		}
 	}
 
-	InstCount = count;
+	if (Count > MAX_LINES)
+	{
+		Count = MAX_LINES;
+	}
+
+	InstCount = Count;
 
 	DebugSetCommandString("next");
 
@@ -3298,72 +3451,115 @@ static bool DebugCmdLabels(const char* args)
 
 static bool DebugCmdWatch(const char* args)
 {
-	if (Watches.size() < MAX_BPS)
+	std::vector<std::string> Args;
+
+	ParseLine(args, Args);
+
+	if (Args.empty())
 	{
-		Watch w;
-		w.start = -1;
-		w.host = true;
-		w.type = 'w';
+		return false;
+	}
 
-		if (tolower(args[0]) == 'p') // Parasite
+	size_t Index = 0;
+	const char* pszLabel = nullptr;
+
+	Watch w;
+	w.start = -1;
+	w.host = true;
+	w.type = 'w';
+
+	if (StrCaseCmp(Args[Index].c_str(), "p") == 0) // Parasite
+	{
+		w.host = false;
+
+		Index++;
+	}
+
+	// Address
+
+	if (Index == Args.size())
+	{
+		return false;
+	}
+
+	unsigned long Address;
+
+	if (!ParseAddressOrLabel(Args[Index].c_str(), &Address, &pszLabel))
+	{
+		return true;
+	}
+
+	w.start = (int)Address;
+
+	Index++;
+
+	// Type
+
+	if (Index < Args.size())
+	{
+		if (Args[Index].size() != 1)
 		{
-			w.host = false;
-			args++;
+			DebugDisplayInfoF("Invalid watch type: %s", Args[Index].c_str());
+			return true;
 		}
 
-		char name[51];
-		memset(name, 0, _countof(name));
+		w.type = (char)tolower(Args[Index][0]);
 
-		int result = sscanf(args, "%x %c %50c", &w.start, &w.type, name);
-
-		if (result < 2) {
-			result = sscanf(args, "%x %50c", &w.start, name);
-		}
-
-		if (result != EOF)
+		// Check type is valid
+		if (w.type != 'b' && w.type != 'w' && w.type != 'd')
 		{
-			// Check type is valid
-			w.type = (char)tolower(w.type);
-			if (w.type != 'b' && w.type != 'w' && w.type != 'd')
-				return false;
-
-			w.name = name;
-
-			char info[64];
-			sprintf(info, "%s%04X", (w.host ? "" : "p"), w.start);
-
-			// Check if watch in list
-			int i = (int)SendMessage(hwndW, LB_FINDSTRING, 0, (LPARAM)info);
-
-			if (i != LB_ERR)
-			{
-				SendMessage(hwndW, LB_DELETESTRING, i, 0);
-
-				auto it = std::find_if(Watches.begin(), Watches.end(), [&w](const Watch& watch){
-					return watch.start == w.start;
-				});
-
-				Watches.erase(it);
-			}
-			else
-			{
-				Watches.push_back(w);
-
-				SendMessage(hwndW, LB_ADDSTRING, 0, (LPARAM)info);
-				DebugUpdateWatches(true);
-			}
-
-			SetDlgItemText(hwndDebug, IDC_DEBUGCOMMAND, "");
+			DebugDisplayInfoF("Invalid watch type: %s", Args[Index].c_str());
+			return true;
 		}
-		else
-		{
-			return false;
-		}
+
+		Index++;
+	}
+
+	// Name
+
+	if (Index < Args.size())
+	{
+		w.name = Args[Index];
 	}
 	else
 	{
-		DebugDisplayInfo("You have too many watches!");
+		if (pszLabel != nullptr)
+		{
+			w.name = pszLabel;
+		}
 	}
+
+	if (Watches.size() >= MAX_BPS)
+	{
+		DebugDisplayInfo("You have too many watches!");
+		return true;
+	}
+
+	char Info[64];
+	sprintf(Info, "%s%04X", (w.host ? "" : "p"), w.start);
+
+	// Check if watch in list
+	int i = (int)SendMessage(hwndW, LB_FINDSTRING, 0, (LPARAM)Info);
+
+	if (i != LB_ERR)
+	{
+		SendMessage(hwndW, LB_DELETESTRING, i, 0);
+
+		auto it = std::find_if(Watches.begin(), Watches.end(), [&w](const Watch& watch){
+			return watch.start == w.start;
+		});
+
+		Watches.erase(it);
+	}
+	else
+	{
+		Watches.push_back(w);
+
+		SendMessage(hwndW, LB_ADDSTRING, 0, (LPARAM)Info);
+		DebugUpdateWatches(true);
+	}
+
+	SetDlgItemText(hwndDebug, IDC_DEBUGCOMMAND, "");
 
 	return true;
 }
@@ -3372,71 +3568,119 @@ static bool DebugCmdWatch(const char* args)
 
 static bool DebugCmdToggleBreak(const char* args)
 {
-	if (Breakpoints.size() < MAX_BPS)
+	std::vector<std::string> Args;
+
+	ParseLine(args, Args);
+
+	if (Args.empty())
 	{
-		char name[51];
-		memset(name, 0, _countof(name));
+		return false;
+	}
 
-		Breakpoint bp;
-		bp.start = bp.end = -1;
+	const char* pszLabel = nullptr;
+	Breakpoint bp;
+	bp.start = bp.end = -1;
 
-		if (sscanf(args, "%x-%x %50c", &bp.start, &bp.end, name) >= 2 ||
-		    sscanf(args, "%x %50c", &bp.start, name) >= 1)
+	std::size_t SeparatorPos = Args[0].find('-');
+
+	unsigned long Address;
+
+	if (SeparatorPos == std::string::npos)
+	{
+		if (ParseAddressOrLabel(Args[0].c_str(), &Address, &pszLabel))
 		{
-			bp.name = name;
-
-			// Check if BP in list
-
-			char info[64];
-			sprintf(info, "%04X", bp.start);
-
-			int i = (int)SendMessage(hwndBP, LB_FINDSTRING, 0, (LPARAM)info);
-
-			if (i != LB_ERR)
-			{
-				// Yes - delete
-				SendMessage(hwndBP, LB_DELETESTRING, i, 0);
-
-				auto it = std::find_if(Breakpoints.begin(), Breakpoints.end(), [&bp](const Breakpoint& b){
-					return b.start == bp.start;
-				});
-
-				Breakpoints.erase(it);
-			}
-			else
-			{
-				if (bp.end >= 0 && bp.end < bp.start)
-				{
-					DebugDisplayInfo("Error: Invalid breakpoint range.");
-					return false;
-				}
-
-				// No - add a new bp.
-				Breakpoints.push_back(bp);
-
-				if (bp.end >= 0)
-				{
-					sprintf(info, "%04X-%04X %s", bp.start, bp.end, bp.name.c_str());
-				}
-				else
-				{
-					sprintf(info, "%04X %s", bp.start, bp.name.c_str());
-				}
-
-				SendMessage(hwndBP, LB_ADDSTRING, 0, (LPARAM)info);
-			}
-
-			SetDlgItemText(hwndDebug, IDC_DEBUGCOMMAND, "");
+			bp.start = (int)Address;
 		}
 		else
 		{
-			return false;
+			return true;
 		}
 	}
 	else
 	{
-		DebugDisplayInfo("You have too many breakpoints!");
+		std::string Start = Args[0].substr(0, SeparatorPos);
+		std::string End   = Args[0].substr(SeparatorPos + 1);
+
+		if (ParseAddressOrLabel(Start.c_str(), &Address, &pszLabel))
+		{
+			bp.start = (int)Address;
+		}
+		else
+		{
+			return true;
+		}
+
+		if (ParseAddressOrLabel(End.c_str(), &Address, nullptr))
+		{
+			bp.end = (int)Address;
+		}
+		else
+		{
+			return true;
+		}
 	}
+
+	// Set breakpoint name. Default is address label, if there is one.
+
+	if (Args.size() == 2)
+	{
+		bp.name = Args[1];
+	}
+	else
+	{
+		if (pszLabel != nullptr)
+		{
+			bp.name = pszLabel;
+		}
+	}
+
+	// Check if breakpoint already exists.
+
+	char Info[64];
+	sprintf(Info, "%04X", bp.start);
+
+	int i = (int)SendMessage(hwndBP, LB_FINDSTRING, 0, (LPARAM)Info);
+
+	if (i != LB_ERR)
+	{
+		// Yes, delete it.
+		SendMessage(hwndBP, LB_DELETESTRING, i, 0);
+
+		auto it = std::find_if(Breakpoints.begin(), Breakpoints.end(), [&bp](const Breakpoint& b) {
+			return b.start == bp.start;
+		});
+
+		Breakpoints.erase(it);
+	}
+	else
+	{
+		// No, add a new breakpoint.
+
+		if (Breakpoints.size() >= MAX_BPS)
+		{
+			DebugDisplayInfo("You have too many breakpoints!");
+			return true;
+		}
+
+		if (bp.end >= 0 && bp.end < bp.start)
+		{
+			DebugDisplayInfo("Error: Invalid breakpoint range.");
+			return true;
+		}
+
+		Breakpoints.push_back(bp);
+
+		if (bp.end >= 0)
+		{
+			sprintf(Info, "%04X-%04X", bp.start, bp.end);
+		}
+
+		std::string str = std::string(Info) + " " + bp.name;
+
+		SendMessage(hwndBP, LB_ADDSTRING, 0, (LPARAM)str.c_str());
+	}
+
+	SetDlgItemText(hwndDebug, IDC_DEBUGCOMMAND, "");
 
 	return true;
 }
