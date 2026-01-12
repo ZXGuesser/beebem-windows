@@ -786,7 +786,7 @@ public:
 	char m_CommandLineFileName1[MAX_PATH];
 	char m_CommandLineFileName2[MAX_PATH];
 	std::string m_DebugScriptFileName;
-	std::string m_DebugLabelsFileName;
+	std::string m_DebugLabelsFileName[2];
 	bool m_HasCommandLineModel;
 	Model m_CommandLineModel;
 	bool m_HasCommandLineTube;

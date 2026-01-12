@@ -491,12 +491,16 @@ bool BeebWin::Initialise()
 		DebugRunScript(m_DebugScriptFileName.c_str());
 	}
 
-	if (!m_DebugLabelsFileName.empty())
+	// Load debug labels for host and tube.
+	for (int i = 0; i < 2; i++)
 	{
-		if (!DebugLoadLabels(m_DebugLabelsFileName.c_str()))
+		if (!m_DebugLabelsFileName[i].empty())
 		{
-			Report(MessageType::Error, "Failed to load symbols file:\n  %s",
-			       m_DebugLabelsFileName.c_str());
+			if (!DebugLoadLabels(m_DebugLabelsFileName[i].c_str(), true))
+			{
+				Report(MessageType::Error, "Failed to load symbols file:\n  %s",
+				       m_DebugLabelsFileName[i].c_str());
+			}
 		}
 	}
 
@@ -5377,7 +5381,11 @@ void BeebWin::ParseCommandLine()
 			}
 			else if (StrCaseCmp(__argv[i], "-DebugLabels") == 0)
 			{
-				m_DebugLabelsFileName = __argv[++i];
+				m_DebugLabelsFileName[1] = __argv[++i];
+			}
+			else if (StrCaseCmp(__argv[i], "-DebugTubeLabels") == 0)
+			{
+				m_DebugLabelsFileName[0] = __argv[++i];
 			}
 			else if (StrCaseCmp(__argv[i], "-AutoBootDelay") == 0)
 			{

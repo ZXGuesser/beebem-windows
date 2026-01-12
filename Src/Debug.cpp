@@ -120,7 +120,7 @@ static HWND hwndBP;
 static HWND hwndW;
 static HACCEL haccelDebug;
 
-static std::vector<Label> Labels;
+static std::vector<Label> Labels[2]; // Host and copro
 static std::vector<Breakpoint> Breakpoints;
 static std::vector<Watch> Watches;
 
@@ -133,7 +133,7 @@ int DebugHistoryIndex = 0;
 
 /****************************************************************************/
 
-INT_PTR CALLBACK DebugDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam);
+static INT_PTR CALLBACK DebugDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 static void DebugParseCommand(const char *command);
 static void DebugWriteMem(int addr, bool host, unsigned char data);
@@ -177,7 +177,7 @@ static const DebugCmd DebugCmdTable[] = {
 	{ "bp",         DebugCmdToggleBreak,   "<start>[-<end>] [<name>]", "Set or clear a breakpoint or break range" },
 	{ "b",          DebugCmdToggleBreak,   "", ""}, // Alias of "bp"
 	{ "breakpoint", DebugCmdToggleBreak,   "", ""}, // Alias of "bp"
-	{ "labels",     DebugCmdLabels,        "<load|show|clear> [<filename>]", "Load labels from file, display known labels, or clear all labels" },
+	{ "labels",     DebugCmdLabels,        "<load|show|clear> [p] [<filename>]", "Load labels from file, display known labels, or clear all labels" },
 	{ "l",          DebugCmdLabels,        "", ""}, // Alias of "labels"
 	{ "help",       DebugCmdHelp,          "[<item>]", "Display help for the specified command or address" },
 	{ "?",          DebugCmdHelp,          "", ""}, // Alias of "help"
@@ -1103,11 +1103,11 @@ static bool DebugIsIOAddress(unsigned long Address, bool Host)
 
 /****************************************************************************/
 
-static int DebugFindLabel(const char *label)
+static int DebugFindLabel(const char* pszLabel, bool Host)
 {
-	for (size_t i = 0; i < Labels.size(); ++i)
+	for (size_t i = 0; i < Labels[(int)Host].size(); ++i)
 	{
-		if (StrCaseCmp(label, Labels[i].name.c_str()) == 0)
+		if (StrCaseCmp(pszLabel, Labels[(int)Host][i].name.c_str()) == 0)
 		{
 			return i;
 		}
@@ -1129,15 +1129,15 @@ static bool ParseAddressOrLabel(const char* pszAddress,
 	{
 		const char* pszLabel = pszAddress + 1;
 
-		int Index = DebugFindLabel(pszLabel);
+		int Index = DebugFindLabel(pszLabel, Host);
 
 		if (Index >= 0)
 		{
-			*pAddress = (unsigned long)Labels[Index].addr;
+			*pAddress = (unsigned long)Labels[(int)Host][Index].addr;
 
 			if (ppszLabel != nullptr)
 			{
-				*ppszLabel = Labels[Index].name.c_str();
+				*ppszLabel = Labels[(int)Host][Index].name.c_str();
 			}
 		}
 		else
@@ -1310,7 +1310,7 @@ void DebugDisplayInfo(const char *info)
 
 /****************************************************************************/
 
-INT_PTR CALLBACK DebugDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM /* lParam */)
+static INT_PTR CALLBACK DebugDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM /* lParam */)
 {
 	switch (message)
 	{
@@ -2295,9 +2295,10 @@ bool DebugLoadMemoryMap(const char* filename, int bank)
 
 // Parse a string containing Swift format labels, used by BeebAsm
 
-static bool DebugParseSwiftLabels(const std::string& Line)
+static bool DebugParseSwiftLabels(const std::string& Line, bool Host)
 {
 	bool Valid = true;
+	const int Index = (int)Host;
 
 	std::size_t i = 2;
 
@@ -2342,7 +2343,7 @@ static bool DebugParseSwiftLabels(const std::string& Line)
 				break;
 			}
 
-			Labels.push_back(label);
+			Labels[Index].push_back(label);
 		}
 
 		if (Line[i] == ',')
@@ -2365,17 +2366,17 @@ static bool DebugParseSwiftLabels(const std::string& Line)
 
 /****************************************************************************/
 
-bool DebugLoadLabels(const char* filename)
+bool DebugLoadLabels(const char* FileName, bool Host)
 {
-	std::ifstream Input(filename);
+	std::ifstream Input(FileName);
 
 	if (!Input)
 	{
-		DebugDisplayInfoF("Error: Failed to open labels from %s", filename);
+		DebugDisplayInfoF("Error: Failed to open labels from %s", FileName);
 		return false;
 	}
 
-	Labels.clear();
+	Labels[(int)Host].clear();
 
 	bool Valid = true;
 
@@ -2391,9 +2392,9 @@ bool DebugLoadLabels(const char* filename)
 
 		if (Line.length() > 4 && Line[0] == '[' && Line[1] == '{')
 		{
-			if (!DebugParseSwiftLabels(Line))
+			if (!DebugParseSwiftLabels(Line, Host))
 			{
-				DebugDisplayInfoF("Failed to load symbols file:\n  %s", filename);
+				DebugDisplayInfoF("Failed to load symbols file:\n  %s", FileName);
 
 				Valid = false;
 				break;
@@ -2409,7 +2410,7 @@ bool DebugLoadLabels(const char* filename)
 
 			if (Tokens.size() != 3)
 			{
-				DebugDisplayInfoF("Error: Invalid labels format in symbols file:\n  %s", filename);
+				DebugDisplayInfoF("Error: Invalid labels format in symbols file:\n  %s", FileName);
 
 				Valid = false;
 				break;
@@ -2419,7 +2420,7 @@ bool DebugLoadLabels(const char* filename)
 			{
 				if (!ParseHexNumber(Tokens[1], &Addr))
 				{
-					DebugDisplayInfoF("Invalid address %s in symbols file:\n  %s", Tokens[1].c_str(), filename);
+					DebugDisplayInfoF("Invalid address %s in symbols file:\n  %s", Tokens[1].c_str(), FileName);
 
 					Valid = false;
 					break;
@@ -2427,7 +2428,7 @@ bool DebugLoadLabels(const char* filename)
 
 				if (Addr > 0xFFFF)
 				{
-					DebugDisplayInfoF("Invalid address %X in symbols file:\n  %s", Addr, filename);
+					DebugDisplayInfoF("Invalid address %X in symbols file:\n  %s", Addr, FileName);
 
 					Valid = false;
 					break;
@@ -2436,18 +2437,18 @@ bool DebugLoadLabels(const char* filename)
 
 			if (Valid)
 			{
-				Labels.emplace_back(Tokens[2], Addr);
+				Labels[(int)Host].emplace_back(Tokens[2], Addr);
 			}
 		}
 	}
 
 	if (Valid)
 	{
-		DebugDisplayInfoF("Loaded %u labels from %s", Labels.size(), filename);
+		DebugDisplayInfoF("Loaded %u labels from %s", Labels[(int)Host].size(), FileName);
 	}
 	else
 	{
-		Labels.clear();
+		Labels[(int)Host].clear();
 	}
 
 	return Valid;
@@ -3525,19 +3526,21 @@ static bool DebugCmdClear(const char* /* args */)
 
 /****************************************************************************/
 
-static void DebugShowLabels()
+static void DebugShowLabels(bool Host)
 {
-	if (Labels.empty())
+	const int Index = (int)Host;
+
+	if (Labels[Index].empty())
 	{
 		DebugDisplayInfo("No labels defined");
 	}
 	else
 	{
-		DebugDisplayInfoF("%d known labels:", Labels.size());
+		DebugDisplayInfoF("%d known labels:", Labels[Index].size());
 
-		for (std::size_t i = 0; i < Labels.size(); i++)
+		for (std::size_t i = 0; i < Labels[Index].size(); i++)
 		{
-			DebugDisplayInfoF("%04X %s", Labels[i].addr, Labels[i].name.c_str());
+			DebugDisplayInfoF("%04X %s", Labels[Index][i].addr, Labels[Index][i].name.c_str());
 		}
 	}
 }
@@ -3546,37 +3549,74 @@ static void DebugShowLabels()
 
 static bool DebugCmdLabels(const char* args)
 {
-	if (StrCaseCmp(args, "show") == 0)
+	std::vector<std::string> Args;
+
+	ParseLine(args, Args);
+
+	if (Args.empty())
 	{
-		DebugShowLabels();
+		return false;
 	}
-	else if (StrCaseCmp(args, "clear") == 0)
+
+	size_t Index = 0;
+
+	const std::string& Command = Args[Index];
+
+	Index++;
+
+	bool Host = true;
+
+	if (Index < Args.size())
 	{
-		Labels.clear();
+		if (StrCaseCmp(Args[Index].c_str(), "p") == 0)
+		{
+			Host = false;
+		}
+
+		Index++;
+	}
+
+	if (StrCaseCmp(Command.c_str(), "show") == 0)
+	{
+		if (Index < Args.size())
+		{
+			return false;
+		}
+
+		DebugShowLabels(Host);
+	}
+	else if (StrCaseCmp(Command.c_str(), "clear") == 0)
+	{
+		if (Index < Args.size())
+		{
+			return false;
+		}
+
+		Labels[(int)Host].clear();
 
 		DebugDisplayInfo("Labels cleared");
 	}
-	else if (_strnicmp(args, "load", 4) == 0)
+	else if (StrCaseCmp(Command.c_str(), "load") == 0)
 	{
-		char filename[MAX_PATH];
-		memset(filename, 0, MAX_PATH);
+		char FileName[MAX_PATH];
+		ZeroMemory(FileName, MAX_PATH);
 
-		sscanf(args, "%*s %259c", filename);
+		sscanf(args, Host ? "%*s %259c" : "%*s %*s %259c", FileName);
 
-		bool success = true;
+		bool Success = true;
 
-		if (filename[0] == '\0')
+		if (FileName[0] == '\0')
 		{
-			const char* filter = "Label Files (*.txt)\0*.txt\0" "All Files (*.*)\0*.*\0";
+			const char* Filter = "Label Files (*.txt)\0*.txt\0" "All Files (*.*)\0*.*\0";
 
-			FileDialog Dialog(hwndDebug, filename, MAX_PATH, nullptr, filter);
+			FileDialog Dialog(hwndDebug, FileName, MAX_PATH, nullptr, Filter);
 
-			success = Dialog.Open();
+			Success = Dialog.Open();
 		}
 
-		if (success && filename[0] != '\0')
+		if (Success && FileName[0] != '\0')
 		{
-			DebugLoadLabels(filename);
+			DebugLoadLabels(FileName, Host);
 		}
 	}
 	else
