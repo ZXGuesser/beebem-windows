@@ -1861,7 +1861,7 @@ bool DebugDisassembler(int addr,
 		return true;
 	}
 
-	if ((TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80) && !host)
+	if (!host && (TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80))
 	{
 		if (!DebugOS && addr >= 0xf800 && addr <= 0xffff)
 		{
@@ -1949,19 +1949,7 @@ bool DebugDisassembler(int addr,
 
 	char str[150];
 
-	// Parasite instructions:
-	if ((TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80) && !host)
-	{
-		char buff[128];
-		Z80_Disassemble(addr, buff);
-
-		Disp_RegSet1(str);
-		sprintf(str + strlen(str), " %s", buff);
-
-		DebugDisplayInfo(str);
-		Disp_RegSet2(str);
-	}
-	else
+	if (host || (!host && TubeType == TubeDevice::Acorn65C02))
 	{
 		int Length = DebugDisassembleInstructionWithCPUStatus(
 			addr, host, Accumulator, XReg, YReg, StackReg, PSR, str
@@ -1971,9 +1959,41 @@ bool DebugDisassembler(int addr,
 		{
 			strcpy(&str[Length], "  Parasite");
 		}
-	}
 
-	DebugDisplayInfo(str);
+		DebugDisplayInfo(str);
+	}
+	else
+	{
+		switch (TubeType)
+		{
+			case TubeDevice::Acorn65C02:
+				// Already handled.
+				break;
+
+			case TubeDevice::AcornZ80:
+			case TubeDevice::TorchZ80: {
+				char buff[128];
+				Z80_Disassemble(addr, buff);
+
+				Disp_RegSet1(str);
+				sprintf(str + strlen(str), " %s", buff);
+				DebugDisplayInfo(str);
+
+				Disp_RegSet2(str);
+				DebugDisplayInfo(str);
+				break;
+			}
+
+			case TubeDevice::Master512CoPro:
+			case TubeDevice::AcornArm:
+			case TubeDevice::SprowArm:
+				// Not implemented.
+				break;
+
+			case TubeDevice::None:
+				break;
+		}
+	}
 
 	// If host debug is enabled then only count host instructions
 	// and display all parasite instructions (otherwise we lose them).
