@@ -1338,7 +1338,7 @@ void Init6502Core()
 	Accumulator = 0;
 	XReg = 0;
 	YReg = 0;
-	StackReg = 0xff; // Initial value?
+	StackReg = 0xFD; // See https://www.pagetable.com/?p=410
 	PSR = FlagI; // Interrupts off for starters
 
 	intStatus = 0;

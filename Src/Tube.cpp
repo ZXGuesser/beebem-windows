@@ -1522,8 +1522,11 @@ INLINE static int ZeroPgYAddrModeHandler_Address()
 /* Reset processor */
 static void Reset65C02()
 {
-  Accumulator = XReg = YReg = 0; // For consistency of execution
-  StackReg = 0xff; // Initial value?
+  // For consistency of execution.
+  Accumulator = 0;
+  XReg = 0;
+  YReg = 0;
+  StackReg = 0xFD; // See https://www.pagetable.com/?p=410
   PSR = FlagI; // Interrupts off for starters
 
   TubeintStatus=0;
@@ -1631,11 +1634,13 @@ static void DoTubeNMI()
 
 // Execute one 6502 instruction, move program counter on
 
-void Exec65C02Instruction() {
+void Exec65C02Instruction()
+{
 	static int tmpaddr;
 
 	// Output debug info
-	if (DebugEnabled) {
+	if (DebugEnabled)
+	{
 		DebugDisassembler(TubeProgramCounter, TubePrePC, Accumulator, XReg, YReg, PSR, StackReg, false);
 	}
 
