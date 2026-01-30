@@ -1,13 +1,14 @@
 BeebEm Change History
 =====================
 
-Unreleased Changes
+Version 4.22 (30 January 2026)
 ------------
 
 Contributors: Chris Needham, Alistair Cree, Ken Lowe, Tom Seddon
 
 * Fixed loading floppy disk controller DLLs using the Select FDC Board
   menu option.
+* Fixed initial 6502 stack pointer register value.
 * Econet changes:
   - Added an option to show the Econet network and station in the window
     title.
@@ -18,11 +19,16 @@ Contributors: Chris Needham, Alistair Cree, Ken Lowe, Tom Seddon
   Text to Speech is enabled. This message is now only spoken when you
   enable Text to Speech via the menu, or on loading a Preferences file that
   has Text to Speech enabled.
-* The -DebugLabels command line option and "labels load" debugger command
-  now accept either BeebAsm or VICE format label files.
-* Added a "labels clear" debugger command to clear all existing labels.
-* The "peek" and "poke" debugger commands can now read and write memory
-  in all Tube coprocessors.
+* Debugger improvements:
+  * The -DebugLabels command line option and "labels load" debugger command
+    now accept either BeebAsm or VICE format label files.
+  * Debug labels can now be set independently for the host and Tube
+    processors.
+  * Added a -DebugTubeLabels command line option to load labels for the
+    Tube coprocessor.
+  * Added a "labels clear" debugger command to clear all existing labels.
+  * The "peek" and "poke" debugger commands can now read and write memory
+    in all Tube coprocessors.
 * BeebEm can now be compiled wthout requiring the DirectX9 SDK to be
   installed.
 

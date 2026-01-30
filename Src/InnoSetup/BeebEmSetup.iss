@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=BeebEm
-AppVerName=BeebEm V4.21
+AppVerName=BeebEm V4.22
 AppPublisher=Mike Wyatt
 AppPublisherURL=http://www.mkw.me.uk/beebem/index.html
 AppSupportURL=http://www.mkw.me.uk/beebem/index.html
@@ -14,7 +14,7 @@ OutputDir=Release
 OutputBaseFilename=BeebEm
 Compression=lzma
 SolidCompression=yes
-VersionInfoVersion=4.21.0.0
+VersionInfoVersion=4.22.0.0
 ChangesAssociations=yes
 
 [Registry]
@@ -22,7 +22,7 @@ ChangesAssociations=yes
 ; https://learn.microsoft.com/en-us/windows/win32/shell/app-registration
 ; https://learn.microsoft.com/en-us/windows/win32/shell/fa-file-types
 
-Root: HKLM; Subkey: "SOFTWARE\BeebEm"; ValueType: string; ValueName: Version;      ValueData: 4.19;  Flags: uninsdeletekey
+Root: HKLM; Subkey: "SOFTWARE\BeebEm"; ValueType: string; ValueName: Version;      ValueData: 4.22;  Flags: uninsdeletekey
 Root: HKLM; Subkey: "SOFTWARE\BeebEm"; ValueType: string; ValueName: InstallPath;  ValueData: {app}; Flags: uninsdeletekey
 Root: HKCU; Subkey: "SOFTWARE\BeebEm";                                                               Flags: uninsdeletekey
 
