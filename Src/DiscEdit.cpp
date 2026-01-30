@@ -37,10 +37,14 @@ Boston, MA  02110-1301, USA.
 #include "DiscInfo.h"
 #include "FileUtils.h"
 
+/****************************************************************************/
+
 static int DFS_LENGTH_TO_SECTORS(int Length)
 {
 	return ((int)Length + DFS_SECTOR_SIZE - 1) / DFS_SECTOR_SIZE;
 }
+
+/****************************************************************************/
 
 static void strip_trailing_spaces(char *str)
 {
@@ -52,6 +56,8 @@ static void strip_trailing_spaces(char *str)
 		l--;
 	}
 }
+
+/****************************************************************************/
 
 std::string BeebToLocalFileName(const std::string& BeebFileName)
 {
@@ -74,6 +80,48 @@ std::string BeebToLocalFileName(const std::string& BeebFileName)
 	return FileName;
 }
 
+/****************************************************************************/
+
+static bool MakeBeebFileName(char* DFSName, const char* FileName)
+{
+	int j = 0;
+
+	if (strlen(FileName) >= 3 && FileName[1] == '.')
+	{
+		DFSName[0] = FileName[0];
+		DFSName[1] = '.';
+		j = 2;
+	}
+	else
+	{
+		strcpy(DFSName, "$.");
+		j = 0;
+	}
+
+	int i = 0;
+
+	while (i < DFS_MAX_NAME_LEN && FileName[j] != 0)
+	{
+		char c = static_cast<char>(toupper(FileName[j]));
+
+		if ((c >= 'A' && c <= 'Z') ||
+		    (c >= '0' && c <= '9') ||
+		    c == '!' || c == '$' || c == '%' || c == '^' || c == '&' || c == '(' || c == ')' ||
+		    c == '_' || c == '-' || c == '=' || c == '+' || c == '[' || c == ']' || c == '{' ||
+		    c == '}' || c == '@' || c == '#' || c == '~' || c == ',')
+		{
+			DFSName[i + 2] = c;
+			i++;
+		}
+
+		j++;
+	}
+
+	return i == 0;
+}
+
+/****************************************************************************/
+
 static void dfs_get_files_from_cat(const unsigned char *sect0,
                                    const unsigned char *sect1,
                                    int numFiles,
@@ -94,6 +142,8 @@ static void dfs_get_files_from_cat(const unsigned char *sect0,
 		attrs[i].startSector = sect1[offset + 7] + ((c & 0x03) << 8);
 	}
 }
+
+/****************************************************************************/
 
 bool dfs_get_catalogue(const char *szDiscFile,
                        int numSides,
@@ -186,6 +236,8 @@ bool dfs_get_catalogue(const char *szDiscFile,
 
 	return success;
 }
+
+/****************************************************************************/
 
 bool dfs_export_file(const char *szDiscFile,
                      int numSides,
@@ -300,6 +352,8 @@ bool dfs_export_file(const char *szDiscFile,
 	return success;
 }
 
+/****************************************************************************/
+
 static void dfs_write_files_to_cat(unsigned char *sect0,
                                    unsigned char *sect1,
                                    int numFiles,
@@ -337,6 +391,8 @@ static void dfs_write_files_to_cat(unsigned char *sect0,
 	}
 }
 
+/****************************************************************************/
+
 bool dfs_import_file(const char *szDiscFile,
                      int numSides,
                      int side,
@@ -357,6 +413,7 @@ bool dfs_import_file(const char *szDiscFile,
 
 	// Open the DFS disc
 	FILE *discfd = fopen(szDiscFile, "rb+");
+
 	if (discfd == NULL)
 	{
 		sprintf(szErrStr, "Failed to open disc file for writing:\n  %s", szDiscFile);
@@ -394,40 +451,11 @@ bool dfs_import_file(const char *szDiscFile,
 		// No .INF file, construct dfsname
 		memset(dfsname, 0, sizeof(dfsname));
 
-		if (strlen(szFile) >= 3 && szFile[1] == '.')
-		{
-			dfsname[0] = szFile[0];
-			dfsname[1] = '.';
-			j = 2;
-		}
-		else
-		{
-			strcpy(dfsname, "$.");
-			j = 0;
-		}
+		success = MakeBeebFileName(dfsname, szFile);
 
-		i = 0;
-
-		while (i < DFS_MAX_NAME_LEN && szFile[j] != 0)
-		{
-			char c = static_cast<char>(toupper(szFile[j]));
-
-			if ((c >= 'A' && c <= 'Z') ||
-			    (c >= '0' && c <= '9') ||
-			    c == '!' || c == '$' || c == '%' || c == '^' || c == '&' || c == '(' || c == ')' ||
-			    c == '_' || c == '-' || c == '=' || c == '+' || c == '[' || c == ']' || c == '{' ||
-			    c == '}' || c == '@' || c == '#' || c == '~' || c == ',')
-			{
-				dfsname[i+2] = c;
-				i++;
-			}
-			j++;
-		}
-
-		if (i == 0)
+		if (!success)
 		{
 			sprintf(szErrStr, "Failed to create DFS file name for:\n  %s", szFile);
-			success = false;
 		}
 	}
 
@@ -664,3 +692,5 @@ bool dfs_import_file(const char *szDiscFile,
 
 	return success;
 }
+
+/****************************************************************************/
