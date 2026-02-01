@@ -54,7 +54,7 @@ enum PSR_Flags
   FlagN=128
 };
 
-extern unsigned char intStatus;
+extern unsigned char IntStatus;
 extern unsigned char NMIStatus;
 
 constexpr int CPU_CYCLES_PER_SECOND = 2000000;

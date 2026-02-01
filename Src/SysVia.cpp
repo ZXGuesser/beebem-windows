@@ -119,12 +119,12 @@ static void UpdateIFRTopBit()
 	if (SysVIAState.ifr & (SysVIAState.ier & 0x7f))
 	{
 		SysVIAState.ifr |= IFR_IRQ;
-		intStatus |= 1 << sysVia;
+		IntStatus |= 1 << sysVia;
 	}
 	else
 	{
 		SysVIAState.ifr &= ~IFR_IRQ;
-		intStatus &= ~(1 << sysVia);
+		IntStatus &= ~(1 << sysVia);
 	}
 }
 

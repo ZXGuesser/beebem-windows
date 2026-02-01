@@ -60,9 +60,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Master512CoPro master512CoPro;
 
-extern unsigned char TubeintStatus;
-extern unsigned char TubeNMIStatus;
-
 // All pre-i286 CPUs have a 1MB address space
 // const uint32_t AMASK = 0xfffff;
 
@@ -2696,16 +2693,16 @@ void Master512CoPro::Execute(int Cycles)
 				}
 		}
 
-		if (TubeintStatus & (1 << R1))
+		if (TubeIntStatus & (1 << R1))
 			execute_set_input(INPUT_LINE_IRQ4, ASSERT_LINE1);
 
-		if (TubeintStatus & (1 << R4))
+		if (TubeIntStatus & (1 << R4))
 			execute_set_input(INPUT_LINE_IRQ4, ASSERT_LINE4);
 
-		if (TubeintStatus == 0)
+		if (TubeIntStatus == 0)
 			execute_set_input(INPUT_LINE_IRQ4, CLEAR_LINE);
 
-		// lastInt = TubeintStatus;
+		// lastInt = TubeIntStatus;
 
 		if (TubeNMIStatus) DoDMA();
 	}

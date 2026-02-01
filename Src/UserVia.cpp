@@ -78,12 +78,12 @@ static void UpdateIFRTopBit()
 	if (UserVIAState.ifr & (UserVIAState.ier & 0x7f))
 	{
 		UserVIAState.ifr |= IFR_IRQ;
-		intStatus |= 1 << userVia;
+		IntStatus |= 1 << userVia;
 	}
 	else
 	{
 		UserVIAState.ifr &= ~IFR_IRQ;
-		intStatus &= ~(1 << userVia);
+		IntStatus &= ~(1 << userVia);
 	}
 }
 

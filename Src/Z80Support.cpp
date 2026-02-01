@@ -219,13 +219,13 @@ void Z80Execute()
 
 	if (TubeType == TubeDevice::AcornZ80)
 	{
-		if (TubeintStatus & (1 << R1))
+		if (TubeIntStatus & (1 << R1))
 			set_Z80_irq_line(true);
 
-		if (TubeintStatus & (1 << R4))
+		if (TubeIntStatus & (1 << R4))
 			set_Z80_irq_line(true);
 
-		if (TubeintStatus == 0)
+		if (TubeIntStatus == 0)
 			set_Z80_irq_line(false);
 
 		if (TubeNMIStatus)

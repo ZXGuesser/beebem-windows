@@ -688,7 +688,7 @@ void DebugMemoryState()
 		case Model::Master128:
 		case Model::MasterET:
 			DebugDisplayInfoF("ACCCON: IRR:%s TST:%s IFJ:%s ITU:%s Y:%s X:%s E:%s D:%s",
-				(intStatus & 0x80) != 0 ? "on" : "off",
+				(IntStatus & 0x80) != 0 ? "on" : "off",
 				(ACCCON & 0x40) != 0 ? "on" : "off",
 				(ACCCON & 0x20) != 0 ? "on" : "off",
 				(ACCCON & 0x10) != 0 ? "on" : "off",
@@ -730,7 +730,7 @@ static void FiddleACCCON(unsigned char newValue)
 
 	// Mask out the IRR bit so that interrupts don't occur repeatedly.
 	ACCCON = newValue & 127;
-	if (newValue & 128) intStatus|=128; else intStatus&=127;
+	if (newValue & 128) IntStatus |= 128; else IntStatus &= 127;
 	bool oldshd = Sh_Display;
 	Sh_Display = (ACCCON & 1) != 0;
 	if (Sh_Display != oldshd) RedoMPTR();

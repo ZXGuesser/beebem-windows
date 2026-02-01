@@ -72,8 +72,8 @@ static unsigned char StackReg, PSR;
 static unsigned char IRQCycles;
 int DisplayCycles=0;
 
-unsigned char intStatus=0; /* bit set (nums in IRQ_Nums) if interrupt being caused */
-unsigned char NMIStatus=0; /* bit set (nums in NMI_Nums) if NMI being caused */
+unsigned char IntStatus = 0; // bit set (nums in IRQ_Nums) if interrupt being caused
+unsigned char NMIStatus = 0; // bit set (nums in NMI_Nums) if NMI being caused
 bool NMILock = false; // Well I think NMI's are maskable - to stop repeated NMI's - the lock is released when an RTI is done
 static unsigned char OldNMIStatus;
 
@@ -294,7 +294,7 @@ void DoIntCheck()
 {
 	if (!IntDue)
 	{
-		IntDue = intStatus != 0;
+		IntDue = IntStatus != 0;
 
 		if (!IntDue)
 		{
@@ -1341,7 +1341,7 @@ void Init6502Core()
 	StackReg = 0xFD; // See https://www.pagetable.com/?p=410
 	PSR = FlagI; // Interrupts off for starters
 
-	intStatus = 0;
+	IntStatus = 0;
 	NMIStatus = 0;
 	NMILock = false;
 }
@@ -3377,7 +3377,7 @@ void Save6502UEF(FILE *SUEF)
 	UEFWrite8(StackReg, SUEF);
 	UEFWrite8(PSR, SUEF);
 	UEFWrite32(TotalCycles, SUEF);
-	UEFWrite8(intStatus, SUEF);
+	UEFWrite8(IntStatus, SUEF);
 	UEFWrite8(NMIStatus, SUEF);
 	UEFWrite8(NMILock, SUEF);
 	UEFWrite16(0, SUEF);
@@ -3393,7 +3393,7 @@ void Load6502UEF(FILE *SUEF)
 	PSR = UEFRead8(SUEF);
 	// TotalCycles = fget32(SUEF);
 	UEFRead32(SUEF); // Unused, was: Dlong
-	intStatus = UEFRead8(SUEF);
+	IntStatus = UEFRead8(SUEF);
 	NMIStatus = UEFRead8(SUEF);
 	NMILock = UEFReadBool(SUEF);
 	// AtoDTrigger=Disc8271Trigger=AMXTrigger=PrinterTrigger=VideoTriggerCount=TotalCycles+100;

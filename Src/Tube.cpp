@@ -49,8 +49,8 @@ Boston, MA  02110-1301, USA.
 #define INLINE inline
 
 // Some interrupt set macros
-#define SETTUBEINT(a) TubeintStatus |= 1 << a
-#define RESETTUBEINT(a) TubeintStatus &= ~(1 << a)
+#define SETTUBEINT(a) TubeIntStatus |= 1 << a
+#define RESETTUBEINT(a) TubeIntStatus &= ~(1 << a)
 
 static int CurrentInstruction;
 static unsigned char TubeRam[65536];
@@ -70,7 +70,7 @@ static unsigned char Accumulator, XReg, YReg;
 static unsigned char StackReg, PSR;
 static unsigned char IRQCycles;
 
-unsigned char TubeintStatus = 0; // bit set (nums in IRQ_Nums) if interrupt being caused
+unsigned char TubeIntStatus = 0; // bit set (nums in IRQ_Nums) if interrupt being caused
 unsigned char TubeNMIStatus = 0; // bit set (nums in NMI_Nums) if NMI being caused
 static bool TubeNMILock = false; // Well I think NMI's are maskable - to stop repeated NMI's - the lock is released when an RTI is done
 static unsigned char OldTubeNMIStatus;
@@ -193,9 +193,13 @@ static void UpdateR3Interrupt()
 static void UpdateHostR4Interrupt()
 {
 	if ((R1Status & TubeQ) && (R4HStatus & TubeDataAv))
-		intStatus|=(1<<tube);
+	{
+		IntStatus |= (1 << tube);
+	}
 	else
-		intStatus&=~(1<<tube);
+	{
+		IntStatus &= ~(1 << tube);
+	}
 }
 
 /*-------------------------------------------------------------------*/
@@ -1529,7 +1533,7 @@ static void Reset65C02()
   StackReg = 0xFD; // See https://www.pagetable.com/?p=410
   PSR = FlagI; // Interrupts off for starters
 
-  TubeintStatus=0;
+  TubeIntStatus=0;
   TubeNMIStatus=0;
   TubeNMILock = false;
 
@@ -1594,7 +1598,7 @@ void ResetTube(void)
   R4HPData=0;
   R4PStatus=TubeNotFull;
 
-  TubeintStatus=0;
+  TubeIntStatus=0;
   TubeNMIStatus=0;
 }
 
@@ -2604,7 +2608,7 @@ void Exec65C02Instruction()
 	IRQCycles = 0; // IRQ Timing
 	// End of cycle correction
 
-	if (TubeintStatus && !GETIFLAG) {
+	if (TubeIntStatus && !GETIFLAG) {
 		DoTubeInterrupt();
 	}
 
@@ -2689,7 +2693,7 @@ void Save65C02UEF(FILE *SUEF)
 	UEFWrite8(StackReg, SUEF);
 	UEFWrite8(PSR, SUEF);
 	UEFWrite32(TotalTubeCycles, SUEF);
-	UEFWrite8(TubeintStatus, SUEF);
+	UEFWrite8(TubeIntStatus, SUEF);
 	UEFWrite8(TubeNMIStatus, SUEF);
 	UEFWrite8(TubeNMILock, SUEF);
 	UEFWrite16(0, SUEF);
@@ -2736,7 +2740,7 @@ void Load65C02UEF(FILE *SUEF)
 	PSR = UEFRead8(SUEF);
 	// TotalTubeCycles = UEFRead32(SUEF);
 	UEFRead32(SUEF); // Unused, was: Dlong
-	TubeintStatus = UEFRead8(SUEF);
+	TubeIntStatus = UEFRead8(SUEF);
 	TubeNMIStatus = UEFRead8(SUEF);
 	TubeNMILock = UEFReadBool(SUEF);
 }

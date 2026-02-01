@@ -291,9 +291,9 @@ void TeletextWrite(int Address, int Value)
 
             TeletextInts = (Value & 0x08) == 0x08;
             if (TeletextInts && (TeletextStatus & 0x80))
-                intStatus |= (1 << teletext); // Interrupt if INT and interrupts enabled
+                IntStatus |= (1 << teletext); // Interrupt if INT and interrupts enabled
             else
-                intStatus &= ~(1 << teletext); // Clear interrupt
+                IntStatus &= ~(1 << teletext); // Clear interrupt
 
             TeletextEnable = (Value & 0x04) == 0x04;
 
@@ -315,7 +315,7 @@ void TeletextWrite(int Address, int Value)
 
         case 0x03:
             TeletextStatus &= ~0xD0; // Clear INT, DOR, and FSYN latches
-            intStatus &= ~(1 << teletext); // Clear interrupt
+            IntStatus &= ~(1 << teletext); // Clear interrupt
             break;
     }
 }
@@ -356,7 +356,7 @@ unsigned char TeletextRead(int Address)
 
     case 0x03:
         TeletextStatus &= ~0xD0;       // Clear INT, DOR, and FSYNC latches
-        intStatus &= ~(1 << teletext);
+        IntStatus &= ~(1 << teletext);
         break;
     }
 
@@ -604,7 +604,7 @@ void TeletextAdapterUpdate()
                 TeletextStatus |= 0x80; // latch INT
 
                 if (TeletextInts)
-                    intStatus |= 1 << teletext; // raise the interrupt
+                    IntStatus |= 1 << teletext; // raise the interrupt
             }
 
             // FSYNC raises every 20000us. Field duration is 40000 cycles minus 17 lines of DEW and the delay between start of FSYNC and DEW

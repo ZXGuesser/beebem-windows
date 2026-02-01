@@ -194,13 +194,13 @@ void SCSIWrite(int Address, unsigned char Value)
 			if (Value == 0xff)
 			{
 				scsi.irq = true;
-				intStatus |= (1 << hdc);
+				IntStatus |= (1 << hdc);
 				scsi.status = 0x00;
 			}
 			else
 			{
 				scsi.irq = true;
-				intStatus &= ~(1 << hdc);
+				IntStatus &= ~(1 << hdc);
 			}
 
 			break;
