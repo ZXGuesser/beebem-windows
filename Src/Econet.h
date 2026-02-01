@@ -47,7 +47,7 @@ extern unsigned char EconetNetworkID;
 extern char EconetCfgPath[MAX_PATH];
 extern char AUNMapPath[MAX_PATH];
 
-#define DEBUG_ECONET
+// #define DEBUG_ECONET
 // #define DEBUG_ECONET_ADLC
 // #define DEBUG_ECONET_INTERRUPTS
 

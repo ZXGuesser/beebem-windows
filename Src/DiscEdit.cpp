@@ -406,7 +406,7 @@ bool dfs_import_file(const char *szDiscFile,
 	char dfsname[DFS_MAX_NAME_LEN + 3];
 	int startSector = 0;
 	int catIndex = 0;
-	int i, j;
+	int i;
 	unsigned char buffer[DFS_SECTOR_SIZE * 4];
 
 	DFS_FILE_ATTR *attrs = dfsCat->fileAttrs;

@@ -37,7 +37,7 @@ Boston, MA  02110-1301, USA.
 #include "Resource.h"
 #include "StringUtils.h"
 
-#define DEBUG_DX9
+// #define DEBUG_DX9
 
 typedef HRESULT (WINAPI* LPDIRECTDRAWCREATE)(GUID* pGUID, IDirectDraw** ppDirectDraw, IUnknown* pUnkOuter);
 
