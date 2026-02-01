@@ -44,17 +44,13 @@ void ResetTube(void);
 
 extern int TubeProgramCounter;
 const int TubeBufferLength = 24;
-extern unsigned char TubeIntStatus; // bit set (nums in IRQ_Nums) if interrupt being caused
-extern unsigned char TubeNMIStatus; // bit set (nums in NMI_Nums) if NMI being caused
+extern unsigned char TubeIntStatus; // Bit set (TUBE_IRQ_XXX) if interrupt being caused
+extern unsigned char TubeNMIStatus; // Bit set (TUBE_NMI_XXX) if NMI being caused
 
-enum TubeIRQ {
-	R1,
-	R4
-};
+constexpr int TUBE_IRQ_R1 = 0x01;
+constexpr int TUBE_IRQ_R4 = 0x02;
 
-enum TubeNMI {
-	R3
-};
+constexpr int TUBE_NMI_R3 = 0x01;
 
 /*-------------------------------------------------------------------------*/
 

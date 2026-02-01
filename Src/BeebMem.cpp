@@ -550,7 +550,7 @@ unsigned char BeebReadMem(int Address) {
 
 			if (EconetInterruptRequest()) // irq pending?
 			{
-				NMIStatus |= 1 << nmi_econet;
+				NMIStatus |= NMI_ECONET;
 
 				#ifdef DEBUG_ECONET_INTERRUPTS
 				DebugTrace("Econet: Delayed NMI asserted\n");

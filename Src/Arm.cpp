@@ -2645,7 +2645,7 @@ void CArm::run()
 
 	// check for interrupts
 
-	if(TubeNMIStatus)
+	if (TubeNMIStatus != 0)
 	{
 		if (processorMode != FIQ_MODE)
 		{
@@ -2653,7 +2653,7 @@ void CArm::run()
 			exceptionFastInterruptRequest();
 		}
 	}
-	else if(TubeintStatus & (1<<R1))
+	else if (TubeIntStatus & TUBE_IRQ_R1)
 	{
 		if (processorMode != IRQ_MODE)
 		{
@@ -2661,7 +2661,7 @@ void CArm::run()
 			exceptionInterruptRequest();
 		}
 	}
-	else if(TubeintStatus & (1<<R4))
+	else if (TubeIntStatus & TUBE_IRQ_R4)
 	{
 		if (processorMode != IRQ_MODE)
 		{
@@ -2897,7 +2897,6 @@ inline void CArm::performBranch()
 // of semaphores.
 inline void CArm::performSingleDataSwapWord()
 {
-
 	uint32 rn = getField(currentInstruction,16,19);	// address in memory to read value from
 	// get address to read from and write to
 	uint32 address = getRegisterWithPSR(rn);
@@ -2941,7 +2940,6 @@ inline void CArm::performSingleDataSwapWord()
 		exceptionAddress();
 		return;
 	}
-
 }
 
 // single data swap for byte
@@ -4030,8 +4028,8 @@ inline bool CArm::performBlockDataTransferLoadS(uint rn, uint32 initialAddress, 
 					}
 
 					break; // get out of loop
-
 				}
+
 				// if load was ok then update value read to appropriate register
 				setRegister(index, location);
 				initialAddress += 4;
@@ -4234,7 +4232,7 @@ inline uint32 CArm::getProcessorStatusRegister()
 	return (conditionFlags << 28) | interruptDisableFlag | fastInterruptDisableFlag | processorMode;
 }
 
-// takes an argument which could a register argument and changes the PSR to reflect
+// takes an argument which could be a register argument and changes the PSR to reflect
 // the details in bits 26-31 and 0-1 of that argument
 inline void CArm::setProcessorStatusRegister(uint32 value)
 {

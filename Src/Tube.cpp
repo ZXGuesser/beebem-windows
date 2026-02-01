@@ -48,10 +48,6 @@ Boston, MA  02110-1301, USA.
 
 #define INLINE inline
 
-// Some interrupt set macros
-#define SETTUBEINT(a) TubeIntStatus |= 1 << a
-#define RESETTUBEINT(a) TubeIntStatus &= ~(1 << a)
-
 static int CurrentInstruction;
 static unsigned char TubeRam[65536];
 TubeDevice TubeType;
@@ -165,40 +161,54 @@ unsigned char R4PStatus;
 static void UpdateR1Interrupt()
 {
 	if ((R1Status & TubeI) && (R1PStatus & TubeDataAv))
-		SETTUBEINT(R1);
+	{
+		TubeIntStatus |= TUBE_IRQ_R1;
+	}
 	else
-		RESETTUBEINT(R1);
+	{
+		TubeIntStatus &= ~TUBE_IRQ_R1;
+	}
 }
 
 static void UpdateR4Interrupt()
 {
 	if ((R1Status & TubeJ) && (R4PStatus & TubeDataAv))
-		SETTUBEINT(R4);
+	{
+		TubeIntStatus |= TUBE_IRQ_R4;
+	}
 	else
-		RESETTUBEINT(R4);
+	{
+		TubeIntStatus &= ~TUBE_IRQ_R4;
+	}
 }
 
 static void UpdateR3Interrupt()
 {
 	if ((R1Status & TubeM) && !(R1Status & TubeV) &&
-		( (R3HPPtr > 0) || (R3PHPtr == 0) ))
-		TubeNMIStatus|=(1<<R3);
+	    ((R3HPPtr > 0) || (R3PHPtr == 0)))
+	{
+		TubeNMIStatus |= TUBE_NMI_R3;
+	}
 	else if ((R1Status & TubeM) && (R1Status & TubeV) &&
-		( (R3HPPtr > 1) || (R3PHPtr == 0) ))
-		TubeNMIStatus|=(1<<R3);
+	         ((R3HPPtr > 1) || (R3PHPtr == 0)))
+	{
+		TubeNMIStatus |= TUBE_NMI_R3;
+	}
 	else
-		TubeNMIStatus&=~(1<<R3);
+	{
+		TubeNMIStatus &= ~TUBE_NMI_R3;
+	}
 }
 
 static void UpdateHostR4Interrupt()
 {
 	if ((R1Status & TubeQ) && (R4HStatus & TubeDataAv))
 	{
-		IntStatus |= (1 << tube);
+		IntStatus |= IRQ_TUBE;
 	}
 	else
 	{
-		IntStatus &= ~(1 << tube);
+		IntStatus &= ~IRQ_TUBE;
 	}
 }
 

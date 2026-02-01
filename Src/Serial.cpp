@@ -139,12 +139,12 @@ static void SerialUpdateACIAInterruptStatus()
 		if ((SerialACIA.TIE && ((SerialACIA.Status & (MC6850_STATUS_CTS | MC6850_STATUS_TDRE)) ^ MC6850_STATUS_CTS)) ||
 		    (SerialACIA.RIE && (SerialACIA.Status & (MC6850_STATUS_OVRN | MC6850_STATUS_DCD | MC6850_STATUS_RDRF))))
 		{
-			IntStatus |= 1 << serial;
+			IntStatus |= IRQ_SERIAL;
 			SerialACIA.Status |= MC6850_STATUS_IRQ;
 		}
 		else
 		{
-			IntStatus &= ~(1 << serial);
+			IntStatus &= ~IRQ_SERIAL;
 			SerialACIA.Status &= ~MC6850_STATUS_IRQ;
 		}
 	}
@@ -169,7 +169,7 @@ void SerialACIAWriteControl(unsigned char Value)
 
 		// Master reset clears IRQ
 		SerialACIA.Status &= ~MC6850_STATUS_IRQ;
-		IntStatus &= ~(1 << serial);
+		IntStatus &= ~IRQ_SERIAL;
 
 		if (FirstReset)
 		{
@@ -216,7 +216,7 @@ void SerialACIAWriteControl(unsigned char Value)
 	if (!SerialULA.RS423 && SerialACIA.TIE && SerialULA.CassetteRelay)
 	{
 		SerialACIA.Status |= MC6850_STATUS_IRQ;
-		IntStatus |= 1 << serial;
+		IntStatus |= IRQ_SERIAL;
 	}
 
 	// Change serial port settings
@@ -308,7 +308,7 @@ void SerialACIAWriteTxData(unsigned char Data)
 	// WriteLog("Serial: Write ACIA Tx %02X, SerialChannel = %d\n", (int)Data, SerialChannel);
 
 	SerialACIA.Status &= ~MC6850_STATUS_IRQ;
-	IntStatus &= ~(1 << serial);
+	IntStatus &= ~IRQ_SERIAL;
 
 	// 10/09/06
 	// JW - A bug in swarm loader overwrites the rs423 output buffer counter
@@ -446,7 +446,7 @@ static void HandleData(unsigned char Data)
 	{
 		// interrupt on receive/overrun
 		SerialACIA.Status |= MC6850_STATUS_IRQ;
-		IntStatus |= 1 << serial;
+		IntStatus |= IRQ_SERIAL;
 	}
 
 	SerialUpdateACIAInterruptStatus();
@@ -460,7 +460,7 @@ unsigned char SerialACIAReadRxData()
 	SerialACIA.Status &= ~MC6850_STATUS_DCD;
 
 	SerialACIA.Status &= ~MC6850_STATUS_IRQ;
-	IntStatus &= ~(1 << serial);
+	IntStatus &= ~IRQ_SERIAL;
 
 	unsigned char Data = SerialACIA.RDR;
 	SerialACIA.RDR = SerialACIA.RDSR;
@@ -479,7 +479,7 @@ unsigned char SerialACIAReadRxData()
 	if (SerialACIA.RxD > 0 && SerialACIA.RIE)
 	{
 		SerialACIA.Status |= MC6850_STATUS_IRQ;
-		IntStatus |= 1 << serial;
+		IntStatus |= IRQ_SERIAL;
 	}
 
 	if (SerialACIA.DataBits == 7)
@@ -531,7 +531,7 @@ void SerialPoll(int Cycles)
 					SerialACIA.Status |= MC6850_STATUS_DCD;
 
 					SerialACIA.Status |= MC6850_STATUS_IRQ;
-					IntStatus |= 1 << serial;
+					IntStatus |= IRQ_SERIAL;
 
 					SerialULA.CarrierCycleCount = MicrosecondsToCycles(200); // To reset DCD
 				}
@@ -568,7 +568,7 @@ void SerialPoll(int Cycles)
 					if (SerialACIA.TIE)
 					{
 						SerialACIA.Status |= MC6850_STATUS_IRQ;
-						IntStatus |= 1 << serial;
+						IntStatus |= IRQ_SERIAL;
 					}
 
 					TapeAudio.Data       = (SerialACIA.TDR << 1) | 1;
@@ -611,7 +611,7 @@ void SerialPoll(int Cycles)
 				if (SerialACIA.TIE)
 				{
 					SerialACIA.Status |= MC6850_STATUS_IRQ;
-					IntStatus |= 1 << serial;
+					IntStatus |= IRQ_SERIAL;
 				}
 			}
 

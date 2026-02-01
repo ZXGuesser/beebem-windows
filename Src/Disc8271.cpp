@@ -211,11 +211,11 @@ static void UpdateNMIStatus()
 {
 	if (FDCState.StatusReg & STATUS_REG_INTERRUPT_REQUEST)
 	{
-		NMIStatus |= 1 << nmi_floppy;
+		NMIStatus |= NMI_FLOPPY;
 	}
 	else
 	{
-		NMIStatus &= ~(1 << nmi_floppy);
+		NMIStatus &= ~NMI_FLOPPY;
 	}
 }
 

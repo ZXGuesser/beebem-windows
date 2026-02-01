@@ -2693,14 +2693,20 @@ void Master512CoPro::Execute(int Cycles)
 				}
 		}
 
-		if (TubeIntStatus & (1 << R1))
+		if (TubeIntStatus & TUBE_IRQ_R1)
+		{
 			execute_set_input(INPUT_LINE_IRQ4, ASSERT_LINE1);
+		}
 
-		if (TubeIntStatus & (1 << R4))
+		if (TubeIntStatus & TUBE_IRQ_R4)
+		{
 			execute_set_input(INPUT_LINE_IRQ4, ASSERT_LINE4);
+		}
 
 		if (TubeIntStatus == 0)
+		{
 			execute_set_input(INPUT_LINE_IRQ4, CLEAR_LINE);
+		}
 
 		// lastInt = TubeIntStatus;
 

@@ -3231,9 +3231,9 @@ void Exec6502Instruction()
 		}
 
 		// Check for NMI
-		if ((NMIStatus && !OldNMIStatus) || (NMIStatus & 1 << nmi_econet))
+		if ((NMIStatus && !OldNMIStatus) || (NMIStatus & NMI_ECONET))
 		{
-			NMIStatus &= ~(1 << nmi_econet);
+			NMIStatus &= ~NMI_ECONET;
 			DoNMI();
 			PollHardware(IRQCycles);
 			PollVIAs(IRQCycles);
@@ -3333,7 +3333,7 @@ static void PollHardware(unsigned int nCycles)
 	{
 		if (EconetNMIEnabled)
 		{
-			NMIStatus |= 1 << nmi_econet;
+			NMIStatus |= NMI_ECONET;
 
 			#ifdef DEBUG_ECONET_INTERRUPTS
 			DebugTrace("Econet: NMI asserted\n");

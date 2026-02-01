@@ -120,7 +120,7 @@ void CSprowCoPro::Execute(int Cycles)
         m_State->NfiqSig = LOW;
         m_State->Exception = TRUE;
     }
-    else if (((TubeIntStatus & (1 << R4)) || (TubeIntStatus & (1 << R1))) && !(m_State->IFFlags & 0x2))
+    else if (((TubeIntStatus & TUBE_IRQ_R4) || (TubeIntStatus & TUBE_IRQ_R1)) && !(m_State->IFFlags & 0x2))
     {
         PutRegister(m_State, IRN, INT_EX3);
         m_State->NirqSig = LOW;

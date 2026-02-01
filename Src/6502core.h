@@ -29,19 +29,15 @@ Boston, MA  02110-1301, USA.
 
 #include "Port.h"
 
-enum IRQ_Nums {
-  sysVia,
-  userVia,
-  serial,
-  tube,
-  teletext,
-  hdc,
-};
+constexpr int IRQ_SYSVIA   = 0x01;
+constexpr int IRQ_USERVIA  = 0x02;
+constexpr int IRQ_SERIAL   = 0x04;
+constexpr int IRQ_TUBE     = 0x08;
+constexpr int IRQ_TELETEXT = 0x10;
+constexpr int IRQ_HDC      = 0x20;
 
-enum NMI_Nums{
-	nmi_floppy,
-	nmi_econet,
-};
+constexpr int NMI_FLOPPY   = 0x01;
+constexpr int NMI_ECONET   = 0x02;
 
 enum PSR_Flags
 {

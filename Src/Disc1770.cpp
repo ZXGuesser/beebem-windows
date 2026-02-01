@@ -164,7 +164,7 @@ unsigned char Read1770Register(int Register) {
 	}
 
 	if (Register == WD1770_STATUS_REGISTER) {
-		NMIStatus &= ~(1 << nmi_floppy);
+		NMIStatus &= ~NMI_FLOPPY;
 		return Status;
 	}
 	else if (Register == WD1770_TRACK_REGISTER) {
@@ -180,7 +180,7 @@ unsigned char Read1770Register(int Register) {
 		if (FDCommand > 5)
 		{
 			Status &= ~WD1770_STATUS_DATA_REQUEST;
-			NMIStatus &= ~(1 << nmi_floppy);
+			NMIStatus &= ~NMI_FLOPPY;
 		}
 
 		return Data;
@@ -222,7 +222,7 @@ void Write1770Register(int Register, unsigned char Value) {
 	// WriteLog("Disc1770: Write of %02X to Register %d\n", Value, Register);
 
 	if (Register == WD1770_CONTROL_REGISTER) {
-		NMIStatus &= ~(1 << nmi_floppy); // reset INTRQ
+		NMIStatus &= ~NMI_FLOPPY; // reset INTRQ
 		// Control Register - can only write if current drive is open
 		// Changed, now command returns errors if no disc inserted
 		const unsigned char ComBits = Value & 0xf0;
@@ -330,7 +330,7 @@ void Write1770Register(int Register, unsigned char Value) {
 			Data = 0;
 
 			if (Value & 0xf) {
-				NMIStatus |= 1 << nmi_floppy;
+				NMIStatus |= NMI_FLOPPY;
 			}
 		}
 		else if (ComBits == WD1770_COMMAND_READ_ADDRESS) {
@@ -407,7 +407,7 @@ void Write1770Register(int Register, unsigned char Value) {
 
 		if (FDCommand > 5) {
 			Status &= ~WD1770_STATUS_DATA_REQUEST;
-			NMIStatus &= ~(1 << nmi_floppy);
+			NMIStatus &= ~NMI_FLOPPY;
 		}
 	}
 }
@@ -452,7 +452,7 @@ void Poll1770(int NCycles) {
 			// Single sided disk, disc not ready
 			Status &= ~WD1770_STATUS_BUSY;
 			Status |= WD1770_STATUS_RECORD_NOT_FOUND;
-			NMIStatus |= 1 << nmi_floppy;
+			NMIStatus |= NMI_FLOPPY;
 			FDCommand = 12;
 			return;
 		}
@@ -527,7 +527,7 @@ void Poll1770(int NCycles) {
 				StopSoundSample(SAMPLE_HEAD_SEEK);
 				LoadingCycles = SPIN_DOWN_TIME;
 				FDCommand = 12;
-				NMIStatus |= 1 << nmi_floppy;
+				NMIStatus |= NMI_FLOPPY;
 
 				UpdateTR00Status();
 
@@ -541,7 +541,7 @@ void Poll1770(int NCycles) {
 			// Disc not ready, return seek error.
 			Status &= ~WD1770_STATUS_BUSY;
 			Status |= WD1770_STATUS_RECORD_NOT_FOUND;
-			NMIStatus |= 1 << nmi_floppy;
+			NMIStatus |= NMI_FLOPPY;
 			FDCommand = 12;
 			return;
 		}
@@ -575,7 +575,7 @@ void Poll1770(int NCycles) {
 					{
 						Data = (unsigned char)Value;
 						Status |= WD1770_STATUS_DATA_REQUEST;
-						NMIStatus |= 1 << nmi_floppy;
+						NMIStatus |= NMI_FLOPPY;
 					}
 				}
 
@@ -591,7 +591,7 @@ void Poll1770(int NCycles) {
 					// End of sector
 					Status &= ~(WD1770_STATUS_DATA_REQUEST |
 					            WD1770_STATUS_BUSY);
-					NMIStatus |= 1 << nmi_floppy;
+					NMIStatus |= NMI_FLOPPY;
 					fseek(CurrentDisc, HeadPos[CurrentDrive], SEEK_SET);
 					FDCommand = 10;
 				}
@@ -644,7 +644,7 @@ void Poll1770(int NCycles) {
 
 				if (ByteCount > 1 || MultiSect) {
 					Status |= WD1770_STATUS_DATA_REQUEST;
-					NMIStatus |= 1 << nmi_floppy;
+					NMIStatus |= NMI_FLOPPY;
 				}
 
 				if (ByteCount <= 1) {
@@ -658,7 +658,7 @@ void Poll1770(int NCycles) {
 				if (ByteCount <= 1 && !MultiSect) {
 					Status &= ~(WD1770_STATUS_DATA_REQUEST |
 					            WD1770_STATUS_BUSY);
-					NMIStatus |= 1 << nmi_floppy;
+					NMIStatus |= NMI_FLOPPY;
 					fseek(CurrentDisc, HeadPos[CurrentDrive], SEEK_SET);
 					FDCommand = 10;
 				}
@@ -682,7 +682,7 @@ void Poll1770(int NCycles) {
 		if (FDCommand == 7 && !DWriteable[CurrentDrive]) {
 			// Status &= ~WD1770_STATUS_BUSY;
 			Status |= WD1770_STATUS_WRITE_PROTECT;
-			NMIStatus |= 1 << nmi_floppy;
+			NMIStatus |= NMI_FLOPPY;
 			FDCommand = 0;
 		}
 
@@ -700,7 +700,7 @@ void Poll1770(int NCycles) {
 		if (FDCommand >= 8 && !CurrentDiscOpen() && FDCommand <= 9) {
 			Status &= ~WD1770_STATUS_BUSY;
 			Status |= WD1770_STATUS_RECORD_NOT_FOUND;
-			NMIStatus |= 1 << nmi_floppy;
+			NMIStatus |= NMI_FLOPPY;
 			FDCommand = 0;
 		}
 
@@ -708,7 +708,7 @@ void Poll1770(int NCycles) {
 
 		if (FDCommand == 9 && CurrentDiscOpen()) {
 			Status |= WD1770_STATUS_DATA_REQUEST;
-			NMIStatus |= 1 << nmi_floppy;
+			NMIStatus |= NMI_FLOPPY;
 			FDCommand = 7;
 		}
 	}
@@ -750,7 +750,7 @@ void Poll1770(int NCycles) {
 			            WD1770_STATUS_CRC_ERROR |
 			            WD1770_STATUS_LOST_DATA);
 			Status |= WD1770_STATUS_DATA_REQUEST;
-			NMIStatus |= 1 << nmi_floppy;
+			NMIStatus |= NMI_FLOPPY;
 
 			switch (FormatState)
 			{
@@ -825,7 +825,7 @@ void Poll1770(int NCycles) {
 						{
 							Status &= ~(WD1770_STATUS_DATA_REQUEST |
 							            WD1770_STATUS_BUSY);
-							NMIStatus |= 1 << nmi_floppy;
+							NMIStatus |= NMI_FLOPPY;
 							fseek(CurrentDisc, HeadPos[CurrentDrive], SEEK_SET);
 							FDCommand = 10;
 						}
@@ -845,7 +845,7 @@ void Poll1770(int NCycles) {
 	if (FDCommand == 23 && !DWriteable[CurrentDrive]) {
 		// WriteLog(tlog, "Disc Write Protected\n");
 		Status |= WD1770_STATUS_WRITE_PROTECT;
-		NMIStatus |= 1 << nmi_floppy;
+		NMIStatus |= NMI_FLOPPY;
 		FDCommand = 0;
 	}
 
@@ -866,7 +866,7 @@ void Poll1770(int NCycles) {
 		// WriteLog("ResetStatus(0) Here 8\n");
 		Status &= ~WD1770_STATUS_BUSY;
 		Status |= WD1770_STATUS_RECORD_NOT_FOUND;
-		NMIStatus |= 1 << nmi_floppy;
+		NMIStatus |= NMI_FLOPPY;
 		FDCommand = 0;
 	}
 
@@ -878,7 +878,7 @@ void Poll1770(int NCycles) {
 		FDCommand = 23;
 		FormatState = 0;
 		Status |= WD1770_STATUS_DATA_REQUEST;
-		NMIStatus |= 1 << nmi_floppy;
+		NMIStatus |= NMI_FLOPPY;
 	}
 
 	if (FDCommand == 10)
@@ -898,7 +898,7 @@ void Poll1770(int NCycles) {
 
 		}
 
-		NMIStatus |= 1 << nmi_floppy;
+		NMIStatus |= NMI_FLOPPY;
 		FDCommand = 12;
 		LoadingCycles = SPIN_DOWN_TIME; // Spin-down delay
 		return;
@@ -1000,7 +1000,7 @@ void Poll1770(int NCycles) {
 
 			Status |= WD1770_STATUS_DATA_REQUEST;
 			ByteCount--;
-			NMIStatus |= 1 << nmi_floppy;
+			NMIStatus |= NMI_FLOPPY;
 			LoadingCycles = BYTE_TIME; // Slow down the read a bit :)
 		}
 

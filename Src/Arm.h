@@ -94,7 +94,7 @@ public:
 	// control
 	InitResult init(const char* ROMPath);
 	void exec(int count);
-	void run(void);
+	void run();
 	void reset();
 
 	inline void performBranch();
