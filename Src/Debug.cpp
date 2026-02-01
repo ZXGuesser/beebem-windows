@@ -1787,14 +1787,14 @@ static void DebugUpdateWatches(bool all)
 
 /****************************************************************************/
 
-bool DebugDisassembler(int addr,
-                       int prevAddr,
+bool DebugDisassembler(int Addr,
+                       int PrevAddr,
                        int Accumulator,
                        int XReg,
                        int YReg,
                        unsigned char PSR,
                        unsigned char StackReg,
-                       bool host)
+                       bool Host)
 {
 	// Update memory watches. Prevent emulator slowdown by limiting updates
 	// to every 100ms, or on timer wrap-around.
@@ -1809,24 +1809,24 @@ bool DebugDisassembler(int addr,
 
 	// If this is the host and we're debugging that and have no further
 	// instructions to execute, halt.
-	if (host && DebugHost && DebugSource != DebugType::None && InstCount == 0)
+	if (Host && DebugHost && DebugSource != DebugType::None && InstCount == 0)
 	{
 		return false;
 	}
 
 	// Don't process further if we're not debugging the parasite either
-	if (!host && !DebugParasite)
+	if (!Host && !DebugParasite)
 	{
 		return true;
 	}
 
-	if (DebugBreakEnable[(int)DebugType::BRK] && DebugReadMem(addr, host) == 0)
+	if (DebugBreakEnable[(int)DebugType::BRK] && DebugReadMem(Addr, Host) == 0)
 	{
 		DebugBreakExecution(DebugType::BRK);
 		ProgramCounter++;
 	}
 
-	if (host && StepOver && addr == ReturnAddress)
+	if (Host && StepOver && Addr == ReturnAddress)
 	{
 		StepOver = false;
 		DebugBreakExecution(DebugType::Breakpoint);
@@ -1841,14 +1841,14 @@ bool DebugDisassembler(int addr,
 
 			if (bp.end == -1)
 			{
-				if (addr == bp.start)
+				if (Addr == bp.start)
 				{
 					DebugBreakExecution(DebugType::Breakpoint);
 				}
 			}
 			else
 			{
-				if (addr >= bp.start && addr <= bp.end)
+				if (Addr >= bp.start && Addr <= bp.end)
 				{
 					DebugBreakExecution(DebugType::Breakpoint);
 				}
@@ -1861,24 +1861,24 @@ bool DebugDisassembler(int addr,
 		return true;
 	}
 
-	if (!host && (TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80))
+	if (!Host && (TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80))
 	{
-		if (!DebugOS && addr >= 0xf800 && addr <= 0xffff)
+		if (!DebugOS && Addr >= 0xf800 && Addr <= 0xffff)
 		{
 			if (!LastAddrInBIOS)
 			{
 				AddrInfo addrInfo;
 
-				if (DebugLookupAddress(addr, &addrInfo))
+				if (DebugLookupAddress(Addr, &addrInfo))
 				{
 					DebugDisplayInfoF("Entered BIOS (0xF800-0xFFFF) at 0x%04X (%s)",
-					                  addr,
+					                  Addr,
 					                  addrInfo.desc.c_str());
 				}
 				else
 				{
 					DebugDisplayInfoF("Entered BIOS (0xF800-0xFFFF) at 0x%04X",
-					                  addr);
+					                  Addr);
 				}
 
 				LastAddrInBIOS = true;
@@ -1891,19 +1891,19 @@ bool DebugDisassembler(int addr,
 	}
 	else
 	{
-		if (!DebugOS && addr >= 0xc000 && addr <= 0xfbff)
+		if (!DebugOS && Addr >= 0xc000 && Addr <= 0xfbff)
 		{
 			if (!LastAddrInOS)
 			{
 				AddrInfo addrInfo;
 
-				if (DebugLookupAddress(addr, &addrInfo))
+				if (DebugLookupAddress(Addr, &addrInfo))
 				{
-					DebugDisplayInfoF("Entered OS (0xC000-0xFBFF) at 0x%04X (%s)", addr, addrInfo.desc.c_str());
+					DebugDisplayInfoF("Entered OS (0xC000-0xFBFF) at 0x%04X (%s)", Addr, addrInfo.desc.c_str());
 				}
 				else
 				{
-					DebugDisplayInfoF("Entered OS (0xC000-0xFBFF) at 0x%04X", addr);
+					DebugDisplayInfoF("Entered OS (0xC000-0xFBFF) at 0x%04X", Addr);
 				}
 
 				LastAddrInOS = true;
@@ -1915,7 +1915,7 @@ bool DebugDisassembler(int addr,
 
 		LastAddrInOS = false;
 
-		if (!DebugROM && addr >= 0x8000 && addr <= 0xbfff)
+		if (!DebugROM && Addr >= 0x8000 && Addr <= 0xbfff)
 		{
 			if (!LastAddrInROM)
 			{
@@ -1923,11 +1923,11 @@ bool DebugDisassembler(int addr,
 
 				if (ReadRomInfo(ROMSEL, &romInfo))
 				{
-					DebugDisplayInfoF("Entered paged ROM bank %d \"%s\" (0x8000-0xBFFF) at 0x%04X", ROMSEL, romInfo.Title, addr);
+					DebugDisplayInfoF("Entered paged ROM bank %d \"%s\" (0x8000-0xBFFF) at 0x%04X", ROMSEL, romInfo.Title, Addr);
 				}
 				else
 				{
-					DebugDisplayInfoF("Entered paged ROM bank %d (0x8000-0xBFFF) at 0x%04X", ROMSEL, addr);
+					DebugDisplayInfoF("Entered paged ROM bank %d (0x8000-0xBFFF) at 0x%04X", ROMSEL, Addr);
 				}
 
 				LastAddrInROM = true;
@@ -1940,22 +1940,22 @@ bool DebugDisassembler(int addr,
 		LastAddrInROM = false;
 	}
 
-	if (host && InstCount == 0)
+	if (Host && InstCount == 0)
 	{
 		return false;
 	}
 
-	DebugAssertBreak(addr, prevAddr, host);
+	DebugAssertBreak(Addr, PrevAddr, Host);
 
 	char str[150];
 
-	if (host || (!host && TubeType == TubeDevice::Acorn65C02))
+	if (Host || (!Host && TubeType == TubeDevice::Acorn65C02))
 	{
 		int Length = DebugDisassembleInstructionWithCPUStatus(
-			addr, host, Accumulator, XReg, YReg, StackReg, PSR, str
+			Addr, Host, Accumulator, XReg, YReg, StackReg, PSR, str
 		);
 
-		if (!host)
+		if (!Host)
 		{
 			strcpy(&str[Length], "  Parasite");
 		}
@@ -1973,7 +1973,7 @@ bool DebugDisassembler(int addr,
 			case TubeDevice::AcornZ80:
 			case TubeDevice::TorchZ80: {
 				char buff[128];
-				Z80_Disassemble(addr, buff);
+				Z80_Disassemble(Addr, buff);
 
 				Disp_RegSet1(str);
 				sprintf(str + strlen(str), " %s", buff);
@@ -1997,7 +1997,7 @@ bool DebugDisassembler(int addr,
 
 	// If host debug is enabled then only count host instructions
 	// and display all parasite instructions (otherwise we lose them).
-	if ((DebugHost && host) || !DebugHost)
+	if ((DebugHost && Host) || !DebugHost)
 	{
 		if (InstCount > 0)
 		{
@@ -3953,46 +3953,46 @@ static void DebugWriteMem(int Address, bool Host, unsigned char Data)
 
 /****************************************************************************/
 
-int DebugDisassembleInstruction(int addr, bool host, char *opstr)
+int DebugDisassembleInstruction(int Addr, bool Host, char *pszOutput)
 {
 	int operand = 0;
 	int zpaddr = 0;
 	int l = 0;
 
-	char *s = opstr;
+	char *s = pszOutput;
 
-	s += sprintf(s, "%04X ", addr);
+	s += sprintf(s, "%04X ", Addr);
 
-	int opcode = DebugReadMem(addr, host);
+	int opcode = DebugReadMem(Addr, Host);
 
-	const InstInfo *optable = GetOpcodeTable(host);
+	const InstInfo *optable = GetOpcodeTable(Host);
 
 	const InstInfo *ip = &optable[opcode];
 
 	switch (ip->bytes) {
 		case 1:
 			s += sprintf(s, "%02X        ",
-			             DebugReadMem(addr, host));
+			             DebugReadMem(Addr, Host));
 			break;
 		case 2:
 			s += sprintf(s, "%02X %02X     ",
-			             DebugReadMem(addr, host),
-			             DebugReadMem(addr + 1, host));
+			             DebugReadMem(Addr, Host),
+			             DebugReadMem(Addr + 1, Host));
 			break;
 		case 3:
 			s += sprintf(s, "%02X %02X %02X  ",
-			             DebugReadMem(addr, host),
-			             DebugReadMem(addr + 1, host),
-			             DebugReadMem(addr + 2, host));
+			             DebugReadMem(Addr, Host),
+			             DebugReadMem(Addr + 1, Host),
+			             DebugReadMem(Addr + 2, Host));
 			break;
 	}
 
-	if (!host) {
+	if (!Host) {
 		s += sprintf(s, "            ");
 	}
 
 	s += sprintf(s, "%s ", ip->opcode);
-	addr++;
+	Addr++;
 
 	switch (ip->bytes)
 	{
@@ -4000,11 +4000,11 @@ int DebugDisassembleInstruction(int addr, bool host, char *opstr)
 			l = 0;
 			break;
 		case 2:
-			operand = DebugReadMem(addr, host);
+			operand = DebugReadMem(Addr, Host);
 			l = 2;
 			break;
 		case 3:
-			operand = DebugReadMem(addr, host) | (DebugReadMem(addr + 1, host) << 8);
+			operand = DebugReadMem(Addr, Host) | (DebugReadMem(Addr + 1, Host) << 8);
 			l = 4;
 			break;
 	}
@@ -4016,7 +4016,7 @@ int DebugDisassembleInstruction(int addr, bool host, char *opstr)
 			operand = (~0xff | operand);
 		}
 
-		operand = operand + ip->bytes + addr - 1;
+		operand = operand + ip->bytes + Addr - 1;
 		l = 4;
 	}
 	else if (ip->flag & ZPR)
@@ -4029,7 +4029,7 @@ int DebugDisassembleInstruction(int addr, bool host, char *opstr)
 			Offset = (~0xff | Offset);
 		}
 
-		operand = addr + ip->bytes - 1 + Offset;
+		operand = Addr + ip->bytes - 1 + Offset;
 	}
 
 	switch (ip->flag & ADRMASK)
@@ -4075,7 +4075,7 @@ int DebugDisassembleInstruction(int addr, bool host, char *opstr)
 		s += sprintf(s, "  ");
 	}
 
-	if (host) {
+	if (Host) {
 		s += sprintf(s, "            ");
 	}
 
@@ -4084,18 +4084,18 @@ int DebugDisassembleInstruction(int addr, bool host, char *opstr)
 
 /****************************************************************************/
 
-int DebugDisassembleInstructionWithCPUStatus(int addr,
-                                             bool host,
+int DebugDisassembleInstructionWithCPUStatus(int Addr,
+                                             bool Host,
                                              int Accumulator,
                                              int XReg,
                                              int YReg,
                                              unsigned char StackReg,
                                              unsigned char PSR,
-                                             char *opstr)
+                                             char *pszOutput)
 {
-	DebugDisassembleInstruction(addr, host, opstr);
+	DebugDisassembleInstruction(Addr, Host, pszOutput);
 
-	char* p = opstr + strlen(opstr);
+	char* p = pszOutput + strlen(pszOutput);
 
 	p += sprintf(p, "A=%02X X=%02X Y=%02X S=%02X ", Accumulator, XReg, YReg, StackReg);
 
@@ -4108,7 +4108,7 @@ int DebugDisassembleInstructionWithCPUStatus(int addr,
 	*p++ = (PSR & FlagN) ? 'N' : '.';
 	*p = '\0';
 
-	return (int)(p - opstr);
+	return (int)(p - pszOutput);
 }
 
 /****************************************************************************/
