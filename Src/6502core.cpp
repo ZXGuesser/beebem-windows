@@ -1492,9 +1492,6 @@ static void ClipboardCNPVHandler()
 
 void Exec6502Instruction()
 {
-	bool iFlagJustCleared;
-	bool iFlagJustSet;
-
 	const int Count = DebugEnabled ? 1 : 1024; // Makes debug window more responsive
 
 	for (int i = 0; i < Count; i++)
@@ -1506,9 +1503,10 @@ void Exec6502Instruction()
 			continue;
 		}
 
+		bool iFlagJustCleared = false;
+		bool iFlagJustSet = false;
+
 		Branched = false;
-		iFlagJustCleared = false;
-		iFlagJustSet = false;
 		Cycles = 0;
 		IOCycles = 0;
 		IntDue = false;
@@ -1516,32 +1514,37 @@ void Exec6502Instruction()
 
 		PrePC = ProgramCounter;
 
-		// Check for WRCHV, send char to speech output
+		// Check for WRCHV, send char to speech output.
 		if (mainWin->m_TextToSpeechEnabled &&
-			ProgramCounter == (WholeRam[0x20e] | (WholeRam[0x20f] << 8))) {
+		    ProgramCounter == (WholeRam[0x20e] | (WholeRam[0x20f] << 8)))
+		{
 			mainWin->SpeakChar(Accumulator);
 		}
-		else if (mainWin->m_ClipboardLength > 0) {
+		else if (mainWin->m_ClipboardLength > 0)
+		{
 			// Check for REMV (Remove from buffer vector) and CNPV (Count/purge buffer
 			// vector). X register contains the buffer number (0 indicates the keyboard
-			// buffer). See AUG p.263/264 and p.138
+			// buffer). See AUG p.263/264 and p.138.
 
-			if (ProgramCounter == (WholeRam[0x22c] | (WholeRam[0x22d] << 8)) && XReg == 0) {
+			if (ProgramCounter == (WholeRam[0x22c] | (WholeRam[0x22d] << 8)) && XReg == 0)
+			{
 				ClipboardREMVHandler();
 			}
-			else if (ProgramCounter == (WholeRam[0x22e] | (WholeRam[0x22f] << 8)) && XReg == 0) {
+			else if (ProgramCounter == (WholeRam[0x22e] | (WholeRam[0x22f] << 8)) && XReg == 0)
+			{
 				ClipboardCNPVHandler();
 			}
 		}
 
-		if (CurrentInstruction == -1) {
-			// Read an instruction and post inc program counter
+		if (CurrentInstruction == -1)
+		{
+			// Read an instruction and post inc program counter.
 			CurrentInstruction = ReadPaged(ProgramCounter++);
 		}
 
 		InstructionCount[CurrentInstruction]++;
 
-		// Advance VIAs to point where mem read happens
+		// Advance VIAs to point where mem read happens.
 		ViaCycles = 0;
 		AdvanceCyclesForMemRead();
 
@@ -1819,20 +1822,23 @@ void Exec6502Instruction()
 				}
 				break;
 			case 0x28: {
-					// PLP
-					unsigned char oldPSR = PSR;
-					PSR = Pop();
+				// PLP
+				unsigned char oldPSR = PSR;
+				PSR = Pop();
 
-					if ((oldPSR ^ PSR) & FlagI) {
-						if (PSR & FlagI) {
-							iFlagJustSet = true;
-						}
-						else {
-							iFlagJustCleared = true;
-						}
+				if ((oldPSR ^ PSR) & FlagI)
+				{
+					if (PSR & FlagI)
+					{
+						iFlagJustSet = true;
+					}
+					else
+					{
+						iFlagJustCleared = true;
 					}
 				}
 				break;
+			}
 			case 0x29:
 				// AND imm
 				ANDInstrHandler(ReadPaged(ProgramCounter++));
