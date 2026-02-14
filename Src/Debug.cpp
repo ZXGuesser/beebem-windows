@@ -141,7 +141,14 @@ static int DebugDisassembleCommand(int addr, int count, bool host);
 static void DebugMemoryDump(int addr, int count, bool host);
 static void DebugExecuteCommand();
 static void DebugToggleRun();
+
+static int DebugFindBreakpoint(const Breakpoint& bp);
+static void DebugAddBreakpoint(const Breakpoint& bp);
+
+static int DebugFindWatch(const Watch& w);
+static void DebugAddWatch(const Watch& w);
 static void DebugUpdateWatches(bool UpdateAll);
+
 static bool DebugLookupAddress(int addr, AddrInfo* addrInfo);
 static void DebugHistoryMove(int delta);
 static void DebugHistoryAdd(const char* command);
@@ -1192,8 +1199,6 @@ void DebugOpenDialog(HINSTANCE hinst, HWND /* hwndMain */)
 
 	DebugEnabled = true;
 
-	DebugHistory.clear();
-
 	haccelDebug = LoadAccelerators(hinst, MAKEINTRESOURCE(IDR_ACCELERATORS));
 	hwndDebug = CreateDialog(hinst, MAKEINTRESOURCE(IDD_DEBUG),
 	                         hwndInvisibleOwner, DebugDlgProc);
@@ -1203,21 +1208,6 @@ void DebugOpenDialog(HINSTANCE hinst, HWND /* hwndMain */)
 
 	DisableRoundedCorners(hwndDebug);
 	ShowWindow(hwndDebug, SW_SHOW);
-
-	hwndInfo = GetDlgItem(hwndDebug, IDC_DEBUGINFO);
-	SendMessage(hwndInfo, WM_SETFONT, (WPARAM)GetStockObject(ANSI_FIXED_FONT),
-	            MAKELPARAM(FALSE, 0));
-
-	hwndBP = GetDlgItem(hwndDebug, IDC_DEBUGBREAKPOINTS);
-	SendMessage(hwndBP, WM_SETFONT, (WPARAM)GetStockObject(ANSI_FIXED_FONT),
-	            MAKELPARAM(FALSE, 0));
-
-	hwndW = GetDlgItem(hwndDebug, IDC_DEBUGWATCHES);
-	SendMessage(hwndW, WM_SETFONT, (WPARAM)GetStockObject(ANSI_FIXED_FONT),
-	            MAKELPARAM(FALSE, 0));
-
-	SetDlgItemChecked(hwndDebug, IDC_DEBUGBPS, true);
-	SetDlgItemChecked(hwndDebug, IDC_DEBUGHOST, true);
 }
 
 /****************************************************************************/
@@ -1232,22 +1222,14 @@ void DebugCloseDialog()
 	DebugEnabled = false;
 	DebugSource = DebugType::None;
 	LinesDisplayed = 0;
+	DebugInfoWidth = 0;
+
 	InstCount = 0;
-	DumpAddress = 0;
-	DisAddress = 0;
-	Breakpoints.clear();
-	Watches.clear();
-	BPSOn = true;
 	StepOver = false;
 	ReturnAddress = 0;
-	DebugOS = false;
 	LastAddrInOS = false;
 	LastAddrInBIOS = false;
-	DebugROM = false;
 	LastAddrInROM = false;
-	DebugHost = true;
-	DebugParasite = false;
-	DebugInfoWidth = 0;
 }
 
 /****************************************************************************/
@@ -1310,13 +1292,70 @@ void DebugDisplayInfo(const char *info)
 
 /****************************************************************************/
 
-static INT_PTR CALLBACK DebugDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM /* lParam */)
+static INT_PTR CALLBACK DebugDlgProc(HWND hWnd, UINT Message, WPARAM wParam, LPARAM /* lParam */)
 {
-	switch (message)
+	switch (Message)
 	{
-		case WM_INITDIALOG:
-			SendDlgItemMessage(hwndDlg, IDC_DEBUGCOMMAND, EM_SETLIMITTEXT, MAX_COMMAND_LEN, 0);
+		case WM_INITDIALOG: {
+			SendDlgItemMessage(hWnd, IDC_DEBUGCOMMAND, EM_SETLIMITTEXT, MAX_COMMAND_LEN, 0);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_VIDEO,        DebugTraceEnable[(int)DebugType::Video]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_VIDEO_BRK,    DebugBreakEnable[(int)DebugType::Video]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_USERVIA,      DebugTraceEnable[(int)DebugType::UserVIA]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_USERVIA_BRK,  DebugBreakEnable[(int)DebugType::UserVIA]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_SYSVIA,       DebugTraceEnable[(int)DebugType::SysVIA]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_SYSVIA_BRK,   DebugBreakEnable[(int)DebugType::SysVIA]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_TUBE,         DebugTraceEnable[(int)DebugType::Tube]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_TUBE_BRK,     DebugBreakEnable[(int)DebugType::Tube]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_SERIAL,       DebugTraceEnable[(int)DebugType::Serial]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_SERIAL_BRK,   DebugBreakEnable[(int)DebugType::Serial]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_REMSER,       DebugTraceEnable[(int)DebugType::RemoteServer]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_REMSER_BRK,   DebugBreakEnable[(int)DebugType::RemoteServer]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_ECONET,       DebugTraceEnable[(int)DebugType::Econet]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_ECONET_BRK,   DebugBreakEnable[(int)DebugType::Econet]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_TELETEXT,     DebugTraceEnable[(int)DebugType::Teletext]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_TELETEXT_BRK, DebugBreakEnable[(int)DebugType::Teletext]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_CMOS,         DebugTraceEnable[(int)DebugType::CMOS]);
+			SetDlgItemChecked(hWnd, IDC_DEBUG_CMOS_BRK,     DebugBreakEnable[(int)DebugType::CMOS]);
+			SetDlgItemChecked(hWnd, IDC_DEBUGBRK,           DebugBreakEnable[(int)DebugType::BRK]);
+			SetDlgItemChecked(hWnd, IDC_DEBUGHOST,          DebugHost);
+			SetDlgItemChecked(hWnd, IDC_DEBUGPARASITE,      DebugParasite);
+			SetDlgItemChecked(hWnd, IDC_DEBUGOS,            DebugOS);
+			SetDlgItemChecked(hWnd, IDC_DEBUGROM,           DebugROM);
+			SetDlgItemChecked(hWnd, IDC_WATCHDECIMAL,       WatchDecimal);
+			SetDlgItemChecked(hWnd, IDC_WATCHENDIAN,        WatchBigEndian);
+			SetDlgItemChecked(hWnd, IDC_DEBUGBPS,           BPSOn);
+
+			hwndInfo = GetDlgItem(hWnd, IDC_DEBUGINFO);
+			SendMessage(hwndInfo, WM_SETFONT, (WPARAM)GetStockObject(ANSI_FIXED_FONT),
+			            MAKELPARAM(FALSE, 0));
+
+			hwndBP = GetDlgItem(hWnd, IDC_DEBUGBREAKPOINTS);
+			SendMessage(hwndBP, WM_SETFONT, (WPARAM)GetStockObject(ANSI_FIXED_FONT),
+			            MAKELPARAM(FALSE, 0));
+
+			hwndW = GetDlgItem(hWnd, IDC_DEBUGWATCHES);
+			SendMessage(hwndW, WM_SETFONT, (WPARAM)GetStockObject(ANSI_FIXED_FONT),
+			            MAKELPARAM(FALSE, 0));
+
+			for (size_t i = 0; i < Breakpoints.size(); i++)
+			{
+				DebugAddBreakpoint(Breakpoints[i]);
+			}
+
+			for (size_t i = 0; i < Watches.size(); i++)
+			{
+				const Watch& w = Watches[i];
+
+				char Info[64];
+				sprintf(Info, "%s%04X", (w.host ? "" : "p"), w.start);
+
+				SendMessage(hwndW, LB_ADDSTRING, 0, (LPARAM)Info);
+			}
+
+			DebugUpdateWatches(true);
+
 			return TRUE;
+		}
 
 		case WM_ACTIVATE:
 			if (LOWORD(wParam) == WA_INACTIVE)
@@ -1326,7 +1365,7 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, 
 			}
 			else
 			{
-				hCurrentDialog = hwndDebug;
+				hCurrentDialog = hWnd;
 				hCurrentAccelTable = haccelDebug;
 			}
 			break;
@@ -1335,14 +1374,14 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, 
 			switch (LOWORD(wParam))
 			{
 				case ID_ACCELUP:
-					if (GetFocus() == GetDlgItem(hwndDebug, IDC_DEBUGCOMMAND))
+					if (GetFocus() == GetDlgItem(hWnd, IDC_DEBUGCOMMAND))
 					{
 						DebugHistoryMove(-1);
 					}
 					break;
 
 				case ID_ACCELDOWN:
-					if (GetFocus() == GetDlgItem(hwndDebug, IDC_DEBUGCOMMAND))
+					if (GetFocus() == GetDlgItem(hWnd, IDC_DEBUGCOMMAND))
 					{
 						DebugHistoryMove(1);
 					}
@@ -1354,116 +1393,117 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, 
 
 				case IDC_DEBUGEXECUTE:
 					DebugExecuteCommand();
-					SetFocus(GetDlgItem(hwndDebug, IDC_DEBUGCOMMAND));
+					SetFocus(GetDlgItem(hWnd, IDC_DEBUGCOMMAND));
 					break;
 
 				case IDC_DEBUGBPS:
-					BPSOn = IsDlgItemChecked(hwndDebug, IDC_DEBUGBPS);
+					BPSOn = IsDlgItemChecked(hWnd, IDC_DEBUGBPS);
 					break;
 
 				case IDC_DEBUGBRK:
-					DebugBreakEnable[(int)DebugType::BRK] = IsDlgItemChecked(hwndDebug, IDC_DEBUGBRK);
+					DebugBreakEnable[(int)DebugType::BRK] = IsDlgItemChecked(hWnd, IDC_DEBUGBRK);
 					break;
 
 				case IDC_DEBUGOS:
-					DebugOS = IsDlgItemChecked(hwndDebug, IDC_DEBUGOS);
+					DebugOS = IsDlgItemChecked(hWnd, IDC_DEBUGOS);
 					break;
 
 				case IDC_DEBUGROM:
-					DebugROM = IsDlgItemChecked(hwndDebug, IDC_DEBUGROM);
+					DebugROM = IsDlgItemChecked(hWnd, IDC_DEBUGROM);
 					break;
 
 				case IDC_DEBUGHOST:
-					DebugHost = IsDlgItemChecked(hwndDebug, IDC_DEBUGHOST);
+					DebugHost = IsDlgItemChecked(hWnd, IDC_DEBUGHOST);
 					break;
 
 				case IDC_DEBUGPARASITE:
-					DebugParasite = IsDlgItemChecked(hwndDebug, IDC_DEBUGPARASITE);
+					DebugParasite = IsDlgItemChecked(hWnd, IDC_DEBUGPARASITE);
 					break;
 
 				case IDC_WATCHDECIMAL:
 				case IDC_WATCHENDIAN:
-					WatchDecimal = IsDlgItemChecked(hwndDebug, IDC_WATCHDECIMAL);
-					WatchBigEndian = IsDlgItemChecked(hwndDebug, IDC_WATCHENDIAN);
+					WatchDecimal = IsDlgItemChecked(hWnd, IDC_WATCHDECIMAL);
+					WatchBigEndian = IsDlgItemChecked(hWnd, IDC_WATCHENDIAN);
 					DebugUpdateWatches(true);
 					break;
 
 				case IDC_DEBUG_VIDEO:
-					DebugTraceEnable[(int)DebugType::Video] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_VIDEO);
+					DebugTraceEnable[(int)DebugType::Video] = IsDlgItemChecked(hWnd, IDC_DEBUG_VIDEO);
 					break;
 
 				case IDC_DEBUG_VIDEO_BRK:
-					DebugBreakEnable[(int)DebugType::Video] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_VIDEO_BRK);
+					DebugBreakEnable[(int)DebugType::Video] = IsDlgItemChecked(hWnd, IDC_DEBUG_VIDEO_BRK);
 					break;
 
 				case IDC_DEBUG_SYSVIA:
-					DebugTraceEnable[(int)DebugType::SysVIA] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_SYSVIA);
+					DebugTraceEnable[(int)DebugType::SysVIA] = IsDlgItemChecked(hWnd, IDC_DEBUG_SYSVIA);
 					break;
 
 				case IDC_DEBUG_SYSVIA_BRK:
-					DebugBreakEnable[(int)DebugType::SysVIA] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_SYSVIA_BRK);
+					DebugBreakEnable[(int)DebugType::SysVIA] = IsDlgItemChecked(hWnd, IDC_DEBUG_SYSVIA_BRK);
 					break;
 
 				case IDC_DEBUG_USERVIA:
-					DebugTraceEnable[(int)DebugType::UserVIA] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_USERVIA);
+					DebugTraceEnable[(int)DebugType::UserVIA] = IsDlgItemChecked(hWnd, IDC_DEBUG_USERVIA);
 					break;
 
 				case IDC_DEBUG_USERVIA_BRK:
-					DebugBreakEnable[(int)DebugType::UserVIA] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_USERVIA_BRK);
+					DebugBreakEnable[(int)DebugType::UserVIA] = IsDlgItemChecked(hWnd, IDC_DEBUG_USERVIA_BRK);
 					break;
 
 				case IDC_DEBUG_TUBE:
-					DebugTraceEnable[(int)DebugType::Tube] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_TUBE);
+					DebugTraceEnable[(int)DebugType::Tube] = IsDlgItemChecked(hWnd, IDC_DEBUG_TUBE);
 					break;
 
 				case IDC_DEBUG_TUBE_BRK:
-					DebugBreakEnable[(int)DebugType::Tube] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_TUBE_BRK);
+					DebugBreakEnable[(int)DebugType::Tube] = IsDlgItemChecked(hWnd, IDC_DEBUG_TUBE_BRK);
 					break;
 
 				case IDC_DEBUG_SERIAL:
-					DebugTraceEnable[(int)DebugType::Serial] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_SERIAL);
+					DebugTraceEnable[(int)DebugType::Serial] = IsDlgItemChecked(hWnd, IDC_DEBUG_SERIAL);
 					break;
 
 				case IDC_DEBUG_SERIAL_BRK:
-					DebugBreakEnable[(int)DebugType::Serial] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_SERIAL_BRK);
+					DebugBreakEnable[(int)DebugType::Serial] = IsDlgItemChecked(hWnd, IDC_DEBUG_SERIAL_BRK);
 					break;
 
 				case IDC_DEBUG_ECONET:
-					DebugTraceEnable[(int)DebugType::Econet] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_ECONET);
+					DebugTraceEnable[(int)DebugType::Econet] = IsDlgItemChecked(hWnd, IDC_DEBUG_ECONET);
 					break;
 
 				case IDC_DEBUG_ECONET_BRK:
-					DebugBreakEnable[(int)DebugType::Econet] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_ECONET_BRK);
+					DebugBreakEnable[(int)DebugType::Econet] = IsDlgItemChecked(hWnd, IDC_DEBUG_ECONET_BRK);
 					break;
 
 				case IDC_DEBUG_REMSER:
-					DebugTraceEnable[(int)DebugType::RemoteServer] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_REMSER);
+					DebugTraceEnable[(int)DebugType::RemoteServer] = IsDlgItemChecked(hWnd, IDC_DEBUG_REMSER);
 					break;
 
 				case IDC_DEBUG_REMSER_BRK:
-					DebugBreakEnable[(int)DebugType::RemoteServer] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_REMSER_BRK);
+					DebugBreakEnable[(int)DebugType::RemoteServer] = IsDlgItemChecked(hWnd, IDC_DEBUG_REMSER_BRK);
 					break;
 
 				case IDC_DEBUG_TELETEXT:
-					DebugTraceEnable[(int)DebugType::Teletext] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_TELETEXT);
+					DebugTraceEnable[(int)DebugType::Teletext] = IsDlgItemChecked(hWnd, IDC_DEBUG_TELETEXT);
 					break;
 
 				case IDC_DEBUG_TELETEXT_BRK:
-					DebugBreakEnable[(int)DebugType::Teletext] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_TELETEXT_BRK);
+					DebugBreakEnable[(int)DebugType::Teletext] = IsDlgItemChecked(hWnd, IDC_DEBUG_TELETEXT_BRK);
 					break;
 
 				case IDC_DEBUG_CMOS:
-					DebugTraceEnable[(int)DebugType::CMOS] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_CMOS);
+					DebugTraceEnable[(int)DebugType::CMOS] = IsDlgItemChecked(hWnd, IDC_DEBUG_CMOS);
 					break;
 
 				case IDC_DEBUG_CMOS_BRK:
-					DebugBreakEnable[(int)DebugType::CMOS] = IsDlgItemChecked(hwndDebug, IDC_DEBUG_CMOS_BRK);
+					DebugBreakEnable[(int)DebugType::CMOS] = IsDlgItemChecked(hWnd, IDC_DEBUG_CMOS_BRK);
 					break;
 
 				case IDCANCEL:
 					DebugCloseDialog();
 					break;
 			}
+			break;
 	}
 
 	return FALSE;
@@ -1702,6 +1742,56 @@ void DebugDisplayTraceV(DebugType type, bool host, const char *format, va_list a
 		DebugDisplayTrace(type, host, buffer);
 		free(buffer);
 	}
+}
+
+/****************************************************************************/
+
+static int DebugFindBreakpoint(const Breakpoint& bp)
+{
+	char Info[64];
+	sprintf(Info, "%04X", bp.start);
+
+	return (int)SendMessage(hwndBP, LB_FINDSTRING, 0, (LPARAM)Info);
+}
+
+/****************************************************************************/
+
+static void DebugAddBreakpoint(const Breakpoint& bp)
+{
+	char Info[64];
+
+	if (bp.end >= 0)
+	{
+		sprintf(Info, "%04X-%04X", bp.start, bp.end);
+	}
+	else
+	{
+		sprintf(Info, "%04X", bp.start);
+	}
+
+	std::string str = std::string(Info) + " " + bp.name;
+
+	SendMessage(hwndBP, LB_ADDSTRING, 0, (LPARAM)str.c_str());
+}
+
+/****************************************************************************/
+
+static int DebugFindWatch(const Watch& w)
+{
+	char Info[64];
+	sprintf(Info, "%s%04X", (w.host ? "" : "p"), w.start);
+
+	return (int)SendMessage(hwndW, LB_FINDSTRING, 0, (LPARAM)Info);
+}
+
+/****************************************************************************/
+
+static void DebugAddWatch(const Watch& w)
+{
+	char Info[64];
+	sprintf(Info, "%s%04X", (w.host ? "" : "p"), w.start);
+
+	SendMessage(hwndW, LB_ADDSTRING, 0, (LPARAM)Info);
 }
 
 /****************************************************************************/
@@ -3709,11 +3799,8 @@ static bool DebugCmdWatch(const char* args)
 		}
 	}
 
-	char Info[64];
-	sprintf(Info, "%s%04X", (w.host ? "" : "p"), w.start);
-
 	// Check if watch in list
-	int i = (int)SendMessage(hwndW, LB_FINDSTRING, 0, (LPARAM)Info);
+	int i = DebugFindWatch(w);
 
 	if (i != LB_ERR)
 	{
@@ -3733,8 +3820,8 @@ static bool DebugCmdWatch(const char* args)
 	else
 	{
 		Watches.push_back(w);
+		DebugAddWatch(w);
 
-		SendMessage(hwndW, LB_ADDSTRING, 0, (LPARAM)Info);
 		DebugUpdateWatches(true);
 	}
 
@@ -3815,15 +3902,12 @@ static bool DebugCmdToggleBreak(const char* args)
 
 	// Check if breakpoint already exists.
 
-	char Info[64];
-	sprintf(Info, "%04X", bp.start);
+	int Index = DebugFindBreakpoint(bp);
 
-	int i = (int)SendMessage(hwndBP, LB_FINDSTRING, 0, (LPARAM)Info);
-
-	if (i != LB_ERR)
+	if (Index != LB_ERR)
 	{
 		// Yes, delete it.
-		SendMessage(hwndBP, LB_DELETESTRING, i, 0);
+		SendMessage(hwndBP, LB_DELETESTRING, Index, 0);
 
 		auto it = std::find_if(Breakpoints.begin(), Breakpoints.end(), [&bp](const Breakpoint& b) {
 			return b.start == bp.start;
@@ -3849,14 +3933,7 @@ static bool DebugCmdToggleBreak(const char* args)
 
 		Breakpoints.push_back(bp);
 
-		if (bp.end >= 0)
-		{
-			sprintf(Info, "%04X-%04X", bp.start, bp.end);
-		}
-
-		std::string str = std::string(Info) + " " + bp.name;
-
-		SendMessage(hwndBP, LB_ADDSTRING, 0, (LPARAM)str.c_str());
+		DebugAddBreakpoint(bp);
 	}
 
 	SetDlgItemText(hwndDebug, IDC_DEBUGCOMMAND, "");
