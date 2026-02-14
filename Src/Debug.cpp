@@ -141,7 +141,7 @@ static int DebugDisassembleCommand(int addr, int count, bool host);
 static void DebugMemoryDump(int addr, int count, bool host);
 static void DebugExecuteCommand();
 static void DebugToggleRun();
-static void DebugUpdateWatches(bool all);
+static void DebugUpdateWatches(bool UpdateAll);
 static bool DebugLookupAddress(int addr, AddrInfo* addrInfo);
 static void DebugHistoryMove(int delta);
 static void DebugHistoryAdd(const char* command);
@@ -1706,9 +1706,9 @@ void DebugDisplayTraceV(DebugType type, bool host, const char *format, va_list a
 
 /****************************************************************************/
 
-static void DebugUpdateWatches(bool all)
+static void DebugUpdateWatches(bool UpdateAll)
 {
-	int value = 0;
+	int Value = 0;
 
 	for (size_t i = 0; i < Watches.size(); ++i)
 	{
@@ -1717,18 +1717,18 @@ static void DebugUpdateWatches(bool all)
 		switch (watch.type)
 		{
 			case 'b':
-				value = DebugReadMem(watch.start, watch.host);
+				Value = DebugReadMem(watch.start, watch.host);
 				break;
 
 			case 'w':
 				if (WatchBigEndian)
 				{
-					value = (DebugReadMem(watch.start,     watch.host) << 8) +
+					Value = (DebugReadMem(watch.start,     watch.host) << 8) +
 					         DebugReadMem(watch.start + 1, watch.host);
 				}
 				else
 				{
-					value = (DebugReadMem(watch.start + 1, watch.host) << 8) +
+					Value = (DebugReadMem(watch.start + 1, watch.host) << 8) +
 					         DebugReadMem(watch.start,     watch.host);
 				}
 				break;
@@ -1736,14 +1736,14 @@ static void DebugUpdateWatches(bool all)
 			case 'd':
 				if (WatchBigEndian)
 				{
-					value = (DebugReadMem(watch.start,     watch.host) << 24) +
+					Value = (DebugReadMem(watch.start,     watch.host) << 24) +
 					        (DebugReadMem(watch.start + 1, watch.host) << 16) +
 					        (DebugReadMem(watch.start + 2, watch.host) << 8) +
 					         DebugReadMem(watch.start + 3, watch.host);
 				}
 				else
 				{
-					value = (DebugReadMem(watch.start + 3, watch.host) << 24) +
+					Value = (DebugReadMem(watch.start + 3, watch.host) << 24) +
 					        (DebugReadMem(watch.start + 2, watch.host) << 16) +
 					        (DebugReadMem(watch.start + 1, watch.host) << 8) +
 					         DebugReadMem(watch.start,     watch.host);
@@ -1751,9 +1751,9 @@ static void DebugUpdateWatches(bool all)
 				break;
 		}
 
-		if (all || value != watch.value)
+		if (UpdateAll || Value != watch.value)
 		{
-			watch.value = value;
+			watch.value = Value;
 
 			char str[200];
 
