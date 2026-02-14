@@ -33,7 +33,6 @@ Boston, MA  02110-1301, USA.
 #include "Tube.h"
 #include "UefState.h"
 
-bool trace_z80 = false;
 int PreZPC = 0; // Previous Z80 PC
 
 unsigned char z80_rom[65536];
@@ -50,9 +49,6 @@ unsigned char ReadZ80Mem(int addr)
 
 	unsigned char t = (inROM) ? z80_rom[addr & 0x1fff] : z80_ram[addr & 0xffff];
 
-	// if (trace_z80)
-	//	WriteLog("Read %02x from %04x in %s\n", t, addr, (inROM) ? "ROM" : "RAM");
-
 	return t;
 }
 
@@ -66,9 +62,6 @@ void WriteZ80Mem(int addr, unsigned char data)
 	// {
 		z80_ram[addr & 0xffff] = data;
 	// }
-
-	// if (trace_z80)
-	//	WriteLog("Writing %02x to %04x\n", data, addr);
 }
 
 /*
@@ -109,46 +102,6 @@ void Z80DumpRegSet2(char *str)
 	psz += sprintf(psz, " BC'%04X DE'%04X HL'%04X", regs[1].bc, regs[1].de, regs[1].hl);
 	psz += sprintf(psz, " IY=%04X R=%02x SP=%04X", iy, regs_sel, sp);
 	psz += sprintf(psz, ":%02X,%02X,%02X,%02X\n", ReadZ80Mem(sp), ReadZ80Mem(sp + 1), ReadZ80Mem(sp + 2), ReadZ80Mem(sp + 3));
-}
-
-static void Z80DumpRegs()
-{
-	char buff[64];
-	char str[256];
-
-	Z80Disassemble(pc, buff);
-
-	char* psz = str;
-	psz += sprintf(psz, "AF=%04X ",af[0]);
-	psz += sprintf(psz, (af[0] & 128) ? "M" : "P");
-	psz += sprintf(psz, (af[0] & 64) ? "Z" : ".");
-	psz += sprintf(psz, (af[0] & 32) ? "5" : ".");
-	psz += sprintf(psz, (af[0] & 16) ? "H" : ".");
-	psz += sprintf(psz, (af[0] & 8) ? "3" : ".");
-	psz += sprintf(psz, (af[0] & 4) ? "V" : ".");
-	psz += sprintf(psz, (af[0] & 2) ? "N" : ".");
-	psz += sprintf(psz, (af[0] & 1) ? "C" : ".");
-	psz += sprintf(psz, " BC=%04X DE=%04X HL=%04X", regs[0].bc, regs[0].de, regs[0].hl);
-	psz += sprintf(psz, " IX=%04X I=%02X PC=%04X", ix, ir & 255, pc);
-	psz += sprintf(psz, ":%02X,%02X,%02X,%02X", ReadZ80Mem(pc), ReadZ80Mem(pc + 1), ReadZ80Mem(pc + 2), ReadZ80Mem(pc + 3));
-
-	WriteLog("%s %s\n", str, buff);
-
-	psz = str;
-	psz += sprintf(psz, "AF'%04X ",af[1]);
-	psz += sprintf(psz, (af[1] & 128) ? "M" : "P");
-	psz += sprintf(psz, (af[1] & 64) ? "Z" : ".");
-	psz += sprintf(psz, (af[1] & 32) ? "5" : ".");
-	psz += sprintf(psz, (af[1] & 16) ? "H" : ".");
-	psz += sprintf(psz, (af[1] & 8) ? "3" : ".");
-	psz += sprintf(psz, (af[1] & 4) ? "V" : ".");
-	psz += sprintf(psz, (af[1] & 2) ? "N" : ".");
-	psz += sprintf(psz, (af[1] & 1) ? "C" : ".");
-	psz += sprintf(psz, " BC'%04X DE'%04X HL'%04X", regs[1].bc, regs[1].de, regs[1].hl);
-	psz += sprintf(psz, " IY=%04X R=%02x SP=%04X", iy, regs_sel, sp);
-	psz += sprintf(psz, ":%02X,%02X,%02X,%02X\n", ReadZ80Mem(sp), ReadZ80Mem(sp + 1), ReadZ80Mem(sp + 2), ReadZ80Mem(sp + 3));
-
-	WriteLog("%s\n", str);
 }
 
 unsigned char Z80ReadIO(unsigned int addr)
@@ -204,14 +157,6 @@ void Z80WriteIO(unsigned int addr, unsigned char value)
 
 void Z80Execute()
 {
-	if (trace_z80)
-	{
-		if (pc <= 0xf800) // Don't trace BIOS cos toooo much data
-		{
-			Z80DumpRegs();
-		}
-	}
-
 	// Output debug info
 	if (DebugEnabled)
 	{
@@ -337,8 +282,6 @@ void Z80Debug()
 		WriteLog("%04x : %s\n", t, buff);
 		t += s;
 	}
-
-	trace_z80 = true;
 
 	for (int a = 0; a < 32; ++a)
 	{
