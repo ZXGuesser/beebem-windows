@@ -609,55 +609,55 @@ void SysVIAWrite(int Address, unsigned char Value)
 
 unsigned char SysVIARead(int Address)
 {
-	unsigned char tmp = 0xff;
+	unsigned char Value = 0xff;
 
 	// DebugTrace("SysVIARead: Address=0x%02x at %d\n", Address, TotalCycles);
 
 	switch (Address)
 	{
 		case 0: // IRB read
-			tmp = SysVIAState.orb & SysVIAState.ddrb;
+			Value = SysVIAState.orb & SysVIAState.ddrb;
 
 			if (!JoystickButton[1])
 			{
-				tmp |= 0x20;
+				Value |= 0x20;
 			}
 
 			if (!JoystickButton[0])
 			{
-				tmp |= 0x10;
+				Value |= 0x10;
 			}
 
 			#if ENABLE_SPEECH
 
 			if (!SpeechStarted)
 			{
-				tmp |= 0xc0; // Speech system non existant
+				Value |= 0xc0; // Speech system non existant
 			}
 			else
 			{
 				if (SpeechInterrupt()) // Flag is active low
 				{
-					tmp |= 0x40;
+					Value |= 0x40;
 				}
 				else
 				{
-					tmp &= ~0x40;
+					Value &= ~0x40;
 				}
 
 				if (SpeechReady()) // Flag is active low
 				{
-					tmp |= 0x80;
+					Value |= 0x80;
 				}
 				else
 				{
-					tmp &= ~0x80;
+					Value &= ~0x80;
 				}
 			}
 
 			#else
 
-			tmp |= 0xc0; // Speech system non existant
+			Value |= 0xc0; // Speech system non existant
 
 			#endif
 
@@ -667,21 +667,21 @@ unsigned char SysVIARead(int Address)
 			break;
 
 		case 2:
-			tmp = SysVIAState.ddrb;
+			Value = SysVIAState.ddrb;
 			break;
 
 		case 3:
-			tmp = SysVIAState.ddra;
+			Value = SysVIAState.ddra;
 			break;
 
 		case 4: // Timer 1 lo counter
 			if (SysVIAState.timer1c < 0)
 			{
-				tmp = 0xff;
+				Value = 0xff;
 			}
 			else
 			{
-				tmp = (SysVIAState.timer1c / 2) & 0xff;
+				Value = (SysVIAState.timer1c / 2) & 0xff;
 			}
 
 			SysVIAState.ifr &= ~IFR_TIMER1;
@@ -689,25 +689,25 @@ unsigned char SysVIARead(int Address)
 			break;
 
 		case 5: // Timer 1 hi counter
-			tmp = (SysVIAState.timer1c >> 9) & 0xff; // K.Lowe
+			Value = (SysVIAState.timer1c >> 9) & 0xff; // K.Lowe
 			break;
 
 		case 6: // Timer 1 lo latch
-			tmp = SysVIAState.timer1l & 0xff;
+			Value = SysVIAState.timer1l & 0xff;
 			break;
 
 		case 7: // Timer 1 hi latch
-			tmp = (SysVIAState.timer1l >> 8) & 0xff; // K.Lowe
+			Value = (SysVIAState.timer1l >> 8) & 0xff; // K.Lowe
 			break;
 
 		case 8: // Timer 2 lo counter
 			if (SysVIAState.timer2c < 0) // Adjust for dividing -ve count by 2
 			{
-				tmp = ((SysVIAState.timer2c - 1) / 2) & 0xff;
+				Value = ((SysVIAState.timer2c - 1) / 2) & 0xff;
 			}
 			else
 			{
-				tmp = (SysVIAState.timer2c / 2) & 0xff;
+				Value = (SysVIAState.timer2c / 2) & 0xff;
 			}
 
 			SysVIAState.ifr &= ~IFR_TIMER2;
@@ -715,20 +715,20 @@ unsigned char SysVIARead(int Address)
 			break;
 
 		case 9: // Timer 2 hi counter
-			tmp = (SysVIAState.timer2c >> 9) & 0xff; // K.Lowe
+			Value = (SysVIAState.timer2c >> 9) & 0xff; // K.Lowe
 			break;
 
 		case 10:
-			tmp = SysVIAState.sr;
+			Value = SysVIAState.sr;
 			UpdateSRState(true);
 			break;
 
 		case 11:
-			tmp = SysVIAState.acr;
+			Value = SysVIAState.acr;
 			break;
 
 		case 12:
-			tmp = SysVIAState.pcr;
+			Value = SysVIAState.pcr;
 			break;
 
 		case 13:
@@ -738,11 +738,11 @@ unsigned char SysVIARead(int Address)
 			// DebugTrace("Read IFR got=0x%02x\n", SysVIAState.ifr);
 			#endif
 
-			tmp = SysVIAState.ifr;
+			Value = SysVIAState.ifr;
 			break;
 
 		case 14:
-			tmp = SysVIAState.ier | IER_SET_CLEAR;
+			Value = SysVIAState.ier | IER_SET_CLEAR;
 			break;
 
 		case 1:
@@ -751,7 +751,7 @@ unsigned char SysVIARead(int Address)
 			// Fall through...
 
 		case 15:
-			tmp = SlowDataBusRead();
+			Value = SlowDataBusRead();
 			break;
 	}
 
@@ -759,10 +759,10 @@ unsigned char SysVIARead(int Address)
 	{
 		DebugDisplayTraceF(DebugType::SysVIA, true,
 		                   "SysVia: Read address %X value %02X",
-		                   Address & 0xf, tmp & 0xff);
+		                   Address & 0xf, Value & 0xff);
 	}
 
-	return tmp;
+	return Value;
 }
 
 /*--------------------------------------------------------------------------*/

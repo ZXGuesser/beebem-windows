@@ -254,7 +254,7 @@ void UserVIAWrite(int Address, unsigned char Value)
 
 unsigned char UserVIARead(int Address)
 {
-	unsigned char tmp = 0xff;
+	unsigned char Value = 0xff;
 	// Local copy for processing middle button
 	int amxButtons = AMXButtons;
 
@@ -263,16 +263,16 @@ unsigned char UserVIARead(int Address)
 	switch (Address)
 	{
 		case 0: /* IRB read */
-			tmp = (UserVIAState.orb & UserVIAState.ddrb) | (UserVIAState.irb & ~UserVIAState.ddrb);
+			Value = (UserVIAState.orb & UserVIAState.ddrb) | (UserVIAState.irb & ~UserVIAState.ddrb);
 
 			if (UserPortRTCEnabled)
 			{
-				tmp = (tmp & 0xfe) | (unsigned char)UserPortRTCReadBit();
+				Value = (Value & 0xfe) | (unsigned char)UserPortRTCReadBit();
 			}
 
 			if (userPortBreakoutDialog != nullptr)
 			{
-				userPortBreakoutDialog->ShowInputs(tmp);
+				userPortBreakoutDialog->ShowInputs(Value);
 			}
 
 			if (AMXMouseEnabled)
@@ -287,13 +287,13 @@ unsigned char UserVIARead(int Address)
 
 				if (TubeType == TubeDevice::Master512CoPro)
 				{
-					tmp &= 0xf8;
-					tmp |= (amxButtons ^ 7);
+					Value &= 0xf8;
+					Value |= (amxButtons ^ 7);
 				}
 				else
 				{
-					tmp &= 0x1f;
-					tmp |= (amxButtons ^ 7) << 5;
+					Value &= 0x1f;
+					Value |= (amxButtons ^ 7) << 5;
 
 					UserVIAState.ifr &= ~(IFR_CB2 | IFR_CB1);
 					UpdateIFRTopBit();
@@ -312,21 +312,21 @@ unsigned char UserVIARead(int Address)
 			break;
 
 		case 2:
-			tmp = UserVIAState.ddrb;
+			Value = UserVIAState.ddrb;
 			break;
 
 		case 3:
-			tmp = UserVIAState.ddra;
+			Value = UserVIAState.ddra;
 			break;
 
 		case 4: /* Timer 1 lo counter */
 			if (UserVIAState.timer1c < 0)
 			{
-				tmp = 0xff;
+				Value = 0xff;
 			}
 			else
 			{
-				tmp = (UserVIAState.timer1c / 2) & 0xff;
+				Value = (UserVIAState.timer1c / 2) & 0xff;
 			}
 
 			UserVIAState.ifr &= ~IFR_TIMER1;
@@ -334,25 +334,25 @@ unsigned char UserVIARead(int Address)
 			break;
 
 		case 5: /* Timer 1 hi counter */
-			tmp = (UserVIAState.timer1c >> 9) & 0xff;
+			Value = (UserVIAState.timer1c >> 9) & 0xff;
 			break;
 
 		case 6: /* Timer 1 lo latch */
-			tmp = UserVIAState.timer1l & 0xff;
+			Value = UserVIAState.timer1l & 0xff;
 			break;
 
 		case 7: /* Timer 1 hi latch */
-			tmp = (UserVIAState.timer1l >> 8) & 0xff;
+			Value = (UserVIAState.timer1l >> 8) & 0xff;
 			break;
 
 		case 8: /* Timer 2 lo counter */
 			if (UserVIAState.timer2c < 0) /* Adjust for dividing -ve count by 2 */
 			{
-				tmp = ((UserVIAState.timer2c - 1) / 2) & 0xff;
+				Value = ((UserVIAState.timer2c - 1) / 2) & 0xff;
 			}
 			else
 			{
-				tmp = (UserVIAState.timer2c / 2) & 0xff;
+				Value = (UserVIAState.timer2c / 2) & 0xff;
 			}
 
 			UserVIAState.ifr &= ~IFR_TIMER2;
@@ -360,29 +360,29 @@ unsigned char UserVIARead(int Address)
 			break;
 
 		case 9: /* Timer 2 hi counter */
-			tmp = (UserVIAState.timer2c >> 9) & 0xff;
+			Value = (UserVIAState.timer2c >> 9) & 0xff;
 			break;
 
 		case 10:
-			tmp = UserVIAState.sr;
+			Value = UserVIAState.sr;
 			UpdateSRState(true);
 			break;
 
 		case 11:
-			tmp = UserVIAState.acr;
+			Value = UserVIAState.acr;
 			break;
 
 		case 12:
-			tmp = UserVIAState.pcr;
+			Value = UserVIAState.pcr;
 			break;
 
 		case 13:
 			UpdateIFRTopBit();
-			tmp = UserVIAState.ifr;
+			Value = UserVIAState.ifr;
 			break;
 
 		case 14:
-			tmp = UserVIAState.ier | IER_SET_CLEAR;
+			Value = UserVIAState.ier | IER_SET_CLEAR;
 			break;
 
 		case 1:
@@ -391,7 +391,7 @@ unsigned char UserVIARead(int Address)
 			// Fall through...
 
 		case 15:
-			tmp = 255;
+			Value = 255;
 			break;
 	}
 
@@ -399,10 +399,10 @@ unsigned char UserVIARead(int Address)
 	{
 	  DebugDisplayTraceF(DebugType::UserVIA, true,
 	                     "UserVia: Read address %X value %02X",
-	                     Address & 0xf, tmp & 0xff);
+	                     Address & 0xf, Value & 0xff);
 	}
 
-	return tmp;
+	return Value;
 }
 
 /*--------------------------------------------------------------------------*/
