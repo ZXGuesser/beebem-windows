@@ -3053,7 +3053,7 @@ FASTWORK simz80(FASTREG PC)
 
 extern bool inROM;
 
-void z80_NMI_Interrupt(void)
+static void Z80NMIInterrupt()
 {
 	WORD SP = sp;
 
@@ -3063,7 +3063,7 @@ void z80_NMI_Interrupt(void)
 	inROM = true;
 }
 
-void z80_IRQ_Interrupt(void)
+void Z80IRQInterrupt()
 {
 	WORD SP = sp;
 
@@ -3072,7 +3072,7 @@ void z80_IRQ_Interrupt(void)
 	sp = SP;
 }
 
-void set_Z80_irq_line(bool state)
+void Z80SetIRQLine(bool state)
 {
 	static bool irq_state = false;
 
@@ -3085,7 +3085,7 @@ void set_Z80_irq_line(bool state)
 			{
 				IFF1 = 0;
 				irq_state = state;
-				z80_IRQ_Interrupt();
+				Z80IRQInterrupt();
 			}
 		}
 		else
@@ -3095,7 +3095,7 @@ void set_Z80_irq_line(bool state)
 	}
 }
 
-void set_Z80_nmi_line(bool state)
+void Z80SetNMILine(bool state)
 {
 	static bool irq_state = false;
 
@@ -3104,7 +3104,7 @@ void set_Z80_nmi_line(bool state)
 		if (state)
 		{
 			irq_state = state;
-			z80_NMI_Interrupt();
+			Z80NMIInterrupt();
 		}
 		else
 		{

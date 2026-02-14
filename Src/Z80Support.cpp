@@ -111,7 +111,7 @@ void Z80DumpRegSet2(char *str)
 	psz += sprintf(psz, ":%02X,%02X,%02X,%02X\n", ReadZ80Mem(sp), ReadZ80Mem(sp + 1), ReadZ80Mem(sp + 2), ReadZ80Mem(sp + 3));
 }
 
-void disp_regs()
+static void Z80DumpRegs()
 {
 	char buff[64];
 	char str[256];
@@ -207,12 +207,16 @@ void Z80Execute()
 	if (trace_z80)
 	{
 		if (pc <= 0xf800) // Don't trace BIOS cos toooo much data
-			disp_regs();
+		{
+			Z80DumpRegs();
+		}
 	}
 
 	// Output debug info
 	if (DebugEnabled)
+	{
 		DebugDisassembler(pc, PreZPC, 0, 0, 0, 0, 0, false);
+	}
 
 	PreZPC = pc;
 	pc = (WORD)simz80(pc);
@@ -221,26 +225,26 @@ void Z80Execute()
 	{
 		if (TubeIntStatus & TUBE_IRQ_R1)
 		{
-			set_Z80_irq_line(true);
+			Z80SetIRQLine(true);
 		}
 
 		if (TubeIntStatus & TUBE_IRQ_R4)
 		{
-			set_Z80_irq_line(true);
+			Z80SetIRQLine(true);
 		}
 
 		if (TubeIntStatus == 0)
 		{
-			set_Z80_irq_line(false);
+			Z80SetIRQLine(false);
 		}
 
 		if (TubeNMIStatus != 0)
 		{
-			set_Z80_nmi_line(true);
+			Z80SetNMILine(true);
 		}
 		else
 		{
-			set_Z80_nmi_line(false);
+			Z80SetNMILine(false);
 		}
 	}
 }
@@ -321,7 +325,7 @@ void Z80Init()
 	ix=0; iy=0; ir=0; regs_sel = 0;
 }
 
-void Debug_Z80()
+void Z80Debug()
 {
 	char buff[256];
 

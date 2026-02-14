@@ -77,7 +77,7 @@ extern void Z80WriteIO(unsigned int port, unsigned char value);
 
 void Z80Execute();
 void Z80Init();
-void Debug_Z80();
+void Z80Debug();
 int Z80Disassemble(int adr, char *s);
 void PrintHex(int PC);
 unsigned char ReadZ80Mem(int pc);
@@ -85,10 +85,8 @@ void WriteZ80Mem(int pc, unsigned char data);
 void Z80DumpRegSet1(char *str);
 void Z80DumpRegSet2(char *str);
 
-void z80_NMI_Interrupt(void);
-void z80_IRQ_Interrupt(void);
-void set_Z80_irq_line(bool state);
-void set_Z80_nmi_line(bool state);
+void Z80SetIRQLine(bool state);
+void Z80SetNMILine(bool state);
 
 void SaveZ80UEF(FILE *SUEF);
 void LoadZ80UEF(FILE *SUEF);
