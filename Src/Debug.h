@@ -33,8 +33,6 @@ Boston, MA  02110-1301, USA.
 
 #include "Via.h"
 
-extern bool DebugEnabled;
-
 enum class DebugType
 {
 	None,
@@ -108,7 +106,6 @@ struct DebugCmd
 	const char *help;
 };
 
-extern HWND hwndDebug;
 bool DebugDisassembler(int Addr,
                        int PrevAddr,
                        int Accumulator,
@@ -128,7 +125,7 @@ int DebugDisassembleInstructionWithCPUStatus(int Addr,
                                              char *pszOutput);
 
 void DebugOpenDialog(HINSTANCE hinst, HWND hwndMain);
-void DebugCloseDialog(void);
+void DebugCloseDialog();
 
 void DebugDisplayTrace(DebugType type, bool host, const char *info);
 void DebugDisplayTraceF(DebugType type, bool host, const char *format, ...);
@@ -145,5 +142,8 @@ void DebugBreakExecution(DebugType type);
 
 void DebugInitMemoryMaps();
 bool DebugLoadMemoryMap(const char* filename, int bank);
+
+extern bool DebugEnabled;
+extern HWND hwndDebug;
 
 #endif

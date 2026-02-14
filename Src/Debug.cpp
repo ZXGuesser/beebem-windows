@@ -128,8 +128,8 @@ typedef std::vector<AddrInfo> MemoryMap;
 
 static MemoryMap MemoryMaps[17];
 
-std::deque<std::string> DebugHistory;
-int DebugHistoryIndex = 0;
+static std::deque<std::string> DebugHistory;
+static int DebugHistoryIndex = 0;
 
 /****************************************************************************/
 
