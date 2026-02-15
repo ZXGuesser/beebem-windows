@@ -137,7 +137,7 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, 
 
 static void DebugParseCommand(const char *command);
 static void DebugWriteMem(int addr, bool host, unsigned char data);
-static int DebugDisassembleCommand(int addr, int count, bool host);
+static int DebugDisassembleCommand(int Addr, int Count, bool Host);
 static void DebugMemoryDump(int addr, int count, bool host);
 static void DebugExecuteCommand();
 static void DebugToggleRun();
@@ -2062,15 +2062,9 @@ bool DebugDisassembler(int Addr,
 
 			case TubeDevice::AcornZ80:
 			case TubeDevice::TorchZ80: {
-				char buff[128];
-				Z80Disassemble(Addr, buff);
-
-				// Z80DumpRegSet1(str);
-				// sprintf(str + strlen(str), " %s", buff);
-				// DebugDisplayInfo(str);
-
-				// Z80DumpRegSet2(str);
-				DebugDisplayInfo(buff);
+				char Str[128];
+				Z80Disassemble(Addr, Str);
+				DebugDisplayInfo(Str);
 				break;
 			}
 
@@ -3217,9 +3211,11 @@ static bool DebugCmdCode(const char* args)
 		}
 	}
 
+	const int MaxAddress = DebugGetMaxAddress(Host);
+
 	DisAddress += DebugDisassembleCommand(DisAddress, Count, Host);
 
-	if (DisAddress > 0xFFFF)
+	if (DisAddress > MaxAddress)
 	{
 		DisAddress = 0;
 	}
@@ -4189,63 +4185,56 @@ int DebugDisassembleInstructionWithCPUStatus(int Addr,
 
 /****************************************************************************/
 
-static int DebugDisassembleCommand(int addr, int count, bool host)
+static int DebugDisassembleCommand(int Addr, int Count, bool Host)
 {
-	char opstr[80];
-	char *s = opstr;
+	int StartAddress = Addr;
 
-	int saddr = addr;
-
-//	if (DebugSource == DEBUG_NONE)
-//	{
-//		DebugDisplayInfo("Cannot disassemble while code is executing."); // - why not?
-//		return(0);
-//	}
-
-	if (count > MAX_LINES)
+	if (Count > MAX_LINES)
 	{
-		count = MAX_LINES;
+		Count = MAX_LINES;
 	}
 
-	while (count > 0 && addr <= 0xffff)
+	const int MaxAddress = DebugGetMaxAddress(Host);
+
+	while (Count > 0 && Addr <= MaxAddress)
 	{
-		if ((TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80) && !host)
+		char Str[128];
+
+		if (Host)
 		{
-			char buff[64];
-			int Len = Z80Disassemble(addr, buff);
-
-			s += sprintf(s, "%04X ", addr);
-
-			switch (Len)
-			{
-				case 1:
-					s += sprintf(s, "%02X           ", DebugReadMem(addr, host));
-					break;
-				case 2:
-					s += sprintf(s, "%02X %02X        ", DebugReadMem(addr, host), DebugReadMem(addr+1, host));
-					break;
-				case 3:
-					s += sprintf(s, "%02X %02X %02X     ", DebugReadMem(addr, host), DebugReadMem(addr+1, host), DebugReadMem(addr+2, host));
-					break;
-				case 4:
-					s += sprintf(s, "%02X %02X %02X %02X  ", DebugReadMem(addr, host), DebugReadMem(addr+1, host), DebugReadMem(addr+2, host), DebugReadMem(addr+3, host));
-					break;
-			}
-
-			strcpy(s, buff);
-
-			addr += Len;
+			Addr += DebugDisassembleInstruction(Addr, Host, Str);
 		}
 		else
 		{
-			addr += DebugDisassembleInstruction(addr, host, opstr);
+			switch (TubeType)
+			{
+				case TubeDevice::Acorn65C02:
+					Addr += DebugDisassembleInstruction(Addr, Host, Str);
+					break;
+
+				case TubeDevice::AcornZ80:
+				case TubeDevice::TorchZ80:
+					Addr += Z80Disassemble(Addr, Str);
+					break;
+
+				case TubeDevice::Master512CoPro:
+				case TubeDevice::AcornArm:
+				case TubeDevice::SprowArm:
+					DebugDisplayInfo("Not implemented for this coprocessor");
+					return 0;
+
+				case TubeDevice::None:
+				default:
+					DebugDisplayInfo("No coprocessor enabled");
+					return 0;
+			}
 		}
 
-		DebugDisplayInfo(opstr);
-		count--;
+		DebugDisplayInfo(Str);
+		Count--;
 	}
 
-	return addr - saddr;
+	return Addr - StartAddress;
 }
 
 /****************************************************************************/
