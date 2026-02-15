@@ -127,9 +127,9 @@ int DebugDisassembleInstructionWithCPUStatus(int Addr,
 void DebugOpenDialog(HINSTANCE hinst, HWND hwndMain);
 void DebugCloseDialog();
 
-void DebugDisplayTrace(DebugType type, bool host, const char *info);
-void DebugDisplayTraceF(DebugType type, bool host, const char *format, ...);
-void DebugDisplayTraceV(DebugType type, bool host, const char *format, va_list args);
+void DebugDisplayTrace(DebugType Type, bool Host, const char *Info);
+void DebugDisplayTraceF(DebugType Type, bool Host, const char *Format, ...);
+void DebugDisplayTraceV(DebugType Type, bool Host, const char *Format, va_list Args);
 
 void DebugDisplayInfo(const char *info);
 void DebugDisplayInfoF(const char *format, ...);
@@ -138,7 +138,7 @@ void DebugRunScript(const char *filename);
 bool DebugLoadLabels(const char *filename, bool host);
 
 unsigned char DebugReadMem(int addr, bool host);
-void DebugBreakExecution(DebugType type);
+void DebugBreakExecution(DebugType Type);
 
 void DebugInitMemoryMaps();
 bool DebugLoadMemoryMap(const char* filename, int bank);

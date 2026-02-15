@@ -1527,11 +1527,11 @@ static void DebugToggleRun()
 
 /****************************************************************************/
 
-void DebugBreakExecution(DebugType type)
+void DebugBreakExecution(DebugType Type)
 {
-	DebugSource = type;
+	DebugSource = Type;
 
-	if (type == DebugType::None)
+	if (Type == DebugType::None)
 	{
 		InstCount = 0;
 		LastBreakAddr = 0;
@@ -1631,16 +1631,16 @@ static void DebugDisplayPreviousAddress(int prevAddr)
 
 /****************************************************************************/
 
-void DebugAssertBreak(int addr, int prevAddr, bool host)
+static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 {
-	AddrInfo addrInfo;
+	AddrInfo Info;
 
 	DebugUpdateWatches(false);
 	SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Continue");
 
 	if (LastBreakAddr == 0)
 	{
-		LastBreakAddr = addr;
+		LastBreakAddr = Addr;
 	}
 	else
 	{
@@ -1653,94 +1653,94 @@ void DebugAssertBreak(int addr, int prevAddr, bool host)
 		{
 			const Breakpoint& bp = Breakpoints[i];
 
-			if (bp.start == addr)
+			if (bp.start == Addr)
 			{
-				if (DebugLookupAddress(addr, &addrInfo))
+				if (DebugLookupAddress(Addr, &Info))
 				{
 					DebugDisplayInfoF("%s break at 0x%04X (Breakpoint '%s' / %s)",
-					                  host ? "Host" : "Parasite",
-					                  addr,
+					                  Host ? "Host" : "Parasite",
+					                  Addr,
 					                  bp.name.c_str(),
-					                  addrInfo.desc.c_str());
+					                  Info.desc.c_str());
 				}
 				else
 				{
 					DebugDisplayInfoF("%s break at 0x%04X (Breakpoint '%s')",
-					                  host ? "Host" : "Parasite",
-					                  addr,
+					                  Host ? "Host" : "Parasite",
+					                  Addr,
 					                  bp.name.c_str());
 				}
 
-				DebugDisplayPreviousAddress(prevAddr);
+				DebugDisplayPreviousAddress(PrevAddr);
 				return;
 			}
 		}
 	}
 
-	if (DebugLookupAddress(addr, &addrInfo))
+	if (DebugLookupAddress(Addr, &Info))
 	{
 		DebugDisplayInfoF("%s break at 0x%04X (%s / %s)",
-		                  host ? "Host" : "Parasite",
-		                  addr,
+		                  Host ? "Host" : "Parasite",
+		                  Addr,
 		                  GetDebugSourceString(),
-		                  addrInfo.desc.c_str());
+		                  Info.desc.c_str());
 	}
 	else
 	{
 		DebugDisplayInfoF("%s break at 0x%04X (%s)",
-		                  host ? "Host" : "Parasite",
-		                  addr,
+		                  Host ? "Host" : "Parasite",
+		                  Addr,
 		                  GetDebugSourceString());
 	}
 
-	DebugDisplayPreviousAddress(prevAddr);
+	DebugDisplayPreviousAddress(PrevAddr);
 }
 
 /****************************************************************************/
 
-void DebugDisplayTrace(DebugType type, bool host, const char *info)
+void DebugDisplayTrace(DebugType Type, bool Host, const char *Info)
 {
-	if (DebugEnabled && ((DebugHost && host) || (DebugParasite && !host)))
+	if (DebugEnabled && ((DebugHost && Host) || (DebugParasite && !Host)))
 	{
-		if (DebugTraceEnable[(int)type])
+		if (DebugTraceEnable[(int)Type])
 		{
-			DebugDisplayInfo(info);
+			DebugDisplayInfo(Info);
 		}
 
-		if (DebugBreakEnable[(int)type])
+		if (DebugBreakEnable[(int)Type])
 		{
-			DebugBreakExecution(type);
+			DebugBreakExecution(Type);
 		}
 	}
 }
 
 /****************************************************************************/
 
-void DebugDisplayTraceF(DebugType type, bool host, const char *format, ...)
+void DebugDisplayTraceF(DebugType Type, bool Host, const char *Format, ...)
 {
-	va_list args;
-	va_start(args, format);
+	va_list Args;
+	va_start(Args, Format);
 
-	DebugDisplayTraceV(type, host, format, args);
+	DebugDisplayTraceV(Type, Host, Format, Args);
 
-	va_end(args);
+	va_end(Args);
 }
 
 /****************************************************************************/
 
-void DebugDisplayTraceV(DebugType type, bool host, const char *format, va_list args)
+void DebugDisplayTraceV(DebugType Type, bool Host, const char *Format, va_list Args)
 {
 	// _vscprintf doesn't count terminating '\0'
-	int len = _vscprintf(format, args) + 1;
+	int Length = _vscprintf(Format, Args) + 1;
 
-	char *buffer = (char*)malloc(len * sizeof(char));
+	char *pBuffer = (char*)malloc(Length * sizeof(char));
 
-	if (buffer != nullptr)
+	if (pBuffer != nullptr)
 	{
-		vsprintf_s(buffer, len * sizeof(char), format, args);
+		vsprintf_s(pBuffer, Length * sizeof(char), Format, Args);
 
-		DebugDisplayTrace(type, host, buffer);
-		free(buffer);
+		DebugDisplayTrace(Type, Host, pBuffer);
+		free(pBuffer);
 	}
 }
 
