@@ -4041,18 +4041,19 @@ int DebugDisassembleInstruction(int Addr, bool Host, char *pszOutput)
 
 	const InstInfo *ip = &optable[opcode];
 
-	switch (ip->bytes) {
+	switch (ip->bytes)
+	{
 		case 1:
-			s += sprintf(s, "%02X        ",
+			s += sprintf(s, "%02X           ",
 			             DebugReadMem(Addr, Host));
 			break;
 		case 2:
-			s += sprintf(s, "%02X %02X     ",
+			s += sprintf(s, "%02X %02X        ",
 			             DebugReadMem(Addr, Host),
 			             DebugReadMem(Addr + 1, Host));
 			break;
 		case 3:
-			s += sprintf(s, "%02X %02X %02X  ",
+			s += sprintf(s, "%02X %02X %02X     ",
 			             DebugReadMem(Addr, Host),
 			             DebugReadMem(Addr + 1, Host),
 			             DebugReadMem(Addr + 2, Host));
