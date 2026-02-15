@@ -84,7 +84,7 @@ int Z80Disassemble(int Addr, char* Buffer)
 						unsigned char Data1 = ReadZ80Mem(Addr + 1);
 						unsigned char Data2 = ReadZ80Mem(Addr + 1);
 						int Dest = Data1 | (Data2 << 8);
-						sprintf(s, "%02X %02X %02X        LD %s,%04X", Opcode, Data1, Data2, dreg[d >> 1], Dest);
+						sprintf(s, "%02X %02X %02X     LD %s,%04X", Opcode, Data1, Data2, dreg[d >> 1], Dest);
 						size = 3;
 					}
 					break;
