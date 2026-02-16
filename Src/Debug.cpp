@@ -41,6 +41,7 @@ Boston, MA  02110-1301, USA.
 #include "Debug.h"
 #include "6502core.h"
 #include "Arm.h"
+#include "ArmDisassembler.h"
 #include "BeebMem.h"
 #include "DebugTrace.h"
 #include "Econet.h"
@@ -4218,8 +4219,31 @@ static int DebugDisassembleCommand(int Addr, int Count, bool Host)
 					Addr += Z80Disassemble(Addr, Str);
 					break;
 
+				case TubeDevice::AcornArm: {
+					uint32 Instr;
+
+					if (!arm->readWord(Addr, Instr))
+					{
+						DebugDisplayInfoF("Invalid address: %08X", Addr);
+						goto Exit;
+					}
+
+					char* p = Str;
+
+					p += sprintf(p, "%08X %02X %02X %02X %02X",
+					             Addr,
+					             Instr & 0xff, (Instr >> 8) & 0xff,
+					             (Instr >> 16) & 0xff, (Instr >> 24) & 0xff);
+
+					*p++ = ' ';
+					*p++ = ' ';
+
+					Arm_disassemble(Addr, Instr, p);
+					Addr += 4;
+					break;
+				}
+
 				case TubeDevice::Master512CoPro:
-				case TubeDevice::AcornArm:
 				case TubeDevice::SprowArm:
 					DebugDisplayInfo("Not implemented for this coprocessor");
 					return 0;
@@ -4235,6 +4259,7 @@ static int DebugDisassembleCommand(int Addr, int Count, bool Host)
 		Count--;
 	}
 
+Exit:
 	return Addr - StartAddress;
 }
 
