@@ -4230,13 +4230,10 @@ static int DebugDisassembleCommand(int Addr, int Count, bool Host)
 
 					char* p = Str;
 
-					p += sprintf(p, "%08X %02X %02X %02X %02X",
+					p += sprintf(p, "%08X %02X %02X %02X %02X  ",
 					             Addr,
 					             Instr & 0xff, (Instr >> 8) & 0xff,
 					             (Instr >> 16) & 0xff, (Instr >> 24) & 0xff);
-
-					*p++ = ' ';
-					*p++ = ' ';
 
 					Arm_disassemble(Addr, Instr, p);
 					Addr += 4;
