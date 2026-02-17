@@ -89,7 +89,7 @@ public:
 public:
 	// construct / destruct
 	CArm();
-	virtual ~CArm();
+	~CArm();
 
 	// control
 	InitResult init(const char* ROMPath);
