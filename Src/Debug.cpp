@@ -1951,36 +1951,8 @@ bool DebugDisassembler(int Addr,
 	{
 		return true;
 	}
-
-	if (!Host && (TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80))
-	{
-		if (!DebugOS && Addr >= 0xf800 && Addr <= 0xffff)
-		{
-			if (!LastAddrInBIOS)
-			{
-				AddrInfo Info;
-
-				if (DebugLookupAddress(Addr, Host, &Info))
-				{
-					DebugDisplayInfoF("Entered BIOS (0xF800-0xFFFF) at 0x%04X (%s)",
-					                  Addr,
-					                  Info.desc.c_str());
-				}
-				else
-				{
-					DebugDisplayInfoF("Entered BIOS (0xF800-0xFFFF) at 0x%04X",
-					                  Addr);
-				}
-
-				LastAddrInBIOS = true;
-				LastAddrInOS = LastAddrInROM = false;
-			}
-			return true;
-		}
-
-		LastAddrInBIOS = false;
-	}
-	else
+	
+	if (Host)
 	{
 		if (!DebugOS && Addr >= 0xc000 && Addr <= 0xfbff)
 		{
@@ -2029,6 +2001,38 @@ bool DebugDisassembler(int Addr,
 		}
 
 		LastAddrInROM = false;
+	}
+	else
+	{
+		if (TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80)
+		{
+			if (!DebugOS && Addr >= 0xf800 && Addr <= 0xffff)
+			{
+				if (!LastAddrInBIOS)
+				{
+					AddrInfo Info;
+
+					if (DebugLookupAddress(Addr, Host, &Info))
+					{
+						DebugDisplayInfoF("Entered BIOS (0xF800-0xFFFF) at 0x%04X (%s)",
+						                  Addr,
+						                  Info.desc.c_str());
+					}
+					else
+					{
+						DebugDisplayInfoF("Entered BIOS (0xF800-0xFFFF) at 0x%04X",
+						                  Addr);
+					}
+
+					LastAddrInBIOS = true;
+					LastAddrInOS = LastAddrInROM = false;
+				}
+
+				return true;
+			}
+
+			LastAddrInBIOS = false;
+		}
 	}
 
 	if (Host && InstCount == 0)
