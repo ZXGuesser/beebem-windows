@@ -55,22 +55,22 @@ char *Arm_disassemble(uint32 address, uint32 instruction, char *buff)
 	// decode based on bits 24 - 27 of instruction
 	switch( getField(instruction, 24, 27) )
 	{
-		case 0	:	return decodeMultiplyOrDataProcessing(address, instruction, buff);
-		case 1	:	return decodeSingleDataSwapOrDataProcessing(address, instruction, buff);
-		case 2	:	return decodeDataProcessing(address, instruction, buff);
-		case 3	:	return decodeDataProcessing(address, instruction, buff);
-		case 4	:	return decodeSingleDTImmOffsetPostIndex(address, instruction, buff);
-		case 5	:	return decodeSingleDTImmOffsetPreIndex(address, instruction, buff);
-		case 6	:	return decodeSingleDTRegOffsetPostIndex(address, instruction, buff);
-		case 7	:	return decodeSingleDTRegOffsetPreIndex(address, instruction, buff);
-		case 8	:	return decodeBlockDTPostIndex(address, instruction, buff);
-		case 9	:	return decodeBlockDTPreIndex(address, instruction, buff);
-		case 10	:	return decodeBranch(address, instruction, buff);
-		case 11	:	return decodeBranchWithLink(address, instruction, buff);
-		case 12 :	return decodeCoProDTPreIndex(address, instruction, buff);
-		case 13 :	return decodeCoProDTPostIndex(address, instruction, buff);
-		case 14	:	return decodeCoProRegTransferOrDataOperation(address, instruction, buff);
-		case 15	:	return decodeSoftwareInterrupt(address, instruction, buff);
+		case 0:  return decodeMultiplyOrDataProcessing(address, instruction, buff);
+		case 1:  return decodeSingleDataSwapOrDataProcessing(address, instruction, buff);
+		case 2:  return decodeDataProcessing(address, instruction, buff);
+		case 3:  return decodeDataProcessing(address, instruction, buff);
+		case 4:  return decodeSingleDTImmOffsetPostIndex(address, instruction, buff);
+		case 5:  return decodeSingleDTImmOffsetPreIndex(address, instruction, buff);
+		case 6:  return decodeSingleDTRegOffsetPostIndex(address, instruction, buff);
+		case 7:  return decodeSingleDTRegOffsetPreIndex(address, instruction, buff);
+		case 8:  return decodeBlockDTPostIndex(address, instruction, buff);
+		case 9:  return decodeBlockDTPreIndex(address, instruction, buff);
+		case 10: return decodeBranch(address, instruction, buff);
+		case 11: return decodeBranchWithLink(address, instruction, buff);
+		case 12: return decodeCoProDTPreIndex(address, instruction, buff);
+		case 13: return decodeCoProDTPostIndex(address, instruction, buff);
+		case 14: return decodeCoProRegTransferOrDataOperation(address, instruction, buff);
+		case 15: return decodeSoftwareInterrupt(address, instruction, buff);
 	}
 
 	strcpy(buff, "ERROR DISASSEMBLING IN Disassemble()");
@@ -161,7 +161,7 @@ static char *decodeDataProcessing(uint32 /* address */, uint32 instruction, char
 	// append spaces as necessary, so mnemonic with suffixes is 8 characters long
 	while( strlen(buff) < 8 )
 	{
-			strcat(buff, " ");
+		strcat(buff, " ");
 	}
 
 	char registerNumber[10];
@@ -176,7 +176,6 @@ static char *decodeDataProcessing(uint32 /* address */, uint32 instruction, char
 	// the 'mov' and 'mvn' instructions doesn't use the first operand so don't output it
 	if( useRn[getField(instruction, 21,24)] )
 	{
-
 		// add comma if needed
 		if( useRd[getField(instruction, 21, 24)] )
 			strcat(buff, ",");
@@ -873,14 +872,22 @@ static char *decodeSoftwareInterrupt(uint32 /* address */, uint32 instruction, c
 	if (ins <= 27)
 	{
 		strcpy(swiNumber, swiList[ins]);
-	} else if (ins >= 256) {
+	}
+	else if (ins >= 256)
+	{
 		ins &= 255;
-		if ( (ins >= 32) && (ins <= 126) ) {
+
+		if (ins >= 32 && ins <= 126)
+		{
 			sprintf(swiNumber, "WriteI+%c%c%c", 34, ins, 34);
-		} else {
+		}
+		else
+		{
 			sprintf(swiNumber, "WriteI+%d", ins);
 		}
-	} else {
+	}
+	else
+	{
 		sprintf(swiNumber, "0x%02x", ins);
 	}
 
