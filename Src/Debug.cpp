@@ -1911,10 +1911,16 @@ bool DebugDisassembler(int Addr,
 		return true;
 	}
 
-	if (DebugBreakEnable[(int)DebugType::BRK] && DebugReadMem(Addr, Host) == 0)
+	if (DebugBreakEnable[(int)DebugType::BRK])
 	{
-		DebugBreakExecution(DebugType::BRK);
-		ProgramCounter++;
+		if (Host)
+		{
+			if (DebugReadMem(Addr, Host) == 0)
+			{
+				DebugBreakExecution(DebugType::BRK);
+				ProgramCounter++;
+			}
+		}
 	}
 
 	if (Host && StepOver && Addr == ReturnAddress)
@@ -1924,8 +1930,10 @@ bool DebugDisassembler(int Addr,
 	}
 
 	// Check breakpoints
+
 	if (BPSOn && DebugSource != DebugType::Breakpoint)
 	{
+		// TODO: Allow for host/copro breakpoints
 		for (size_t i = 0; i < Breakpoints.size(); i++)
 		{
 			const Breakpoint& bp = Breakpoints[i];
