@@ -456,7 +456,7 @@ ARMul_ThumbDecode (ARMul_State * state,
 	  int doit = FALSE;
 	  /* TODO: Since we are doing a switch here, we could just add
 	     the SWI and undefined instruction checks into this
-	     switch to same on a couple of conditionals: */
+	     switch to save on a couple of conditionals: */
 	  switch ((tinstr & 0x0F00) >> 8)
 	    {
 	    case EQ:
