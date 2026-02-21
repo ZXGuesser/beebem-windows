@@ -577,7 +577,7 @@ static EconetHost* AddHost(sockaddr_in* pAddress)
 
 //---------------------------------------------------------------------------
 
-static void EconetCloseSockets()
+static void EconetCloseSocket()
 {
 	if (Socket != INVALID_SOCKET)
 	{
@@ -648,8 +648,7 @@ bool EconetReset()
 	ClearTrigger(EconetScoutAckTrigger);
 	ClearTrigger(EconetFourWayTrigger)
 
-	// Kill anything that was in use.
-	EconetCloseSockets();
+	EconetCloseSocket();
 
 	// Stop here if not enabled.
 	if (!EconetEnabled)
@@ -825,7 +824,7 @@ bool EconetReset()
 	return true;
 
 Fail:
-	EconetCloseSockets();
+	EconetCloseSocket();
 
 	EconetEnabled = false;
 	return false;
