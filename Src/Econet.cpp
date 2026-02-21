@@ -144,7 +144,6 @@ const unsigned char STATUS_REG2_RX_DATA_AVAILABLE              = 0x80;
 const bool DEFAULT_AUN_MODE = false;
 const bool DEFAULT_LEARN_MODE = false;
 const bool DEFAULT_STRICT_AUN_MODE = false;
-const bool DEFAULT_SINGLE_SOCKET = true;
 const int DEFAULT_FLAG_FILL_TIMEOUT = 500000;
 const int DEFAULT_SCOUT_ACK_TIMEOUT = 5000;
 const unsigned int DEFAULT_TIME_BETWEEN_BYTES = 128;
