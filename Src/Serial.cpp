@@ -270,7 +270,9 @@ static void HandleTXData(unsigned char Data)
 		}
 		else if (SerialDestination == SerialType::IP232)
 		{
+			#ifdef DEBUG_SERIAL
 			DebugTrace("SerialTX: %02X\n", SerialACIA.TDSR);
+			#endif
 
 			IP232Write(SerialACIA.TDSR);
 			if (!IP232Raw && SerialACIA.TDSR == 255) IP232Write(SerialACIA.TDSR);
@@ -526,7 +528,10 @@ void SerialPoll(int Cycles)
 			{
 				if (SerialULA.TapeCarrier && !SerialACIA.DCD)
 				{
+					#ifdef DEBUG_SERIAL
 					DebugTrace("Serial: Set DCD\n");
+					#endif
+
 					SerialACIA.DCD = true;
 					SerialACIA.Status |= MC6850_STATUS_DCD;
 
@@ -537,7 +542,10 @@ void SerialPoll(int Cycles)
 				}
 				else
 				{
+					#ifdef DEBUG_SERIAL
 					DebugTrace("Serial: Clear DCD\n");
+					#endif
+
 					SerialACIA.DCD = false;
 					SerialACIA.Status &= ~MC6850_STATUS_DCD;
 				}
@@ -756,7 +764,9 @@ void SerialPoll(int Cycles)
 				{
 					if (TapeCarrier && !SerialULA.TapeCarrier)
 					{
+						#ifdef DEBUG_SERIAL
 						DebugTrace("Serial: Tape carrier detected\n");
+						#endif
 
 						// Onset of carrier tone. Set DCD after about 200ms.
 						// Reduce the delay if using fast tape speed.
@@ -766,7 +776,10 @@ void SerialPoll(int Cycles)
 					}
 					else if (!TapeCarrier && SerialULA.TapeCarrier)
 					{
+						#ifdef DEBUG_SERIAL
 						DebugTrace("Serial: Tape carrier gone\n");
+						#endif
+
 						SerialULA.CarrierCycleCount = 0;
 					}
 
@@ -817,17 +830,23 @@ void SerialPoll(int Cycles)
 				switch (Status)
 				{
 					case IP232_DTR_HIGH:
+						#ifdef DEBUG_SERIAL
 						DebugTrace("IP232_DTR_HIGH\n");
+						#endif
 
 						if (DebugEnabled)
+						{
 							DebugDisplayTrace(DebugType::RemoteServer, true, "Flag,1 DCD True, CTS");
+						}
 
 						SerialACIA.Status &= ~MC6850_STATUS_CTS; // CTS goes active low
 						SerialACIA.Status |= MC6850_STATUS_TDRE; // so TDRE goes high ??
 						break;
 
 					case IP232_DTR_LOW:
+						#ifdef DEBUG_SERIAL
 						DebugTrace("IP232_DTR_LOW\n");
+						#endif
 
 						if (DebugEnabled)
 							DebugDisplayTrace(DebugType::RemoteServer, true, "Flag,0 DCD False, clear CTS");

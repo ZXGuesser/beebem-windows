@@ -193,7 +193,10 @@ bool SerialPort::InitThread()
 	{
 		if (GetLastError() != ERROR_IO_PENDING)
 		{
+			#ifdef DEBUG_SERIAL
 			DebugTrace("Failed to initiate port event wait\n");
+			#endif
+
 			return false;
 		}
 	}
@@ -252,7 +255,9 @@ void SerialPort::Close()
 
 bool SerialPort::SetBaudRate(int BaudRate)
 {
+	#ifdef DEBUG_SERIAL
 	DebugTrace("SerialPort::SetBaudRate\n");
+	#endif
 
 	if (m_hSerialPort == INVALID_HANDLE_VALUE)
 	{
@@ -284,7 +289,9 @@ bool SerialPort::Configure(unsigned char DataBits,
                            unsigned char StopBits,
                            unsigned char Parity)
 {
+	#ifdef DEBUG_SERIAL
 	DebugTrace("SerialPort::Configure DataBits=%d StopBits=%d Parity=%d\n", DataBits, StopBits, Parity);
+	#endif
 
 	if (m_hSerialPort == INVALID_HANDLE_VALUE)
 	{
@@ -316,7 +323,9 @@ bool SerialPort::Configure(unsigned char DataBits,
 
 bool SerialPort::SetRTS(bool RTS)
 {
+	#ifdef DEBUG_SERIAL
 	DebugTrace("SerialPort::SetRTS\n");
+	#endif
 
 	if (m_hSerialPort == INVALID_HANDLE_VALUE)
 	{
@@ -355,7 +364,9 @@ bool SerialPort::WriteChar(unsigned char Data)
 		}
 		else
 		{
+			#ifdef DEBUG_SERIAL
 			DebugTrace("WriteFile failed, code %lu", (ULONG)Error);
+			#endif
 		}
 	}
 
@@ -423,7 +434,9 @@ void SerialPort::ReadThreadFunc()
 	// Notify the parent thread that this thread has started running.
 	SetEvent(m_hReadStartUpEvent);
 
+	#ifdef DEBUG_SERIAL
 	DebugTrace("ReadThreadFunc started\n");
+	#endif
 
 	bool bQuit = false;
 
@@ -444,7 +457,9 @@ void SerialPort::ReadThreadFunc()
 
 					if (ClearCommError(m_hSerialPort, &Error, nullptr))
 					{
+						#ifdef DEBUG_SERIAL
 						DebugTrace("Comms error %lu (framing, overrun, parity)\n", Error);
+						#endif
 					}
 				}
 
@@ -508,7 +523,9 @@ void SerialPort::ReadThreadFunc()
 
 			case WAIT_OBJECT_0 + 1:
 				// The thread has been signalled to terminate.
+				#ifdef DEBUG_SERIAL
 				DebugTrace("Overlapped I/O read thread shutdown event signalled\n");
+				#endif
 
 				bQuit = true;
 				break;
@@ -516,14 +533,19 @@ void SerialPort::ReadThreadFunc()
 			default:
 				// Unexpected return code - terminate the thread.
 				Result = GetLastError();
+
+				#ifdef DEBUG_SERIAL
 				DebugTrace("Overlapped I/O thread WaitForMultipleObjects failed, code %lu\n", (ULONG)Result);
+				#endif
 
 				bQuit = true;
 				break;
 		}
 	}
 
+	#ifdef DEBUG_SERIAL
 	DebugTrace("ReadThreadFunc stopped\n");
+	#endif
 }
 
 /*--------------------------------------------------------------------------*/

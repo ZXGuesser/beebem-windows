@@ -69,4 +69,6 @@ class SerialPort
 		CRITICAL_SECTION m_BufferLock;
 };
 
+// #define DEBUG_SERIAL
+
 #endif
