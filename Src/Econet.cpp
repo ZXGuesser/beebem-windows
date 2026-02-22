@@ -432,7 +432,7 @@ static MC6854 ADLC;
 // with. This causes all sorts of issues so we try to intercept the WhatNet
 // response and fudge the value. For this we need to track which port the
 // query requested the response be sent to.
-int whatnetport = -1; // invalid value when not expecting a WhatNet response
+int WhatNetPort = -1; // invalid value when not expecting a WhatNet response
 
 //---------------------------------------------------------------------------
 
@@ -842,7 +842,7 @@ bool EconetReset()
 	}
 
 	// Clear WhatNet reply port state.
-	whatnetport = -1;
+	WhatNetPort = -1;
 
 	// hardware operations:
 	// set RxReset and TxReset
@@ -2506,7 +2506,7 @@ static void EconetSendPacket()
 				if (EconetTx.AUNHeader.Port == 0x9c &&
 				    EconetTx.AUNHeader.CtrlByte == (0x82 & 0x7f))
 				{
-					whatnetport = EconetTx.Buffer[6]; // where the reply will be sent
+					WhatNetPort = EconetTx.Buffer[6]; // where the reply will be sent
 
 					#ifdef DEBUG_ECONET
 					DebugTrace("Econet: Sent WhatNet query with port &%x\n", whatnetport);
@@ -3218,13 +3218,13 @@ GetNewPacket:
 								}
 								else
 								{
-									if (EconetRx.AUNHeader.Port == whatnetport && EconetRx.AUNHeader.CtrlByte == 0x80)
+									if (EconetRx.AUNHeader.Port == WhatNetPort && EconetRx.AUNHeader.CtrlByte == 0x80)
 									{
 										#ifdef DEBUG_ECONET
 										DebugTrace("Econet: Got WhatNet reply\n");
 										#endif
 
-										whatnetport = -1;
+										WhatNetPort = -1;
 										EconetRx.Buffer[0] = EconetNetworkID; // fudge whatnet reply
 									}
 
