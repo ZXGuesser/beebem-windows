@@ -1053,14 +1053,14 @@ static bool ReadAUNConfigFile()
 				}
 				catch (const std::exception& e)
 				{
-					EconetError("Invalid %s value in Econet config file:\n  %s (Line %d)", e.what(), EconetCfgPath, LineCounter);
+					EconetError("Invalid %s value in AUNMap file:\n  %s (Line %d)", e.what(), AUNMapPath, LineCounter);
 					Success = false;
 					break;
 				}
 			}
 			else
 			{
-				EconetError("Too many entries in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
+				EconetError("Too many entries in AUNMap file:\n  %s (Line %d)", AUNMapPath, LineCounter);
 				Success = false;
 				break;
 			}
