@@ -929,7 +929,7 @@ bool EconetReset()
 
 	if (BroadcastListenSocket == INVALID_SOCKET)
 	{
-		EconetError("Econet: Failed to open broadcast listener socket (error %ld)", GetLastSocketError());
+		EconetError("Econet: Failed to open broadcast listener socket (error %d)", GetLastSocketError());
 		goto Fail;
 	}
 
@@ -1019,7 +1019,7 @@ bool EconetReset()
 
 	#ifdef DEBUG_ECONET
 	DebugTrace("Econet: Station number set to %d, port %d\n",
-		       EconetStationID, EconetListenPort);
+	           EconetStationID, EconetListenPort);
 	#endif
 
 	// On Master the station number is read from CMOS so update it
@@ -1043,7 +1043,7 @@ bool EconetReset()
 
 		if (setsockopt(BroadcastListenSocket, SOL_SOCKET, SO_REUSEADDR, &Broadcast, sizeof(Broadcast)) == -1)
 		{
-			EconetError("Econet: Failed to set socket for shared reception of broadcasts (error %ld)", GetLastSocketError());
+			EconetError("Econet: Failed to set socket for shared reception of broadcasts (error %d)", GetLastSocketError());
 			goto Fail;
 		}
 
@@ -1177,10 +1177,10 @@ static bool ReadEconetConfigFile()
 			{
 				size_t Index = Tokens.size() - 4;
 
-				unsigned char Network = (unsigned char)ParseNumber("network", Tokens[Index], 1, 127);
-				unsigned char Station = (unsigned char)ParseNumber("station", Tokens[Index + 1], 1, 254);
+				unsigned char Network = (unsigned char)ParseNumber("Network", Tokens[Index], 1, 127);
+				unsigned char Station = (unsigned char)ParseNumber("Station", Tokens[Index + 1], 1, 254);
 				unsigned long IPAddress = ParseIPAddress("IP adddress", Tokens[Index + 2]);
-				u_short Port = (u_short)ParseNumber("port", Tokens[Index + 3], 0, 65535);
+				u_short Port = (u_short)ParseNumber("Port", Tokens[Index + 3], 0, 65535);
 
 				AddStation(Station, Network, IPAddress, Port);
 			}
@@ -1190,7 +1190,7 @@ static bool ReadEconetConfigFile()
 				{
 					// No gateway configured.
 					Gateway.inet_addr = ParseIPAddress("IP address", Tokens[1]);
-					Gateway.port = (u_short)ParseNumber("port", Tokens[2], 0, 65535);
+					Gateway.port = (u_short)ParseNumber("Port", Tokens[2], 0, 65535);
 
 					#ifdef DEBUG_ECONET
 					DebugTrace("Econet: ConfigFile Gateway IP %s Port %d",
@@ -1215,9 +1215,9 @@ static bool ReadEconetConfigFile()
 
 				EconetNet Network;
 
-				Network.network    = (unsigned char)ParseNumber("network", Tokens[1], 1, 127);
+				Network.network    = (unsigned char)ParseNumber("Network", Tokens[1], 1, 127);
 				Network.inet_addr  = ParseIPAddress("IP address", Tokens[2]);
-				Network.port       = (u_short)ParseNumber("port", Tokens[3], 1, 65535);
+				Network.port       = (u_short)ParseNumber("Port", Tokens[3], 1, 65535);
 				Network.broadcasts = BroadcastSource::Unknown;
 
 				#ifdef DEBUG_ECONET
@@ -1297,7 +1297,7 @@ static bool ReadEconetConfigFile()
 		}
 		catch (const std::exception& e)
 		{
-			EconetError("Invalid %s value in Econet config file\n  %s (Line %d)", e.what(), EconetCfgPath, LineCounter);
+			EconetError("Invalid value in Econet config file\n%s\n%s (Line %d)", e.what(), EconetCfgPath, LineCounter);
 			Success = false;
 			break;
 		}
@@ -1354,7 +1354,7 @@ static bool ReadAUNConfigFile()
 				EconetNet Network;
 
 				Network.inet_addr  = ParseIPAddress("IP address", Tokens[1]) & 0x00FFFFFF; // stored as lsb..msb ?!?!
-				Network.network    = (unsigned char)ParseNumber("network", Tokens[2], 0, 255);
+				Network.network    = (unsigned char)ParseNumber("Network", Tokens[2], 0, 255);
 				Network.port       = DEFAULT_AUN_PORT; // always use the default port for proper AUN networks
 				Network.broadcasts = BroadcastSource::Unknown;
 
@@ -1367,7 +1367,7 @@ static bool ReadAUNConfigFile()
 			}
 			catch (const std::exception& e)
 			{
-				EconetError("Invalid %s value in AUNMap file:\n  %s (Line %d)", e.what(), AUNMapPath, LineCounter);
+				EconetError("Invalid value in AUNMap file\n%s\n%s (Line %d)", e.what(), AUNMapPath, LineCounter);
 				Success = false;
 				break;
 			}
@@ -1393,7 +1393,9 @@ static bool ReadNetwork()
 	Stations.clear();
 	Networks.clear();
 
-	Gateway = { 0, 0 }; // Clear the gateway address.
+	// Clear the gateway address.
+	Gateway.inet_addr = 0;
+	Gateway.port = 0;
 
 	if (!ReadEconetConfigFile())
 	{
@@ -1924,7 +1926,7 @@ bool EconetPollReal()
 		KeepalivePacket->AUNHeader.CtrlByte = (0xd0 & 0x7f); // reuse trunk keepalive
 		KeepalivePacket->AUNHeader.Pad = 0;
 		KeepalivePacket->AUNHeader.Handle = 0;
-		memset(KeepalivePacket->Buffer, 0, 8); // a broadcast has 8 data bytes
+		ZeroMemory(KeepalivePacket->Buffer, 8); // a broadcast has 8 data bytes
 		int KeepaliveLen = 20; // total size to send is 4 + 8 + 8
 
 		#ifdef DEBUG_TRACE
@@ -1965,7 +1967,7 @@ bool EconetPollReal()
 		EconetTemp.AUNHeader.Port = BEEBEM_ECONET_PORT; // BeebEm reply port
 		EconetTemp.AUNHeader.Pad = 0;
 		EconetTemp.AUNHeader.Handle = AnnounceHandle++; // sequence number
-		memset(EconetTemp.Buffer, 0, 8);
+		ZeroMemory(EconetTemp.Buffer, 8);
 		EconetTemp.Buffer[0] = EconetStationID;
 		EconetTemp.Buffer[1] = EconetNetworkID;
 
