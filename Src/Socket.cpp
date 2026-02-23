@@ -120,7 +120,10 @@ unsigned long ParseIPAddress(const char* Name, const std::string& Value)
 
 	if (Address == INADDR_NONE)
 	{
-		throw std::out_of_range(Name);
+		char Message[100];
+		sprintf(Message, "%s: %s", Name, Value.c_str());
+
+		throw std::invalid_argument(Message);
 	}
 
 	return Address;
