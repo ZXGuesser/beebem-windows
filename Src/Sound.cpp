@@ -99,7 +99,7 @@ static int Speech[4];
 
 // static FILE *sndlog = NULL;
 
-static struct
+struct SN76489State
 {
 	unsigned int ToneFreq[4];
 	unsigned int ChangeSamps[4]; // How often this channel should flip its output
@@ -111,7 +111,9 @@ static struct
 		unsigned int Vol:4;
 	} Noise;
 	int LastToneFreqSet; // the tone generator last set - for writing the 2nd byte
-} BeebState76489;
+};
+
+static SN76489State BeebState76489;
 
 static int RealVolumes[4]; // Holds the real volume values for state save use
 
