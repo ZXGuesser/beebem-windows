@@ -3049,8 +3049,8 @@ GetNewPacket:
 				{
 					#ifdef DEBUG_ECONET
 					DebugTrace("Econet: Packet was from station %d.%d\n",
-						       (int)BeebRx.EconetHeader.SrcNet,
-						       (int)BeebRx.EconetHeader.SrcStn);
+					           (int)BeebRx.EconetHeader.SrcNet,
+					           (int)BeebRx.EconetHeader.SrcStn);
 					#endif
 
 					BeebRx.EconetHeader.CtrlByte = EconetRx.AUNHeader.CtrlByte | 128;
