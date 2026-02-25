@@ -635,199 +635,205 @@ static void EconetCloseSockets()
 
 static void AllocateNewAddress()
 {
+	// Get localhost IP address.
+
 	char localhost[256];
-	hostent *host;
+
+	if (gethostname(localhost, sizeof(localhost)) == SOCKET_ERROR)
+	{
+		EconetError("Econet: Failed to get local host name");
+		return;
+	}
+
+	hostent *host = gethostbyname(localhost);
+
+	if (host == nullptr)
+	{
+		EconetError("Econet: Failed to resolve local IP address");
+		return;
+	}
 
 	sockaddr_in service;
 	service.sin_family = AF_INET;
-	service.sin_addr.s_addr = INADDR_ANY; //inet_addr("127.0.0.1");
+	service.sin_addr.s_addr = INADDR_ANY; // inet_addr("127.0.0.1");
 
-	// Get localhost IP address.
-	if (gethostname(localhost, 256) != SOCKET_ERROR &&
-	    (host = gethostbyname(localhost)) != NULL)
+	// See if configured addresses match local IPs.
+	for (size_t i = 0; i < Stations.size(); ++i)
 	{
-		// See if configured addresses match local IPs.
-		for (size_t i = 0; i < Stations.size(); ++i)
-		{
-			const EconetHost& Station = Stations[i];
+		const EconetHost& Station = Stations[i];
 
-			// Check address for each network interface/card.
-			for (int a = 0; host->h_addr_list[a] != nullptr; ++a)
+		// Check address for each network interface/card.
+		for (int a = 0; host->h_addr_list[a] != nullptr; ++a)
+		{
+			struct in_addr localaddr;
+			memcpy(&localaddr, host->h_addr_list[a], sizeof(struct in_addr));
+
+			if (Station.inet_addr == inet_addr("127.0.0.1") ||
+			    Station.inet_addr == IN_ADDR(localaddr))
+			{
+				if (!PreferredStationID ||
+				    (Station.station == PreferredStationID &&
+				     Station.network == PreferredNetworkID))
+				{
+					service.sin_port = htons(Station.port);
+					S_ADDR(service) = Station.inet_addr;
+
+					if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
+					{
+						EconetListenPort = Station.port;
+						EconetListenIP = Station.inet_addr;
+						EconetStationID = Station.station;
+						EconetNetworkID = Station.network;
+					}
+					else
+					{
+						// Reset station announcement sequence number.
+						AnnounceHandle = 0;
+					}
+				}
+			}
+		}
+	}
+
+	if (EconetStationID == 0)
+	{
+		// Still can't find one - try to find our AUNNet.
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: couldn't get host from configured addresses - trying automatic\n");
+		#endif
+
+		for (size_t j = 0; j < Networks.size() && PreferredStationID == 0; j++)
+		{
+			const EconetNet& Network = Networks[j];
+
+			for (int a = 0; host->h_addr_list[a] != NULL; ++a)
 			{
 				struct in_addr localaddr;
 				memcpy(&localaddr, host->h_addr_list[a], sizeof(struct in_addr));
 
-				if (Station.inet_addr == inet_addr("127.0.0.1") ||
-				    Station.inet_addr == IN_ADDR(localaddr))
+				if (Network.inet_addr == (IN_ADDR(localaddr) & 0x00FFFFFF))
 				{
-					if (!PreferredStationID ||
-					    (Station.station == PreferredStationID &&
-					     Station.network == PreferredNetworkID))
-					{
-						service.sin_port = htons(Station.port);
-						S_ADDR(service) = Station.inet_addr;
+					service.sin_port = htons(DEFAULT_AUN_PORT);
+					S_ADDR(service) = IN_ADDR(localaddr);
 
-						if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
-						{
-							EconetListenPort = Station.port;
-							EconetListenIP = Station.inet_addr;
-							EconetStationID = Station.station;
-							EconetNetworkID = Station.network;
-						}
-						else
-						{
-							// Reset station announcement sequence number.
-							AnnounceHandle = 0;
-						}
+					if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
+					{
+						EconetListenIP = IN_ADDR(localaddr);
+						EconetListenPort = DEFAULT_AUN_PORT;
+						EconetStationID = IN_ADDR(localaddr) >> 24;
+						EconetNetworkID = Network.network;
+
+						#ifdef DEBUG_ECONET
+						DebugTrace("Econet: Automatically assigned station %d.%d using AUNMap\n",
+						           EconetNetworkID,
+						           EconetStationID);
+						#endif
+					}
+					else
+					{
+						// Reset station announcement sequence number.
+						AnnounceHandle = 0;
 					}
 				}
+			}
+		}
+
+		if (EconetStationID == 0 && AutoConfigure)
+		{
+			// Look for a free port and assign a suitable station number.
+			// We assign station numbers at random to reduce the chances
+			// of collisions between instances on different PCs. We have
+			// no other way to prevent them so hope for the best!
+			struct in_addr localaddr;
+			memcpy(&localaddr, host->h_addr_list[0], sizeof(struct in_addr));
+
+			// TODO: This will use the first network address of this PC.
+			// This might not be useful if there are multiple network
+			// adapters but we have no good way to determine which to use
+			// in the absence of any user configuration.
+			EconetListenIP = IN_ADDR(localaddr);
+			S_ADDR(service) = EconetListenIP;
+
+			// Create randomly shuffled pool of all free (unconfigured)
+			// station numbers in our net.
+
+			std::vector<unsigned char> numbers;
+			for (unsigned char i = 0; i < 255; i++) numbers.push_back(i); // vector of numbers 0-254
+			numbers[254] = 0; // Mark out station 254 so it can never be automatically assigned.
+
+			for (size_t i = 0; i < Stations.size(); ++i)
+			{
+				// Mark out any configured station numbers in net.
+				if (Stations[i].network == PreferredNetworkID)
+				{
+					numbers[Stations[i].station] = 0;
+				}
+			}
+
+			// Mark out preferred station number.
+			numbers[PreferredStationID] = 0;
+
+			// Remove all the marked out numbers.
+			for (int j = (int)numbers.size() - 1; j >= 0; j--)
+			{
+				if (numbers[j] == 0)
+				{
+					numbers.erase(numbers.begin() + j);
+				}
+			}
+
+			// Shuffle remaining station numbers.
+			std::srand((unsigned int)std::time(0));
+			std::random_shuffle(numbers.begin(), numbers.end());
+
+			unsigned char s;
+
+			// Try to bind the station ID asked for before picking randomly.
+			if (PreferredStationID)
+			{
+				s = PreferredStationID;
+			}
+			else
+			{
+				s = numbers[0];
+
+				// Reset station announcement sequence number.
+				AnnounceHandle = 0;
+			}
+
+			for (size_t j = 0; j < numbers.size(); )
+			{
+				service.sin_port = htons(10000 + (PreferredNetworkID << 8) + s);
+
+				if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
+				{
+					EconetListenPort = 10000 + (PreferredNetworkID << 8) + s;
+					EconetStationID = s;
+					EconetNetworkID = PreferredNetworkID;
+
+					#ifdef DEBUG_ECONET
+					DebugTrace("Econet: automatically assigned random station %d.%d on %s:%d\n",
+					           EconetNetworkID,
+					           EconetStationID,
+					           IpAddressStr(EconetListenIP),
+					           EconetListenPort);
+					#endif
+
+					break;
+				}
+
+				// Reset station announcement sequence number.
+				AnnounceHandle = 0;
+
+				s = numbers[++j]; // The next number in the shuffled vector.
 			}
 		}
 
 		if (EconetStationID == 0)
 		{
-			// Still can't find one - try to find our AUNNet.
-			#ifdef DEBUG_ECONET
-			DebugTrace("Econet: couldn't get host from configured addresses - trying automatic\n");
-			#endif
-
-			for (size_t j = 0; j < Networks.size() && PreferredStationID == 0; j++)
-			{
-				const EconetNet& Network = Networks[j];
-
-				for (int a = 0; host->h_addr_list[a] != NULL; ++a)
-				{
-					struct in_addr localaddr;
-					memcpy(&localaddr, host->h_addr_list[a], sizeof(struct in_addr));
-
-					if (Network.inet_addr == (IN_ADDR(localaddr) & 0x00FFFFFF))
-					{
-						service.sin_port = htons(DEFAULT_AUN_PORT);
-						S_ADDR(service) = IN_ADDR(localaddr);
-
-						if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
-						{
-							EconetListenIP = IN_ADDR(localaddr);
-							EconetListenPort = DEFAULT_AUN_PORT;
-							EconetStationID = IN_ADDR(localaddr) >> 24;
-							EconetNetworkID = Network.network;
-
-							#ifdef DEBUG_ECONET
-							DebugTrace("Econet: Automatically assigned station %d.%d using AUNMap\n",
-							           EconetNetworkID,
-							           EconetStationID);
-							#endif
-						}
-						else
-						{
-							// Reset station announcement sequence number.
-							AnnounceHandle = 0;
-						}
-					}
-				}
-			}
-
-			if (EconetStationID == 0 && AutoConfigure)
-			{
-				// Look for a free port and assign a suitable station number.
-				// We assign station numbers at random to reduce the chances
-				// of collisions between instances on different PCs. We have
-				// no other way to prevent them so hope for the best!
-				struct in_addr localaddr;
-				memcpy(&localaddr, host->h_addr_list[0], sizeof(struct in_addr));
-
-				// TODO: This will use the first network address of this PC.
-				// This might not be useful if there are multiple network
-				// adapters but we have no good way to determine which to use
-				// in the absence of any user configuration.
-				EconetListenIP = IN_ADDR(localaddr);
-				S_ADDR(service) = EconetListenIP;
-
-				// Create randomly shuffled pool of all free (unconfigured)
-				// station numbers in our net.
-
-				std::vector<unsigned char> numbers;
-				for (unsigned char i = 0; i < 255; i++) numbers.push_back(i); // vector of numbers 0-254
-				numbers[254] = 0; // Mark out station 254 so it can never be automatically assigned.
-
-				for (size_t i = 0; i < Stations.size(); ++i)
-				{
-					// Mark out any configured station numbers in net.
-					if (Stations[i].network == PreferredNetworkID)
-					{
-						numbers[Stations[i].station] = 0;
-					}
-				}
-
-				// Mark out preferred station number.
-				numbers[PreferredStationID] = 0;
-
-				// Remove all the marked out numbers.
-				for (int j = (int)numbers.size() - 1; j >= 0; j--)
-				{
-					if (numbers[j] == 0)
-					{
-						numbers.erase(numbers.begin() + j);
-					}
-				}
-
-				// Shuffle remaining station numbers.
-				std::srand((unsigned int)std::time(0));
-				std::random_shuffle(numbers.begin(), numbers.end());
-
-				unsigned char s;
-
-				// Try to bind the station ID asked for before picking randomly.
-				if (PreferredStationID)
-				{
-					s = PreferredStationID;
-				}
-				else
-				{
-					s = numbers[0];
-
-					// Reset station announcement sequence number.
-					AnnounceHandle = 0;
-				}
-
-				for (size_t j = 0; j < numbers.size(); )
-				{
-					service.sin_port = htons(10000 + (PreferredNetworkID << 8) + s);
-
-					if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
-					{
-						EconetListenPort = 10000 + (PreferredNetworkID << 8) + s;
-						EconetStationID = s;
-						EconetNetworkID = PreferredNetworkID;
-
-						#ifdef DEBUG_ECONET
-						DebugTrace("Econet: automatically assigned random station %d.%d on %s:%d\n",
-						           EconetNetworkID,
-						           EconetStationID,
-						           IpAddressStr(EconetListenIP),
-						           EconetListenPort);
-						#endif
-
-						break;
-					}
-
-					// Reset station announcement sequence number.
-					AnnounceHandle = 0;
-
-					s = numbers[++j]; // The next number in the shuffled vector.
-				}
-			}
-
-			if (EconetStationID == 0)
-			{
-				// Couldn't even bind a random port.
-				EconetError("Econet: Failed to find free station/port to bind to");
-			}
+			// Couldn't even bind a random port.
+			EconetError("Econet: Failed to find free station/port to bind to");
 		}
-	}
-	else
-	{
-		EconetError("Econet: Failed to resolve local IP address");
 	}
 }
 
