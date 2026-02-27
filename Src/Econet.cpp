@@ -1365,7 +1365,7 @@ static bool ReadAUNConfigFile()
 				Network.broadcasts = BroadcastSource::Unknown;
 
 				#ifdef DEBUG_ECONET
-				DebugTrace("Econet: AUNMap Net %d IP %%s\n",
+				DebugTrace("Econet: AUNMap Net %d IP %s\n",
 				           Network.network, IpAddressStr(Network.inet_addr));
 				#endif
 
@@ -2517,7 +2517,7 @@ static void EconetSendPacket()
 					WhatNetPort = EconetTx.Buffer[6]; // where the reply will be sent
 
 					#ifdef DEBUG_ECONET
-					DebugTrace("Econet: Sent WhatNet query with port &%x\n", whatnetport);
+					DebugTrace("Econet: Sent WhatNet query with port &%x\n", WhatNetPort);
 					#endif
 				}
 			}
