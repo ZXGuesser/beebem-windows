@@ -803,11 +803,12 @@ static void AllocateNewAddress()
 
 			for (size_t j = 0; j < numbers.size(); )
 			{
-				service.sin_port = htons(10000 + (PreferredNetworkID << 8) + s);
+				const unsigned short Port = 10000 + (PreferredNetworkID << 8) + s;
+				service.sin_port = htons(Port);
 
 				if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 				{
-					EconetListenPort = 10000 + (PreferredNetworkID << 8) + s;
+					EconetListenPort = Port;
 					EconetStationID = s;
 					EconetNetworkID = PreferredNetworkID;
 
