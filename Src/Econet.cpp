@@ -1367,14 +1367,14 @@ static bool ReadAUNConfigFile()
 			{
 				EconetNet Network;
 
-				Network.inet_addr  = ParseIPAddress("IP address", Tokens[1]) & 0x00FFFFFF; // stored as lsb..msb ?!?!
+				Network.inet_addr  = ParseIPAddress("IP address", Tokens[1]) & 0x00FFFFFF;
 				Network.network    = (unsigned char)ParseNumber("Network", Tokens[2], 0, 255);
 				Network.port       = DEFAULT_AUN_PORT; // always use the default port for proper AUN networks
 				Network.broadcasts = BroadcastSource::Unknown;
 
 				#ifdef DEBUG_ECONET
-				DebugTrace("Econet: AUNMap Net %d IP %s\n",
-				           Network.network, IpAddressStr(Network.inet_addr));
+				DebugTrace("Econet: AUNMap Net %d IP %s:%u\n",
+				           Network.network, IpAddressStr(Network.inet_addr), Network.port);
 				#endif
 
 				Networks.emplace_back(Network);
