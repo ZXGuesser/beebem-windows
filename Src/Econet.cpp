@@ -194,13 +194,13 @@ unsigned char EconetNetworkID = 0; // Default Network ID
 unsigned char PreferredStationID = 0;
 unsigned char PreferredNetworkID = 0;
 
-static u_short EconetListenPort = 0; // default Listen port
-static unsigned long EconetListenIP = inet_addr("127.0.0.1");
-// IP settings:
+static unsigned short EconetListenPort = 0; // Default listen port
+static unsigned long EconetListenIP = inet_addr("127.0.0.1"); // IP address
+
 static SOCKET Socket = INVALID_SOCKET; // Also used to flag line up and clock running
 static SOCKET BroadcastListenSocket = INVALID_SOCKET;
 
-const u_short DEFAULT_AUN_PORT = 32768;
+const unsigned short DEFAULT_AUN_PORT = 32768;
 const unsigned char BEEBEM_ECONET_PORT = 0x9b; // where gateway replies and BeebEm Ping/Pong will be sent
 
 // Written in 2004:
@@ -369,7 +369,7 @@ struct EconetHost
 	unsigned char station;
 	unsigned char network;
 	unsigned long inet_addr;
-	u_short port;
+	unsigned short port;
 	BroadcastSource broadcasts; // where to accept broadcasts from
 	time_t timeout;
 };
@@ -378,14 +378,14 @@ struct EconetNet
 {
 	unsigned long inet_addr;
 	unsigned char network;
-	u_short port; // AUN port or base port from which sequential ports are calculated
+	unsigned short port; // AUN port or base port from which sequential ports are calculated
 	BroadcastSource broadcasts; // where to accept broadcasts from
 };
 
 struct EconetGateway
 {
 	unsigned long inet_addr;
-	u_short port;
+	unsigned short port;
 };
 
 struct NetStn
@@ -1187,7 +1187,7 @@ static bool ReadEconetConfigFile()
 				unsigned char Network = (unsigned char)ParseNumber("Network", Tokens[Index], 1, 127);
 				unsigned char Station = (unsigned char)ParseNumber("Station", Tokens[Index + 1], 1, 254);
 				unsigned long IPAddress = ParseIPAddress("IP adddress", Tokens[Index + 2]);
-				u_short Port = (u_short)ParseNumber("Port", Tokens[Index + 3], 0, 65535);
+				unsigned short Port = (unsigned short)ParseNumber("Port", Tokens[Index + 3], 0, 65535);
 
 				AddStation(Station, Network, IPAddress, Port);
 			}
@@ -1197,7 +1197,7 @@ static bool ReadEconetConfigFile()
 				{
 					// No gateway configured.
 					Gateway.inet_addr = ParseIPAddress("IP address", Tokens[1]);
-					Gateway.port = (u_short)ParseNumber("Port", Tokens[2], 0, 65535);
+					Gateway.port = (unsigned short)ParseNumber("Port", Tokens[2], 0, 65535);
 
 					#ifdef DEBUG_ECONET
 					DebugTrace("Econet: ConfigFile Gateway IP %s Port %d",
@@ -1224,7 +1224,7 @@ static bool ReadEconetConfigFile()
 
 				Network.network    = (unsigned char)ParseNumber("Network", Tokens[1], 1, 127);
 				Network.inet_addr  = ParseIPAddress("IP address", Tokens[2]);
-				Network.port       = (u_short)ParseNumber("Port", Tokens[3], 1, 65535);
+				Network.port       = (unsigned short)ParseNumber("Port", Tokens[3], 1, 65535);
 				Network.broadcasts = BroadcastSource::Unknown;
 
 				#ifdef DEBUG_ECONET
