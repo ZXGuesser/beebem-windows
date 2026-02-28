@@ -569,45 +569,52 @@ static EconetHost* FindNetworkConfig(unsigned char Station, unsigned char Networ
 
 //---------------------------------------------------------------------------
 
-// Try to add or replace a station in stations list.
+// Add or replace a station in stations list.
 
-void AddStation(unsigned char station, unsigned char net, unsigned long address,
-                u_short port, BroadcastSource broadcasts = BroadcastSource::Unknown)
+void AddStation(unsigned char Station,
+                unsigned char Network,
+                unsigned long IPAddress,
+                unsigned short Port,
+                BroadcastSource Broadcasts = BroadcastSource::Unknown)
 {
-	EconetHost* pStation = FindNetworkConfig(station, net);
+	EconetHost* pHost = FindNetworkConfig(Station, Network);
 
-	if (pStation != nullptr)
+	if (pHost != nullptr)
 	{
 		// Station already defined, replace it.
-		pStation->station = station;
-		pStation->network = net;
-		pStation->inet_addr = address;
-		pStation->port = port;
-		pStation->timeout = time(NULL) + HOST_TIMEOUT;
+		pHost->station = Station;
+		pHost->network = Network;
+		pHost->inet_addr = IPAddress;
+		pHost->port = Port;
+		pHost->timeout = time(NULL) + HOST_TIMEOUT;
 
 		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: replaced station %d.%d in host list\n",
-		           (int)net,
-		           (int)station);
+		DebugTrace("Econet: Replaced station %d.%d in host list (now at %s:%u)\n",
+		           (int)Network,
+		           (int)Station,
+		           IpAddressStr(IPAddress),
+		           Port);
 		#endif
 	}
 	else
 	{
 		// Station unknown, so add it.
-		EconetHost Station;
-		Station.station = station;
-		Station.network = net;
-		Station.inet_addr = address;
-		Station.port = port;
-		Station.broadcasts = broadcasts;
-		Station.timeout = time(NULL) + HOST_TIMEOUT;
+		EconetHost Host;
+		Host.station = Station;
+		Host.network = Network;
+		Host.inet_addr = IPAddress;
+		Host.port = Port;
+		Host.broadcasts = Broadcasts;
+		Host.timeout = time(NULL) + HOST_TIMEOUT;
 
-		Stations.emplace_back(Station);
+		Stations.emplace_back(Host);
 
 		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: added station %d.%d to host list\n",
-		           (int)net,
-		           (int)station);
+		DebugTrace("Econet: Added station %d.%d on %s:%u to host list\n",
+		           (int)Network,
+		           (int)Station,
+		           IpAddressStr(IPAddress),
+		           Port);
 		#endif
 	}
 }
