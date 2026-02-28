@@ -1752,7 +1752,7 @@ bool EconetPollReal()
 	// Can affect timing of RTS output line (and thus CTS input) still ignored.
 	// CR4b7 - NRZI/NRZ - invert data encoding on wire. ignore.
 
-	if (EconetTrigger <= TotalCycles)
+	if (TotalCycles >= EconetTrigger)
 	{
 		// Only do this bit occasionally as data only comes in from
 		// line occasionally.
@@ -1912,7 +1912,7 @@ bool EconetPollReal()
 			SetTrigger(FourWayStageTimeout, EconetFourWayTrigger);
 		}
 	}
-	else if (EconetFourWayTrigger <= TotalCycles)
+	else if (TotalCycles >= EconetFourWayTrigger)
 	{
 		EconetScoutAckTrigger = 0;
 		EconetFourWayTrigger = 0;
