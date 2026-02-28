@@ -18,7 +18,9 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <ws2tcpip.h>
 
 #include "Socket.h"
 
@@ -91,7 +93,6 @@ bool SetSocketBlocking(SOCKET Socket, bool Blocking)
 
 bool WouldBlock(int Error)
 {
-
 	#ifdef WIN32
 
 	return Error == WSAEWOULDBLOCK;
@@ -116,9 +117,18 @@ bool EnableBroadcast(SOCKET Socket)
 
 unsigned long ParseIPAddress(const char* Name, const std::string& Value)
 {
-	unsigned long Address = inet_addr(Value.c_str());
+	sockaddr_in Address;
+	int AddressLength = sizeof(Address);
 
-	if (Address == INADDR_NONE)
+	int Result = WSAStringToAddress(
+		(LPSTR)Value.c_str(),
+		AF_INET,
+		NULL,
+		(SOCKADDR*)&Address,
+		&AddressLength
+	);
+
+	if (Result != 0)
 	{
 		char Message[100];
 		sprintf(Message, "%s: %s", Name, Value.c_str());
@@ -126,7 +136,7 @@ unsigned long ParseIPAddress(const char* Name, const std::string& Value)
 		throw std::invalid_argument(Message);
 	}
 
-	return Address;
+	return Address.sin_addr.s_addr;
 }
 
 /****************************************************************************/
