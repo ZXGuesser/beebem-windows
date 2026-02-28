@@ -2365,14 +2365,14 @@ static void EconetSendPacket()
 		RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
 		SendMe = true;
 	}
-	else
+
+	// Match AUN nets for Econet network numbers if MassageNetworks is enabled.
+	const unsigned int mask = MassageNetworks ? 0x7F : 0xFF;
+
+	if (!SendMe)
 	{
-		// Work out where we need to send a packet for this Econet address.
+		// Search for the destination host in the Stations table.
 
-		// Match AUN nets for Econet network numbers if MassageNetworks is enabled.
-		const unsigned int mask = MassageNetworks ? 0x7F : 0xFF;
-
-		// Search for a single specifically defined host in stations table.
 		for (size_t i = 0; i < Stations.size(); i++)
 		{
 			const EconetHost& Station = Stations[i];
@@ -2386,44 +2386,48 @@ static void EconetSendPacket()
 				break;
 			}
 		}
+	}
 
-		if (!SendMe)
+	if (!SendMe)
+	{
+		// Station not found. Search to see if the destination network
+		// is defined in the Networks table.
+
+		for (size_t i = 0; i < Networks.size(); i++)
 		{
-			// Didn't find the station. Search to see if the destination network
-			// is defined in the networks table.
+			const EconetNet& Network = Networks[i];
 
-			for (size_t i = 0; i < Networks.size(); i++)
+			if ((Network.network & mask) == (BeebTx.EconetHeader.DestNet & mask))
 			{
-				const EconetNet& Network = Networks[i];
-
-				if ((Network.network & mask) == (BeebTx.EconetHeader.DestNet & mask))
+				// Located the network.
+				if ((Network.inet_addr & 0xFF000000) == 0)
 				{
-					// Located the network.
-					if ((Network.inet_addr & 0xFF000000) == 0)
-					{
-						// Last octet is zero so this is true AUN.
-						RecvAddr.sin_addr.s_addr = (Network.inet_addr & 0x00FFFFFF) | (BeebTx.EconetHeader.DestStn << 24);
-						RecvAddr.sin_port = htons(Network.port); // TODO this should always be DEFAULT_AUN_PORT - should we override this?
-						SendMe = true;
-						break;
-					}
-					else
-					{
-						// Whole network defined with a single address.
-						// Treat port as the base port number for a PiEconetBridge exposed network.
-						RecvAddr.sin_addr.s_addr = Network.inet_addr;
-						RecvAddr.sin_port = htons(Network.port + BeebTx.EconetHeader.DestStn);
-						SendMe = true;
-						break;
-					}
+					// Last octet is zero so this is true AUN.
+					RecvAddr.sin_addr.s_addr = (Network.inet_addr & 0x00FFFFFF) | (BeebTx.EconetHeader.DestStn << 24);
+					RecvAddr.sin_port = htons(Network.port); // TODO this should always be DEFAULT_AUN_PORT - should we override this?
+					SendMe = true;
+					break;
+				}
+				else
+				{
+					// Whole network defined with a single address.
+					// Treat port as the base port number for a PiEconetBridge exposed network.
+					RecvAddr.sin_addr.s_addr = Network.inet_addr;
+					RecvAddr.sin_port = htons(Network.port + BeebTx.EconetHeader.DestStn);
+					SendMe = true;
+					break;
 				}
 			}
 		}
+	}
 
-		if (!SendMe && BeebTx.EconetHeader.DestNet != 0 && BeebTx.EconetHeader.DestNet != 255)
+	if (!SendMe)
+	{
+		// Network not found in the Networks table. If the packet is not for
+		// net 0 or 255, use the gateway to get packets to this network.
+
+		if (BeebTx.EconetHeader.DestNet != 0 && BeebTx.EconetHeader.DestNet != 255)
 		{
-			// Didn't find the network and it is not for net 0 or 255.
-			// Try to use gateway to get packets to this network.
 			if (Gateway.port != 0)
 			{
 				RecvAddr.sin_addr.s_addr = Gateway.inet_addr;
@@ -2436,30 +2440,40 @@ static void EconetSendPacket()
 		}
 	}
 
-	// Send a datagram to the receiver.
-	if (SendMe)
+	if (!SendMe)
 	{
 		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: TXLast set: Send %d byte packet to station %d.%d (%s port %u)\n",
-		           BeebTx.Pointer,
+		DebugTrace("Econet: Unable to resolve station %d.%d\n",
 		           (int)BeebTx.EconetHeader.DestNet,
-		           (int)BeebTx.EconetHeader.DestStn,
-		           IpAddressStr(RecvAddr.sin_addr.s_addr),
-		           (unsigned int)htons(RecvAddr.sin_port));
-
-		DebugDumpBytes("Econet: Packet data:", BeebTx.Buffer, BeebTx.Pointer);
+		           (int)BeebTx.EconetHeader.DestStn);
 		#endif
 
-		unsigned int j = 0;
-		// OK. Lets do AUN ...
-		// The beeb has given us a packet .. what is it?
-		SendMe = false;
+		return;
+	}
 
-		EconetTx.DestNet = BeebTx.EconetHeader.DestNet;
-		EconetTx.DestStn = BeebTx.EconetHeader.DestStn;
+	// Send a datagram to the receiver.
 
-		switch (AUNState)
-		{
+	#ifdef DEBUG_ECONET
+	DebugTrace("Econet: TXLast set: Send %d byte packet to station %d.%d (%s port %u)\n",
+	           BeebTx.Pointer,
+	           (int)BeebTx.EconetHeader.DestNet,
+	           (int)BeebTx.EconetHeader.DestStn,
+	           IpAddressStr(RecvAddr.sin_addr.s_addr),
+	           (unsigned int)htons(RecvAddr.sin_port));
+
+	DebugDumpBytes("Econet: Packet data:", BeebTx.Buffer, BeebTx.Pointer);
+	#endif
+
+	unsigned int j = 0;
+	// OK. Lets do AUN ...
+	// The beeb has given us a packet .. what is it?
+	SendMe = false;
+
+	EconetTx.DestNet = BeebTx.EconetHeader.DestNet;
+	EconetTx.DestStn = BeebTx.EconetHeader.DestStn;
+
+	switch (AUNState)
+	{
 		case FourWayStage::ScoutAckReceived:
 			// It came in response to our ack of a scout.
 			// What we have /should/ be the data block.
@@ -2621,94 +2635,85 @@ static void EconetSendPacket()
 			DebugTrace("Econet: Set FourWayStage::WaitForIdle (unexpected mode, packet ignored)\n");
 			#endif
 			break;
-		}
-
-		if (SendMe)
-		{
-			char *p = (char *)&EconetTx;
-
-			ExtendedAUNPacket *tmp = (ExtendedAUNPacket*)&EconetTemp;
-
-			if (ExtendedAUN || (IsBroadcastStation(EconetTx.DestStn) && Gateway.port != 0))
-			{
-				// We need to make a copy of the packet with additional addressing on the front.
-				tmp->EconetHeader.DestStn = BeebTx.EconetHeader.DestStn;
-				tmp->EconetHeader.DestNet = BeebTx.EconetHeader.DestNet;
-				tmp->EconetHeader.SrcStn = 0; // source (left blank)
-				tmp->EconetHeader.SrcNet = 0;
-				memcpy(&tmp->AUNHeader, &EconetTx.raw, SendLen); // Copy original AUN data.
-
-				if (ExtendedAUN)
-				{
-					SendLen += 4;
-					p = (char *)tmp; // Transmit this buffer instead of EconetTx.
-				}
-				// else a broadcast - we will send this extended AUN packet to the gateway after sending the original packet as a UDP broadcast
-			}
-
-			if (!(RecvAddr.sin_addr.s_addr == EconetListenIP && htons(RecvAddr.sin_port) == EconetListenPort)) // never send to ourself
-			{
-				#ifdef DEBUG_ECONET
-				DebugTrace("Econet: Send packet to station %d.%d (%s port %u)\n",
-				           (int)EconetTx.DestNet,
-				           (int)EconetTx.DestStn,
-				           IpAddressStr(RecvAddr.sin_addr.s_addr),
-				           (unsigned int)htons(RecvAddr.sin_port));
-
-				DebugDumpBytes("Econet: Ethernet data:", (const unsigned char*)p, SendLen);
-				#endif
-
-				if (sendto(Socket, p, SendLen, 0,
-				           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
-				{
-					EconetError("Econet: Failed to send packet to station %d (%s port %u)",
-					            (int)EconetTx.DestStn,
-					            IpAddressStr(RecvAddr.sin_addr.s_addr),
-					            (unsigned int)htons(RecvAddr.sin_port));
-				}
-			}
-
-			if (IsBroadcastStation(EconetTx.DestStn) && Gateway.port != 0)
-			{
-				// we want to send a copy of the broadcast to the gateway
-				RecvAddr.sin_addr.s_addr = Gateway.inet_addr;
-				RecvAddr.sin_port = htons(Gateway.port);
-
-				#ifdef DEBUG_ECONET
-				DebugDumpBytes("Econet: Gateway broadcast ethernet data:", (unsigned char *)p, SendLen + 4);
-				#endif
-
-				if (sendto(Socket, (char *)tmp, SendLen + 4, 0,
-				           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
-				{
-					EconetError("Econet: Failed to send broadcast to gateway (%s port %u)",
-					            IpAddressStr(RecvAddr.sin_addr.s_addr),
-					            (unsigned int)htons(RecvAddr.sin_port));
-				}
-			}
-		}
-
-		// Sending packet will mean peer goes into flag fill while
-		// it deals with it.
-		FlagFillActive = true;
-		SetTrigger(EconetFlagFillTimeout, EconetFlagFillTimeoutTrigger);
-
-		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: FlagFill set (packet sent)\n");
-		#endif
-
-		// Wipe buffer.
-		BeebTx.Pointer = 0;
-		BeebTx.BytesInBuffer = 0;
 	}
-	else
+
+	if (SendMe)
 	{
-		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: Unable to resolve station %d.%d\n",
-		           (int)BeebTx.EconetHeader.DestNet,
-		           (int)BeebTx.EconetHeader.DestStn);
-		#endif
+		char *p = (char *)&EconetTx;
+
+		ExtendedAUNPacket *tmp = (ExtendedAUNPacket*)&EconetTemp;
+
+		if (ExtendedAUN || (IsBroadcastStation(EconetTx.DestStn) && Gateway.port != 0))
+		{
+			// We need to make a copy of the packet with additional addressing on the front.
+			tmp->EconetHeader.DestStn = BeebTx.EconetHeader.DestStn;
+			tmp->EconetHeader.DestNet = BeebTx.EconetHeader.DestNet;
+			tmp->EconetHeader.SrcStn = 0; // source (left blank)
+			tmp->EconetHeader.SrcNet = 0;
+			memcpy(&tmp->AUNHeader, &EconetTx.raw, SendLen); // Copy original AUN data.
+
+			if (ExtendedAUN)
+			{
+				SendLen += 4;
+				p = (char *)tmp; // Transmit this buffer instead of EconetTx.
+			}
+			// else a broadcast - we will send this extended AUN packet to the gateway after sending the original packet as a UDP broadcast
+		}
+
+		if (!(RecvAddr.sin_addr.s_addr == EconetListenIP && htons(RecvAddr.sin_port) == EconetListenPort)) // never send to ourself
+		{
+			#ifdef DEBUG_ECONET
+			DebugTrace("Econet: Send packet to station %d.%d (%s port %u)\n",
+			           (int)EconetTx.DestNet,
+			           (int)EconetTx.DestStn,
+			           IpAddressStr(RecvAddr.sin_addr.s_addr),
+			           (unsigned int)htons(RecvAddr.sin_port));
+
+			DebugDumpBytes("Econet: Ethernet data:", (const unsigned char*)p, SendLen);
+			#endif
+
+			if (sendto(Socket, p, SendLen, 0,
+			           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+			{
+				EconetError("Econet: Failed to send packet to station %d (%s port %u)",
+				            (int)EconetTx.DestStn,
+				            IpAddressStr(RecvAddr.sin_addr.s_addr),
+				            (unsigned int)htons(RecvAddr.sin_port));
+			}
+		}
+
+		if (IsBroadcastStation(EconetTx.DestStn) && Gateway.port != 0)
+		{
+			// we want to send a copy of the broadcast to the gateway
+			RecvAddr.sin_addr.s_addr = Gateway.inet_addr;
+			RecvAddr.sin_port = htons(Gateway.port);
+
+			#ifdef DEBUG_ECONET
+			DebugDumpBytes("Econet: Gateway broadcast ethernet data:", (unsigned char *)p, SendLen + 4);
+			#endif
+
+			if (sendto(Socket, (char *)tmp, SendLen + 4, 0,
+			           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+			{
+				EconetError("Econet: Failed to send broadcast to gateway (%s port %u)",
+				            IpAddressStr(RecvAddr.sin_addr.s_addr),
+				            (unsigned int)htons(RecvAddr.sin_port));
+			}
+		}
 	}
+
+	// Sending packet will mean peer goes into flag fill while
+	// it deals with it.
+	FlagFillActive = true;
+	SetTrigger(EconetFlagFillTimeout, EconetFlagFillTimeoutTrigger);
+
+	#ifdef DEBUG_ECONET
+	DebugTrace("Econet: FlagFill set (packet sent)\n");
+	#endif
+
+	// Wipe buffer.
+	BeebTx.Pointer = 0;
+	BeebTx.BytesInBuffer = 0;
 }
 
 //--------------------------------------------------------------------------------------------
