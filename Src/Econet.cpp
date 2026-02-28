@@ -2836,13 +2836,13 @@ GetNewPacket:
 						if (RecvAddr.sin_addr.s_addr == Network.inet_addr)
 						{
 							// A single address using sequential ports.
-							int s = htons(RecvAddr.sin_port) - Network.port;
+							int Station = htons(RecvAddr.sin_port) - Network.port;
 
 							// Check whether result is in range.
-							if (s > 0 && s < 255)
+							if (Station > 0 && Station < 255)
 							{
 								BeebRx.EconetHeader.SrcNet = Network.network;
-								BeebRx.EconetHeader.SrcStn = (unsigned char)s;
+								BeebRx.EconetHeader.SrcStn = (unsigned char)Station;
 								Found = true;
 							}
 							// else must be a different net on the same host
@@ -2885,13 +2885,12 @@ GetNewPacket:
 					{
 						// PiEconetBridge gateways use an extended AUN which contains
 						// the Econet addresses at the start of the packet.
-						memcpy(&BeebRx.EconetHeader, &EconetRx, sizeof(BeebRx.EconetHeader));
-
 						// This means the AUN data we want starts four bytes later
 						// than usual. This seems terribly inefficient, but lets
 						// remove those bytes from the buffer rather than trying
 						// to keep track of an offset through all the rest of the code.
 
+						memcpy(&BeebRx.EconetHeader, &EconetRx, sizeof(BeebRx.EconetHeader));
 						memmove(EconetRx.raw, EconetRx.raw + 4, BytesReceived - 4);
 						BytesReceived -= 4; // adjust the length
 						EconetRx.BytesInBuffer = BytesReceived; // must update this too!
@@ -2992,7 +2991,8 @@ GetNewPacket:
 								// Start/reset keepalives.
 								time(&GatewayTimeout);
 							}
-							else if (Gateway.inet_addr != RecvAddr.sin_addr.s_addr || Gateway.port != htons(RecvAddr.sin_port))
+							else if (Gateway.inet_addr != RecvAddr.sin_addr.s_addr ||
+							         Gateway.port != htons(RecvAddr.sin_port))
 							{
 								// This response was from a different gateway
 								// to the one we already have configured!
@@ -3023,7 +3023,8 @@ GetNewPacket:
 							           (int)BeebRx.EconetHeader.SrcStn);
 							#endif
 
-							if (BeebRx.EconetHeader.SrcStn == EconetStationID && BeebRx.EconetHeader.SrcNet == EconetNetworkID)
+							if (BeebRx.EconetHeader.SrcStn == EconetStationID &&
+							    BeebRx.EconetHeader.SrcNet == EconetNetworkID)
 							{
 								// Address collision!
 								#ifdef DEBUG_ECONET
