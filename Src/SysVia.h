@@ -33,7 +33,7 @@ Boston, MA  02110-1301, USA.
 extern VIAState SysVIAState;
 extern unsigned char IC32State;
 
-extern bool JoystickButton[2];
+extern bool SysVIAButton[2];
 
 extern unsigned char KeyboardLinks;
 

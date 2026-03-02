@@ -100,6 +100,7 @@
 #define IDD_SERIAL                      119
 #define IDD_ABOUT                       120
 #define IDD_TELETEXT                    121
+#define IDD_JOYSTICK                    122
 #define IDC_DEBUGBREAK                  1010
 #define IDC_DEBUGINFO                   1015
 #define IDC_DEBUGCOMMAND                1016
@@ -232,6 +233,8 @@
 #define IDC_PORT2_STATIC                1142
 #define IDC_PORT3_STATIC                1143
 #define IDC_PORT4_STATIC                1144
+#define IDC_JOYSTICK_LIST               1145
+#define IDC_REFRESH                     1146
 #define IDM_ABOUT                       40001
 #define IDM_DISC                        40002
 #define IDM_LOADDISC0                   40002
@@ -391,10 +394,7 @@
 #define IDM_EJECTDISC0                  40201
 #define IDM_EJECTDISC1                  40202
 #define IDM_EXPVOLUME                   40203
-#define IDM_JOYSTICK_DISABLED           40204
-#define IDM_JOYSTICK                    40205
-#define IDM_ANALOGUE_MOUSESTICK         40206
-#define IDM_DIGITAL_MOUSESTICK          40207
+#define IDM_SELECT_JOYSTICK             40204
 #define IDM_BREAKOUT                    40208
 #define IDM_TEXTTOSPEECH_ENABLE         40209
 #define IDM_TEXTVIEW                    40210
@@ -478,7 +478,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        122
 #define _APS_NEXT_COMMAND_VALUE         40327
-#define _APS_NEXT_CONTROL_VALUE         1145
+#define _APS_NEXT_CONTROL_VALUE         1147
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

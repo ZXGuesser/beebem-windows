@@ -1,6 +1,15 @@
 BeebEm Change History
 =====================
 
+Unreleased Changes
+------------
+
+Contributors: Chris Needham
+
+* Added support for modern game controllers, using XInput and
+  DirectInput. These are selected from a new dialog box, replacing
+  the Options -> Joystick menu options.
+
 Version 4.22 (30 January 2026)
 ------------
 

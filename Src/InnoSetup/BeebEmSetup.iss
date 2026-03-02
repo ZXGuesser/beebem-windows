@@ -134,6 +134,8 @@ Source: ..\..\Help\faq.html;               DestDir: {app}\Help;                 
 Source: ..\..\Help\gettingstarted.html;    DestDir: {app}\Help;                                                                          Flags: ignoreversion
 Source: ..\..\Help\harddisks.html;         DestDir: {app}\Help;                                                                          Flags: ignoreversion
 Source: ..\..\Help\index.html;             DestDir: {app}\Help;                                                                          Flags: ignoreversion
+Source: ..\..\Help\joysticks.html;         DestDir: {app}\Help;                                                                          Flags: ignoreversion
+Source: ..\..\Help\joysticks.png;          DestDir: {app}\Help;                                                                          Flags: ignoreversion
 Source: ..\..\Help\keyboard.html;          DestDir: {app}\Help;                                                                          Flags: ignoreversion
 Source: ..\..\Help\keyboard.jpg;           DestDir: {app}\Help;                                                                          Flags: ignoreversion
 Source: ..\..\Help\links.html;             DestDir: {app}\Help;                                                                          Flags: ignoreversion

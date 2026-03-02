@@ -1,6 +1,6 @@
 /****************************************************************
 BeebEm - BBC Micro and Master 128 Emulator
-Copyright (C) 2009  Mike Wyatt
+Copyright (C) 2026 Chris Needham
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -18,23 +18,39 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-#ifndef LIST_VIEW_HEADER
-#define LIST_VIEW_HEADER
+#ifndef JOYSTICKDIALOG_HEADER
+#define JOYSTICKDIALOG_HEADER
 
-#include <string>
+#include "BeebWin.h"
+#include "Dialog.h"
 
-int LVInsertColumn(HWND hWnd, UINT uCol, const char* pszText, int iAlignment, UINT uWidth);
+class JoystickController;
 
-int LVInsertItem(HWND hWnd, UINT uRow, UINT uCol, const char* pszText, LPARAM lParam);
+class JoystickDialog : public Dialog
+{
+	public:
+		JoystickDialog(HINSTANCE hInstance,
+		               HWND hwndParent,
+		               JoystickController& Controller,
+		               JoystickOption Option);
 
-LPARAM LVGetItemData(HWND hWnd, UINT uRow);
+	public:
+		JoystickOption GetJoystickOption() const;
+		size_t GetDeviceIndex() const;
 
-void LVSetItemText(HWND hWnd, UINT uRow, UINT uCol, const LPTSTR pszText);
+	private:
+		virtual INT_PTR DlgProc(UINT   nMessage,
+		                        WPARAM wParam,
+		                        LPARAM lParam);
 
-void LVSetFocus(HWND hWnd);
+		void UpdateJoystickList();
+		void UpdateSelected();
 
-int LVFindItemData(HWND hWND, LPARAM ItemData);
-
-void LVSelectItem(HWND hWnd, int Index);
+	private:
+		JoystickController& m_JoystickController;
+		JoystickOption m_JoystickOption;
+		size_t m_DeviceIndex;
+		HWND m_hwndJoystickList;
+};
 
 #endif

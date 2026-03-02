@@ -21,22 +21,17 @@ Boston, MA  02110-1301, USA.
 /* Analogue to digital converter support file for the beeb emulator -
    Mike Wyatt 7/6/97 */
 
-#include <windows.h>
-
 #include <stdio.h>
 
-#include "6502core.h"
 #include "AtoDConv.h"
+#include "6502core.h"
 #include "SysVia.h"
 #include "UefState.h"
 
-bool JoystickEnabled = false;
+// Analog input channels (0 to 65535)
+int AtoDChannel[4] = { 32768, 32768, 32768, 32768 };
 
-// X and Y positions for joystick 1
-int JoystickX;
-int JoystickY;
-
-/* A to D state */
+// A to D state
 struct AtoDState
 {
 	unsigned char DataLatch;
@@ -48,6 +43,20 @@ struct AtoDState
 static AtoDState AtoD;
 
 int AtoDTrigger; // For next A to D conversion completion
+
+/*--------------------------------------------------------------------------*/
+
+void AtoDInit()
+{
+	AtoD.DataLatch = 0;
+	AtoD.High = 0;
+	AtoD.Low = 0;
+	ClearTrigger(AtoDTrigger);
+
+	// Not busy, conversion complete (OS1.2 will then request another conversion)
+	AtoD.Status = 0x40;
+	SysVIAPulseCB1();
+}
 
 /*--------------------------------------------------------------------------*/
 
@@ -106,67 +115,11 @@ void AtoDPollReal()
 
 	SysVIAPulseCB1();
 
-	int Value;
-
-	switch (AtoD.Status & 3)
-	{
-	case 0:
-		Value = JoystickX;
-		break;
-	case 1:
-		Value = JoystickY;
-		break;
-	default:
-		Value = 0;
-		break;
-	}
+	const int Value = AtoDChannel[AtoD.Status & 3];
 
 	AtoD.Status |= (Value & 0xc000) >> 10;
 	AtoD.High = (unsigned char)(Value >> 8);
 	AtoD.Low = Value & 0xf0;
-}
-
-/*--------------------------------------------------------------------------*/
-
-void AtoDInit()
-{
-	AtoD.DataLatch = 0;
-	AtoD.High = 0;
-	AtoD.Low = 0;
-	ClearTrigger(AtoDTrigger);
-
-	// Move joystick to middle
-	JoystickX = 32767;
-	JoystickY = 32767;
-
-	// Not busy, conversion complete (OS1.2 will then request another conversion)
-	AtoD.Status = 0x40;
-	SysVIAPulseCB1();
-}
-
-/*--------------------------------------------------------------------------*/
-
-void AtoDEnable()
-{
-	JoystickEnabled = true;
-	AtoDInit();
-}
-
-/*--------------------------------------------------------------------------*/
-
-void AtoDDisable()
-{
-	JoystickEnabled = false;
-	AtoD.DataLatch = 0;
-	AtoD.Status = 0x80; // Busy, conversion not complete
-	AtoD.High = 0;
-	AtoD.Low = 0;
-	ClearTrigger(AtoDTrigger);
-
-	// Move joystick to middle (Super Pool looks at joystick even when
-	// not selected)
-	JoystickX = 32767;
-	JoystickY = 32767;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -183,6 +136,8 @@ void SaveAtoDUEF(FILE *SUEF)
 		UEFWrite32(AtoDTrigger - TotalCycles, SUEF);
 }
 
+/*--------------------------------------------------------------------------*/
+
 void LoadAtoDUEF(FILE *SUEF)
 {
 	AtoD.DataLatch = UEFRead8(SUEF);
@@ -193,3 +148,5 @@ void LoadAtoDUEF(FILE *SUEF)
 	if (AtoDTrigger != CycleCountTMax)
 		AtoDTrigger += TotalCycles;
 }
+
+/*--------------------------------------------------------------------------*/

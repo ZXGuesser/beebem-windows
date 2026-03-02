@@ -889,6 +889,12 @@ void BeebWin::LoadInputPreferences(int Version)
 		m_Preferences.GetStringValue(CFG_OPTIONS_STICKS, Value, JoystickOptionStr[0]);
 
 		m_JoystickOption = static_cast<JoystickOption>(FindEnum(Value, JoystickOptionStr, 0));
+
+		// Don't automatically enable joysticks, in case unplugged.
+		if (m_JoystickOption == JoystickOption::Joystick)
+		{
+			m_JoystickOption = JoystickOption::Disabled;
+		}
 	}
 	else
 	{
@@ -899,7 +905,7 @@ void BeebWin::LoadInputPreferences(int Version)
 
 		switch (Value)
 		{
-			case 40030:          m_JoystickOption = JoystickOption::Joystick; break;
+			case 40030:          m_JoystickOption = JoystickOption::Disabled; break; // Not Joystick, in case unplugged
 			case 40205:          m_JoystickOption = JoystickOption::AnalogueMouseStick; break;
 			case 40206:          m_JoystickOption = JoystickOption::DigitalMouseStick; break;
 			case 0:     default: m_JoystickOption = JoystickOption::Disabled; break;

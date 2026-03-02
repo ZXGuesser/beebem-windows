@@ -138,6 +138,12 @@
     <ClCompile Include="IP232.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="JoystickController.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="JoystickDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="KeyboardLinksDialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -434,6 +440,12 @@
     <ClInclude Include="IP232.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="JoystickController.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="JoystickDialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="KeyboardLinksDialog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -664,6 +676,9 @@
     <Image Include="..\Help\export.png">
       <Filter>Help Files</Filter>
     </Image>
+    <Image Include="..\Help\joysticks.png">
+      <Filter>Help Files</Filter>
+    </Image>
     <Image Include="..\Help\keyboard.jpg">
       <Filter>Help Files</Filter>
     </Image>
@@ -760,6 +775,9 @@
       <Filter>Help Files</Filter>
     </None>
     <None Include="..\Help\index.html">
+      <Filter>Help Files</Filter>
+    </None>
+    <None Include="..\Help\joysticks.html">
       <Filter>Help Files</Filter>
     </None>
     <None Include="..\Help\keyboard.html">

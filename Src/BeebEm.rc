@@ -172,8 +172,8 @@ BEGIN
         MENUITEM "DirectX Smoothing",           IDM_DXSMOOTHING
         MENUITEM "Smooth Teletext Mode Only",   IDM_DXSMOOTHMODE7ONLY
         MENUITEM SEPARATOR
-        MENUITEM "Show &Speed and FPS",             IDM_SHOW_SPEED_AND_FPS
-        MENUITEM "Show &Econet Network/Station",    IDM_SHOW_ECONET_STATION
+        MENUITEM "Show &Speed and FPS",         IDM_SHOW_SPEED_AND_FPS
+        MENUITEM "Show &Econet Network/Station", IDM_SHOW_ECONET_STATION
         MENUITEM SEPARATOR
         MENUITEM "&Full Screen",                IDM_FULLSCREEN
         MENUITEM "Maintain Aspect Ratio in Full Screen", IDM_MAINTAINASPECTRATIO
@@ -387,13 +387,7 @@ BEGIN
     END
     POPUP "&Options"
     BEGIN
-        POPUP "&Joystick"
-        BEGIN
-            MENUITEM "&None",                       IDM_JOYSTICK_DISABLED
-            MENUITEM "&Joystick",                   IDM_JOYSTICK
-            MENUITEM "&Analogue Mousestick",        IDM_ANALOGUE_MOUSESTICK
-            MENUITEM "&Digital Mousestick",         IDM_DIGITAL_MOUSESTICK
-        END
+        MENUITEM "Select &Joystick...",         IDM_SELECT_JOYSTICK
         MENUITEM SEPARATOR
         MENUITEM "&Freeze When Inactive",       IDM_FREEZEINACTIVE
         MENUITEM "&Hide Cursor",                IDM_HIDECURSOR
@@ -794,6 +788,17 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,288,26,50,14
 END
 
+IDD_JOYSTICK DIALOGEX 0, 0, 244, 101
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Select Joystick"
+FONT 8, "MS Sans Serif", 0, 0, 0x0
+BEGIN
+    CONTROL         "",IDC_JOYSTICK_LIST,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_ALIGNLEFT | LVS_NOCOLUMNHEADER | WS_BORDER | WS_TABSTOP,9,9,167,85
+    DEFPUSHBUTTON   "OK",IDOK,185,9,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,185,28,50,14
+    PUSHBUTTON      "&Refresh",IDC_REFRESH,185,80,50,14
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -894,6 +899,12 @@ BEGIN
         RIGHTMARGIN, 332
         TOPMARGIN, 7
         HORZGUIDE, 34
+    END
+
+    IDD_JOYSTICK, DIALOG
+    BEGIN
+        RIGHTMARGIN, 242
+        BOTTOMMARGIN, 94
     END
 END
 #endif    // APSTUDIO_INVOKED

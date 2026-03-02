@@ -57,7 +57,7 @@ static void SRPoll();
 static void UpdateSRState(bool SRrw);
 
 // Fire button for joystick 1 and 2, false=not pressed, true=pressed
-bool JoystickButton[2] = { false, false };
+bool SysVIAButton[2] = { false, false };
 
 // My raw VIA state
 VIAState SysVIAState;
@@ -618,12 +618,12 @@ unsigned char SysVIARead(int Address)
 		case 0: // IRB read
 			Value = SysVIAState.orb & SysVIAState.ddrb;
 
-			if (!JoystickButton[1])
+			if (!SysVIAButton[1])
 			{
 				Value |= 0x20;
 			}
 
-			if (!JoystickButton[0])
+			if (!SysVIAButton[0])
 			{
 				Value |= 0x10;
 			}

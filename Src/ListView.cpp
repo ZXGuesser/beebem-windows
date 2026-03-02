@@ -36,6 +36,8 @@ int LVInsertColumn(HWND hWnd, UINT uCol, const char* pszText, int iAlignment, UI
 	return ListView_InsertColumn(hWnd, uCol, &lc);
 }
 
+/****************************************************************************/
+
 int LVInsertItem(HWND hWnd, UINT uRow, UINT uCol, const char* pszText, LPARAM lParam)
 {
 	LVITEM li = { 0 };
@@ -47,6 +49,8 @@ int LVInsertItem(HWND hWnd, UINT uRow, UINT uCol, const char* pszText, LPARAM lP
 	return ListView_InsertItem(hWnd, &li);
 }
 
+/****************************************************************************/
+
 LPARAM LVGetItemData(HWND hWnd, UINT uRow)
 {
 	LVITEM li = { 0 };
@@ -57,10 +61,14 @@ LPARAM LVGetItemData(HWND hWnd, UINT uRow)
 	return li.lParam;
 }
 
+/****************************************************************************/
+
 void LVSetItemText(HWND hWnd, UINT uRow, UINT uCol, const LPTSTR pszText)
 {
 	ListView_SetItemText(hWnd, uRow, uCol, pszText);
 }
+
+/****************************************************************************/
 
 void LVSetFocus(HWND hWnd)
 {
@@ -73,3 +81,32 @@ void LVSetFocus(HWND hWnd)
 
 	SetFocus(hWnd);
 }
+
+/****************************************************************************/
+
+int LVFindItemData(HWND hWnd, LPARAM ItemData)
+{
+	LVFINDINFO FindInfo;
+	ZeroMemory(&FindInfo, sizeof(FindInfo));
+	FindInfo.flags = LVFI_PARAM;
+	FindInfo.lParam = ItemData;
+
+	int Index = ListView_FindItem(hWnd,
+	                              0,
+	                              &FindInfo);
+
+	return Index;
+}
+
+/****************************************************************************/
+
+void LVSelectItem(HWND hWnd, int Index)
+{
+	ListView_SetItemState(hWnd,
+	                      Index,
+	                      LVIS_SELECTED | LVIS_FOCUSED,
+	                      LVIS_SELECTED | LVIS_FOCUSED);
+
+}
+
+/****************************************************************************/

@@ -41,6 +41,7 @@ Boston, MA  02110-1301, USA.
 #include <sapi.h>
 
 #include "DiscType.h"
+#include "JoystickController.h"
 #include "KeyMap.h"
 #include "Model.h"
 #include "MonitorType.h"
@@ -338,9 +339,7 @@ public:
 	bool IsWindowMinimized() const;
 	void DisplayClientAreaText(HDC hDC);
 	void DisplayFDCBoardInfo(HDC hDC, int x, int y);
-	void ScaleJoystick(unsigned int x, unsigned int y);
-	void SetMousestickButton(int index, bool button);
-	void ScaleMousestick(unsigned int x, unsigned int y);
+
 	void HandleCommand(UINT MenuID);
 	void SetAMXPosition(unsigned int x, unsigned int y);
 	void ChangeAMXPosition(int deltaX, int deltaY);
@@ -495,10 +494,15 @@ public:
 	bool LoadTape(const char *FileName);
 	bool NewTape(char* FileName, int Size);
 
+	// Joystick
+	void OnSelectJoystick();
 	void SetJoystickOption(JoystickOption Option);
-	void UpdateJoystickMenu();
-	void InitJoystick();
 	void ResetJoystick();
+	void UpdateJoystick();
+
+	// Mousestick
+	void SetMousestickButton(int Index, bool ButtonPressed);
+	void ScaleMousestick(unsigned int x, unsigned int y);
 
 	// Save/Restore State
 	void RestoreState();
@@ -722,8 +726,7 @@ public:
 	D3DMATRIX m_TextureMatrix;
 
 	// Joystick input
-	bool m_JoystickCaptured;
-	JOYCAPS m_JoystickCaps;
+	JoystickController m_JoystickController;
 	JoystickOption m_JoystickOption;
 
 	// Mouse capture
