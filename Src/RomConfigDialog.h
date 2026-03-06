@@ -23,6 +23,7 @@ Boston, MA  02110-1301, USA.
 #define ROM_CONFIG_DIALOG_HEADER
 
 #include "Dialog.h"
+#include "ListView.h"
 #include "Model.h"
 #include "RomConfigFile.h"
 
@@ -53,7 +54,7 @@ class RomConfigDialog : public Dialog
 		bool GetROMFile(char *pszFileName);
 
 	private:
-		HWND m_hWndROMList;
+		ListView m_ROMListView;
 		HWND m_hWndModel;
 		RomConfigFile m_RomConfig;
 		Model m_Model;

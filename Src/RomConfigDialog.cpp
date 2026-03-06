@@ -47,7 +47,6 @@ RomConfigDialog::RomConfigDialog(HINSTANCE hInstance,
                                  HWND hwndParent,
                                  const RomConfigFile& Config) :
 	Dialog(hInstance, hwndParent, IDD_ROMCONFIG),
-	m_hWndROMList(nullptr),
 	m_hWndModel(nullptr),
 	m_Model(MachineType),
 	m_RomConfig(Config)
@@ -89,7 +88,7 @@ void RomConfigDialog::UpdateROMField(int Row)
 		RomFileName += " (unplugged)";
 	}
 
-	LVSetItemText(m_hWndROMList, Row, 1, (LPTSTR)RomFileName.c_str());
+	m_ROMListView.SetItemText(Row, 1, (LPTSTR)RomFileName.c_str());
 }
 
 /****************************************************************************/
@@ -110,11 +109,11 @@ void RomConfigDialog::FillModelList()
 
 void RomConfigDialog::FillROMList()
 {
-	ListView_DeleteAllItems(m_hWndROMList);
+	m_ROMListView.DeleteAllItems();
 
 	int Row = 0;
-	LVInsertItem(m_hWndROMList, Row, 0, "OS", 16);
-	LVSetItemText(m_hWndROMList, Row, 1, (LPTSTR)m_RomConfig.GetFileName(m_Model, 0).c_str());
+	m_ROMListView.InsertItem(Row, 0, "OS", 16);
+	m_ROMListView.SetItemText(Row, 1, (LPTSTR)m_RomConfig.GetFileName(m_Model, 0).c_str());
 
 	for (Row = 1; Row <= 16; ++Row)
 	{
@@ -123,7 +122,7 @@ void RomConfigDialog::FillROMList()
 		char str[20];
 		sprintf(str, "%02d (%X)", Bank, Bank);
 
-		LVInsertItem(m_hWndROMList, Row, 0, str, Bank);
+		m_ROMListView.InsertItem(Row, 0, str, Bank);
 		UpdateROMField(Row);
 	}
 }
@@ -137,12 +136,12 @@ INT_PTR RomConfigDialog::DlgProc(UINT   nMessage,
 	switch (nMessage)
 	{
 		case WM_INITDIALOG:
-			m_hWndROMList = GetDlgItem(m_hwnd, IDC_ROMLIST);
+			m_ROMListView.Init(m_hwnd, IDC_ROMLIST);
 
-			ListView_SetExtendedListViewStyle(m_hWndROMList, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
-			LVInsertColumn(m_hWndROMList, 0, "Bank", LVCFMT_LEFT, 45);
-			LVInsertColumn(m_hWndROMList, 1, "ROM File", LVCFMT_LEFT, 200);
-			ListView_SetColumnWidth(m_hWndROMList, 1, LVSCW_AUTOSIZE_USEHEADER);
+			m_ROMListView.SetExtendedStyle(LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
+			m_ROMListView.InsertColumn(0, "Bank", LVCFMT_LEFT, 45);
+			m_ROMListView.InsertColumn(1, "ROM File", LVCFMT_LEFT, 200);
+			m_ROMListView.SetColumnWidth(1, LVSCW_AUTOSIZE_USEHEADER);
 
 			FillModelList();
 			FillROMList();
@@ -164,7 +163,7 @@ INT_PTR RomConfigDialog::DlgProc(UINT   nMessage,
 				break;
 
 			case IDC_SELECTROM: {
-				int Row = ListView_GetSelectionMark(m_hWndROMList);
+				int Row = m_ROMListView.GetSelectionMark();
 
 				if (Row >= 0 && Row <= 16)
 				{
@@ -190,12 +189,12 @@ INT_PTR RomConfigDialog::DlgProc(UINT   nMessage,
 					}
 				}
 
-				LVSetFocus(m_hWndROMList);
+				m_ROMListView.SetFocus();
 				break;
 			}
 
 			case IDC_MARKWRITABLE: {
-				int Row = ListView_GetSelectionMark(m_hWndROMList);
+				int Row = m_ROMListView.GetSelectionMark();
 
 				if (Row >= 1 && Row <= 16)
 				{
@@ -218,12 +217,12 @@ INT_PTR RomConfigDialog::DlgProc(UINT   nMessage,
 					}
 				}
 
-				LVSetFocus(m_hWndROMList);
+				m_ROMListView.SetFocus();
 				break;
 			}
 
 			case IDC_RAM: {
-				int Row = ListView_GetSelectionMark(m_hWndROMList);
+				int Row = m_ROMListView.GetSelectionMark();
 
 				if (Row >= 1 && Row <= 16)
 				{
@@ -231,12 +230,12 @@ INT_PTR RomConfigDialog::DlgProc(UINT   nMessage,
 					UpdateROMField(Row);
 				}
 
-				LVSetFocus(m_hWndROMList);
+				m_ROMListView.SetFocus();
 				break;
 			}
 
 			case IDC_EMPTY: {
-				int Row = ListView_GetSelectionMark(m_hWndROMList);
+				int Row = m_ROMListView.GetSelectionMark();
 
 				if (Row >= 1 && Row <= 16)
 				{
@@ -244,12 +243,12 @@ INT_PTR RomConfigDialog::DlgProc(UINT   nMessage,
 					UpdateROMField(Row);
 				}
 
-				LVSetFocus(m_hWndROMList);
+				m_ROMListView.SetFocus();
 				break;
 			}
 
 			case IDC_UP: {
-				int Row = ListView_GetSelectionMark(m_hWndROMList);
+				int Row = m_ROMListView.GetSelectionMark();
 
 				if (Row >= 2)
 				{
@@ -260,20 +259,20 @@ INT_PTR RomConfigDialog::DlgProc(UINT   nMessage,
 					UpdateROMField(PreviousRow);
 					UpdateROMField(Row);
 
-					ListView_SetSelectionMark(m_hWndROMList, PreviousRow);
+					m_ROMListView.SetSelectionMark(PreviousRow);
 				}
 
-				LVSetFocus(m_hWndROMList);
+				m_ROMListView.SetFocus();
 				break;
 			}
 
 			case IDC_DOWN: {
-				int Row = ListView_GetSelectionMark(m_hWndROMList);
+				int Row = m_ROMListView.GetSelectionMark();
 
 				if (Row > 0)
 				{
 					const int NextRow = Row + 1;
-					const int Count = ListView_GetItemCount(m_hWndROMList);
+					const int Count = m_ROMListView.GetItemCount();
 
 					if (NextRow < Count)
 					{
@@ -282,22 +281,22 @@ INT_PTR RomConfigDialog::DlgProc(UINT   nMessage,
 						UpdateROMField(Row);
 						UpdateROMField(NextRow);
 
-						ListView_SetSelectionMark(m_hWndROMList, NextRow);
+						m_ROMListView.SetSelectionMark(NextRow);
 					}
 
-					LVSetFocus(m_hWndROMList);
+					m_ROMListView.SetFocus();
 				}
 				break;
 			}
 
 			case IDC_SAVE:
 				SaveROMConfigFile();
-				LVSetFocus(m_hWndROMList);
+				m_ROMListView.SetFocus();
 				break;
 
 			case IDC_LOAD:
 				LoadROMConfigFile();
-				LVSetFocus(m_hWndROMList);
+				m_ROMListView.SetFocus();
 				break;
 
 			case IDOK:
@@ -322,8 +321,8 @@ bool RomConfigDialog::LoadROMConfigFile()
 	char DefaultPath[MAX_PATH];
 	char szROMConfigPath[MAX_PATH];
 	szROMConfigPath[0] = '\0';
-	bool success = false;
-	const char* filter = "ROM Config File (*.cfg)\0*.cfg\0";
+	bool Success = false;
+	const char* Filter = "ROM Config File (*.cfg)\0*.cfg\0";
 
 	if (szDefaultROMConfigPath[0] != '\0')
 	{
@@ -334,7 +333,7 @@ bool RomConfigDialog::LoadROMConfigFile()
 		strcpy(DefaultPath, mainWin->GetUserDataPath());
 	}
 
-	FileDialog Dialog(m_hwnd, szROMConfigPath, MAX_PATH, DefaultPath, filter);
+	FileDialog Dialog(m_hwnd, szROMConfigPath, MAX_PATH, DefaultPath, Filter);
 
 	if (Dialog.Open())
 	{
@@ -350,11 +349,11 @@ bool RomConfigDialog::LoadROMConfigFile()
 			// Copy in loaded config
 			m_RomConfig = LoadedRomConfig;
 			FillROMList();
-			success = true;
+			Success = true;
 		}
 	}
 
-	return success;
+	return Success;
 }
 
 /****************************************************************************/
@@ -364,8 +363,8 @@ bool RomConfigDialog::SaveROMConfigFile()
 	char DefaultPath[MAX_PATH];
 	char szROMConfigPath[MAX_PATH];
 	szROMConfigPath[0] = '\0';
-	bool success = false;
-	const char* filter = "ROM Config File (*.cfg)\0*.cfg\0";
+	bool Success = false;
+	const char* Filter = "ROM Config File (*.cfg)\0*.cfg\0";
 
 	if (szDefaultROMConfigPath[0] != '\0')
 	{
@@ -376,7 +375,7 @@ bool RomConfigDialog::SaveROMConfigFile()
 		strcpy(DefaultPath, mainWin->GetUserDataPath());
 	}
 
-	FileDialog Dialog(m_hwnd, szROMConfigPath, MAX_PATH, DefaultPath, filter);
+	FileDialog Dialog(m_hwnd, szROMConfigPath, MAX_PATH, DefaultPath, Filter);
 
 	if (Dialog.Save())
 	{
@@ -394,11 +393,11 @@ bool RomConfigDialog::SaveROMConfigFile()
 		// Save the file
 		if (m_RomConfig.Save(szROMConfigPath))
 		{
-			success = true;
+			Success = true;
 		}
 	}
 
-	return success;
+	return Success;
 }
 
 /****************************************************************************/
@@ -432,3 +431,5 @@ bool RomConfigDialog::GetROMFile(char *pszFileName)
 
 	return success;
 }
+
+/****************************************************************************/

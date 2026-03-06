@@ -23,6 +23,7 @@ Boston, MA  02110-1301, USA.
 
 #include "BeebWin.h"
 #include "Dialog.h"
+#include "ListView.h"
 
 class JoystickController;
 
@@ -50,7 +51,7 @@ class JoystickDialog : public Dialog
 		JoystickController& m_JoystickController;
 		JoystickOption m_JoystickOption;
 		size_t m_DeviceIndex;
-		HWND m_hwndJoystickList;
+		ListView m_JoystickListView;
 };
 
 #endif

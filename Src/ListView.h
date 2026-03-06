@@ -23,18 +23,40 @@ Boston, MA  02110-1301, USA.
 
 #include <string>
 
-int LVInsertColumn(HWND hWnd, UINT uCol, const char* pszText, int iAlignment, UINT uWidth);
+class ListView
+{
+	public:
+		ListView();
+		ListView(const ListView&) = delete;
+		ListView& operator=(const ListView&) = delete;
 
-int LVInsertItem(HWND hWnd, UINT uRow, UINT uCol, const char* pszText, LPARAM lParam);
+	public:
+		void Init(HWND hWnd, UINT nDlgItemID);
+		HWND GetHWnd() const;
 
-LPARAM LVGetItemData(HWND hWnd, UINT uRow);
+		void SetExtendedStyle(UINT Style);
 
-void LVSetItemText(HWND hWnd, UINT uRow, UINT uCol, const LPTSTR pszText);
+		int InsertColumn(UINT uCol, const char* pszText, int iAlignment, UINT uWidth);
+		void SetColumnWidth(UINT uCol, int Width);
 
-void LVSetFocus(HWND hWnd);
+		int InsertItem(UINT uRow, UINT uCol, const char* pszText, LPARAM lParam);
+		void DeleteAllItems();
+		int GetItemCount();
+		LPARAM GetItemData(UINT uRow);
+		void SetItemText(UINT uRow, UINT uCol, const LPTSTR pszText);
+		int FindItemData(LPARAM ItemData);
+		int GetNextItem(int Index, UINT Flags);
 
-int LVFindItemData(HWND hWND, LPARAM ItemData);
+		int SubItemHitTest(const POINT& Point);
 
-void LVSelectItem(HWND hWnd, int Index);
+		void SetFocus();
+		void SelectItem(int Index);
+		int GetSelectedCount();
+		int GetSelectionMark();
+		void SetSelectionMark(int Index);
+
+	private:
+		HWND m_hWnd;
+};
 
 #endif

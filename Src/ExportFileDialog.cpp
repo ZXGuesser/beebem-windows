@@ -53,7 +53,6 @@ ExportFileDialog::ExportFileDialog(HINSTANCE hInstance,
 	m_NumSides(NumSides),
 	m_Side(Side),
 	m_ExportPath(ExportPath),
-	m_hwndListView(nullptr),
 	m_NumSelected(0)
 {
 	for (int i = 0; i < dfsCat->numFiles; ++i)
@@ -84,13 +83,13 @@ INT_PTR ExportFileDialog::DlgProc(UINT   nMessage,
 	switch (nMessage)
 	{
 	case WM_INITDIALOG: {
-		m_hwndListView = GetDlgItem(m_hwnd, IDC_EXPORTFILELIST);
+		m_ListView.Init(m_hwnd, IDC_EXPORTFILELIST);
 
-		ListView_SetExtendedListViewStyle(m_hwndListView, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
+		m_ListView.SetExtendedStyle(LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
 
 		for (int i = 0; i < _countof(Columns); ++i)
 		{
-			LVInsertColumn(m_hwndListView, i, Columns[i], LVCFMT_LEFT, 50);
+			m_ListView.InsertColumn(i, Columns[i], LVCFMT_LEFT, 50);
 		}
 
 		int Row = 0;
@@ -98,30 +97,29 @@ INT_PTR ExportFileDialog::DlgProc(UINT   nMessage,
 		for (const FileExportEntry& Entry : m_ExportFiles)
 		{
 			// List is sorted so store catalogue index in list's item data
-			LVInsertItem(m_hwndListView,
-			             Row,
-			             0,
-			             const_cast<LPTSTR>(Entry.BeebFileName.c_str()),
-			             reinterpret_cast<LPARAM>(&Entry));
+			m_ListView.InsertItem(Row,
+			                      0,
+			                      const_cast<LPTSTR>(Entry.BeebFileName.c_str()),
+			                      reinterpret_cast<LPARAM>(&Entry));
 
 			char str[100];
 			sprintf(str, "%06X", Entry.DfsAttrs.loadAddr & 0xffffff);
-			LVSetItemText(m_hwndListView, Row, 1, str);
+			m_ListView.SetItemText(Row, 1, str);
 
 			sprintf(str, "%06X", Entry.DfsAttrs.execAddr & 0xffffff);
-			LVSetItemText(m_hwndListView, Row, 2, str);
+			m_ListView.SetItemText(Row, 2, str);
 
 			sprintf(str, "%06X", Entry.DfsAttrs.length);
-			LVSetItemText(m_hwndListView, Row, 3, str);
+			m_ListView.SetItemText(Row, 3, str);
 
-			LVSetItemText(m_hwndListView, Row, 4, const_cast<LPTSTR>(Entry.HostFileName.c_str()));
+			m_ListView.SetItemText(Row, 4, const_cast<LPTSTR>(Entry.HostFileName.c_str()));
 
 			Row++;
 		}
 
 		for (int i = 0; i < _countof(Columns); ++i)
 		{
-			ListView_SetColumnWidth(m_hwndListView, i, LVSCW_AUTOSIZE_USEHEADER);
+			m_ListView.SetColumnWidth(i, LVSCW_AUTOSIZE_USEHEADER);
 		}
 
 		return TRUE;
@@ -130,30 +128,28 @@ INT_PTR ExportFileDialog::DlgProc(UINT   nMessage,
 	case WM_NOTIFY: {
 		LPNMHDR nmhdr = (LPNMHDR)lParam;
 
-		if (nmhdr->hwndFrom == m_hwndListView && nmhdr->code == NM_DBLCLK)
+		if (nmhdr->hwndFrom == m_ListView.GetHWnd() && nmhdr->code == NM_DBLCLK)
 		{
 			LPNMITEMACTIVATE pItemActivate = (LPNMITEMACTIVATE)lParam;
 
-			LVHITTESTINFO HitTestInfo = { 0 };
-			HitTestInfo.pt = pItemActivate->ptAction;
-			ListView_SubItemHitTest(m_hwndListView, &HitTestInfo);
+			int Item = m_ListView.SubItemHitTest(pItemActivate->ptAction);
 
-			FileExportEntry* Entry = reinterpret_cast<FileExportEntry*>(
-				LVGetItemData(m_hwndListView, HitTestInfo.iItem)
+			FileExportEntry* pEntry = reinterpret_cast<FileExportEntry*>(
+				m_ListView.GetItemData(Item)
 			);
 
-			if (Entry)
+			if (pEntry != nullptr)
 			{
 				RenameFileDialog Dialog(hInst,
 				                        m_hwnd,
-				                        Entry->BeebFileName.c_str(),
-				                        Entry->HostFileName.c_str());
+				                        pEntry->BeebFileName.c_str(),
+				                        pEntry->HostFileName.c_str());
 
 				if (Dialog.DoModal())
 				{
-					Entry->HostFileName = Dialog.GetHostFileName();
+					pEntry->HostFileName = Dialog.GetHostFileName();
 
-					LVSetItemText(m_hwndListView, HitTestInfo.iItem, 4, const_cast<LPTSTR>(Entry->HostFileName.c_str()));
+					m_ListView.SetItemText(Item, 4, const_cast<LPTSTR>(pEntry->HostFileName.c_str()));
 				}
 			}
 		}
@@ -187,15 +183,15 @@ std::string ExportFileDialog::GetPath() const
 
 void ExportFileDialog::ExportSelectedFiles()
 {
-	m_NumSelected = ListView_GetSelectedCount(m_hwndListView);
+	m_NumSelected = m_ListView.GetSelectedCount();
 
 	if (m_NumSelected == 0)
 	{
-		int Count = ListView_GetItemCount(m_hwndListView);
+		int Count = m_ListView.GetItemCount();
 
 		for (int i = 0; i < Count; i++)
 		{
-			ListView_SetItemState(m_hwndListView, i, LVIS_SELECTED, LVIS_SELECTED);
+			m_ListView.SelectItem(i);
 		}
 
 		m_NumSelected = Count;
@@ -223,14 +219,14 @@ void ExportFileDialog::ExportSelectedFiles()
 			return;
 	}
 
-	int Item = ListView_GetNextItem(m_hwndListView, -1, LVNI_SELECTED);
+	int Item = m_ListView.GetNextItem(-1, LVNI_SELECTED);
 
 	int Count = 0;
 
 	while (Item != -1)
 	{
 		FileExportEntry* Entry = reinterpret_cast<FileExportEntry*>(
-			LVGetItemData(m_hwndListView, Item)
+			m_ListView.GetItemData(Item)
 		);
 
 		std::string LocalFileName = AppendPath(m_ExportPath, Entry->HostFileName);
@@ -260,7 +256,7 @@ void ExportFileDialog::ExportSelectedFiles()
 			}
 		}
 
-		Item = ListView_GetNextItem(m_hwndListView, Item, LVNI_SELECTED);
+		Item = m_ListView.GetNextItem(Item, LVNI_SELECTED);
 	}
 
 	mainWin->Report(MessageType::Info, "Files successfully exported: %d", Count);
@@ -282,3 +278,5 @@ bool ExportFileDialog::ExportFile(DFS_FILE_ATTR* DfsAttrs, const char* LocalFile
 		return false;
 	}
 }
+
+/****************************************************************************/

@@ -26,6 +26,7 @@ Boston, MA  02110-1301, USA.
 
 #include "Dialog.h"
 #include "DiscEdit.h"
+#include "ListView.h"
 
 struct FileExportEntry
 {
@@ -67,7 +68,7 @@ class ExportFileDialog : public Dialog
 		int m_Side;
 		std::vector<FileExportEntry> m_ExportFiles;
 		std::string m_ExportPath;
-		HWND m_hwndListView;
+		ListView m_ListView;
 		int m_FilesSelected[DFS_MAX_CAT_SIZE];
 		int m_NumSelected;
 };

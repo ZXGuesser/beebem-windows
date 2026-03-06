@@ -39,8 +39,7 @@ JoystickDialog::JoystickDialog(HINSTANCE hInstance,
 	Dialog(hInstance, hwndParent, IDD_JOYSTICK),
 	m_JoystickController(Controller),
 	m_JoystickOption(Option),
-	m_DeviceIndex(0),
-	m_hwndJoystickList(nullptr)
+	m_DeviceIndex(0)
 {
 }
 
@@ -53,11 +52,11 @@ INT_PTR JoystickDialog::DlgProc(UINT   nMessage,
 	switch (nMessage)
 	{
 		case WM_INITDIALOG: {
-			m_hwndJoystickList = GetDlgItem(m_hwnd, IDC_JOYSTICK_LIST);
+			m_JoystickListView.Init(m_hwnd, IDC_JOYSTICK_LIST);
 
-			ListView_SetExtendedListViewStyle(m_hwndJoystickList, LVS_EX_FULLROWSELECT);
+			m_JoystickListView.SetExtendedStyle(LVS_EX_FULLROWSELECT);
 
-			LVInsertColumn(m_hwndJoystickList, 0, "Option", LVCFMT_LEFT, 50);
+			m_JoystickListView.InsertColumn(0, "Option", LVCFMT_LEFT, 50);
 
 			UpdateJoystickList();
 
@@ -65,15 +64,15 @@ INT_PTR JoystickDialog::DlgProc(UINT   nMessage,
 
 			LPARAM ItemToSelect = MAKELPARAM(m_DeviceIndex, (int)m_JoystickOption);
 
-			int Index = LVFindItemData(m_hwndJoystickList, ItemToSelect);
+			int Index = m_JoystickListView.FindItemData(ItemToSelect);
 
 			if (Index == -1)
 			{
 				Index = 0;
 			}
 
-			LVSelectItem(m_hwndJoystickList, Index);
-			LVSetFocus(m_hwndJoystickList);
+			m_JoystickListView.SelectItem(Index);
+			m_JoystickListView.SetFocus();
 
 			return TRUE;
 		}
@@ -106,16 +105,15 @@ void JoystickDialog::UpdateJoystickList()
 {
 	m_JoystickController.EnumerateDevices();
 
-	ListView_DeleteAllItems(m_hwndJoystickList);
+	m_JoystickListView.DeleteAllItems();
 
 	int Row = 0;
 
 	// List is sorted so store catalogue index in list's item data
-	LVInsertItem(m_hwndJoystickList,
-	             Row++,
-	             0,
-	             "None",
-	             MAKELPARAM(0, (int)JoystickOption::Disabled));
+	m_JoystickListView.InsertItem(Row++,
+	                              0,
+	                              "None",
+	                              MAKELPARAM(0, (int)JoystickOption::Disabled));
 
 	size_t Count = m_JoystickController.GetDeviceCount();
 
@@ -123,37 +121,34 @@ void JoystickDialog::UpdateJoystickList()
 	{
 		const JoystickDeviceInfo& Info = m_JoystickController.GetDeviceInfo(i);
 
-		LVInsertItem(m_hwndJoystickList,
-		             Row++,
-		             0,
-		             Info.Name.c_str(),
-		             MAKELPARAM(i, (int)JoystickOption::Joystick));
+		m_JoystickListView.InsertItem(Row++,
+		                              0,
+		                              Info.Name.c_str(),
+		                              MAKELPARAM(i, (int)JoystickOption::Joystick));
 	}
 
-	LVInsertItem(m_hwndJoystickList,
-	             Row++,
-	             0,
-	             "Analogue Mouststick",
-	             MAKELPARAM(0, (int)JoystickOption::AnalogueMouseStick));
+	m_JoystickListView.InsertItem(Row++,
+	                              0,
+	                              "Analogue Mouststick",
+	                              MAKELPARAM(0, (int)JoystickOption::AnalogueMouseStick));
 
-	LVInsertItem(m_hwndJoystickList,
-	             Row++,
-	             0,
-	             "Digital Mouststick",
-	             MAKELPARAM(0, (int)JoystickOption::DigitalMouseStick));
+	m_JoystickListView.InsertItem(Row++,
+	                              0,
+	                              "Digital Mouststick",
+	                              MAKELPARAM(0, (int)JoystickOption::DigitalMouseStick));
 
-	ListView_SetColumnWidth(m_hwndJoystickList, 0, LVSCW_AUTOSIZE_USEHEADER);
+	m_JoystickListView.SetColumnWidth(0, LVSCW_AUTOSIZE_USEHEADER);
 }
 
 /****************************************************************************/
 
 void JoystickDialog::UpdateSelected()
 {
-	int Index = ListView_GetNextItem(m_hwndJoystickList, -1, LVNI_SELECTED);
+	int Index = m_JoystickListView.GetNextItem(-1, LVNI_SELECTED);
 
 	if (Index != -1)
 	{
-		LPARAM ItemData = LVGetItemData(m_hwndJoystickList, Index);
+		LPARAM ItemData = m_JoystickListView.GetItemData(Index);
 
 		m_JoystickOption = static_cast<JoystickOption>(HIWORD(ItemData));
 
