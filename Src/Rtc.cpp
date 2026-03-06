@@ -32,6 +32,7 @@ Boston, MA  02110-1301, USA.
 #include "Bcd.h"
 #include "Debug.h"
 #include "DebugTrace.h"
+#include "Econet.h"
 #include "Main.h"
 #include "Model.h"
 
@@ -430,6 +431,12 @@ void RTCWriteData(unsigned char Value)
 	{
 		// User RAM
 		pCMOS[CMOS.Address] = Value;
+
+		if (CMOS.Address == 0x0E)
+		{
+			// Writing to Econet station number byte so ensure we will use it
+			PreferredStationID = 0;
+		}
 	}
 }
 
