@@ -755,6 +755,10 @@ void BeebWin::SetModel(Model NewModelType)
 {
 	if (MachineType != NewModelType)
 	{
+		// Clear this so we don't carry an Econet station number over
+		// when changing to a Master.
+		PreferredStationID = 0;
+
 		ResetBeebSystem(NewModelType, true);
 		UpdateModelMenu();
 	}

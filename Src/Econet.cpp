@@ -916,6 +916,7 @@ bool EconetReset()
 	// Stop here if not enabled.
 	if (!EconetEnabled)
 	{
+		AnnounceHandle = 0; // Clear announce packet sequence number.
 		return true;
 	}
 
@@ -964,20 +965,18 @@ bool EconetReset()
 	}
 	*/
 
-	// Already have a station num?
-	if (EconetStationID)
-	{
-		// Try to get same address again.
-		PreferredStationID = EconetStationID;
-		PreferredNetworkID = EconetNetworkID;
-	}
-	else
-	{
-		// Reset announce packet sequence number.
-		AnnounceHandle = 0;
-	}
+	unsigned char LastEconetStationID = EconetStationID;
 
-	if (PreferredStationID)
+	if (AutoConfigure &&
+	    PreferredStationID == 0 &&
+	    (MachineType == Model::Master128 || MachineType == Model::MasterET))
+	{
+		// No PreferredStationID has been set so try to use the station number in CMOS.
+		RTCWriteAddress(0xE);
+		PreferredStationID = RTCReadData();
+	}
+	
+	if (PreferredStationID != 0)
 	{
 		EconetHost* pNetworkConfig = FindNetworkConfig(PreferredStationID, PreferredNetworkID);
 
@@ -1029,6 +1028,13 @@ bool EconetReset()
 	{
 		// Try to allocate a station number instead.
 		AllocateNewAddress();
+	}
+
+	if (EconetStationID != LastEconetStationID)
+	{
+		// Station number has changed
+		// Reset announce packet sequence number.
+		AnnounceHandle = 0;
 	}
 
 	if (!EconetStationID)
@@ -1127,6 +1133,7 @@ bool EconetReset()
 	return true;
 
 Fail:
+	AnnounceHandle = 0; // Clear announce packet sequence number.
 	EconetCloseSockets();
 
 	EconetEnabled = false;
