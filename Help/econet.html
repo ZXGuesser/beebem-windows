@@ -72,13 +72,14 @@
         the network using an automatic host discovery protocol. However everything
         can still be configured manually using the
         <span class="file">Econet.cfg</span> and
-        <span class="file">AUNMap</span> files.
+        <span class="file">AUNMap</span> files. See the
+        <a href="#numbering">Econet station numbering</a> section for further
+        details.
       </p>
 
       <p>
         The default <span class="file">Econet.cfg</span> file has been set up to
-        enable automatic configuration and and gateway discovery. Read the notes
-        in the <span class="file">Econet.cfg</span> file for more information.
+        enable automatic configuration and and gateway discovery.
       </p>
 
       <p>
@@ -86,15 +87,16 @@
         <span class="file">Econet.cfg</span> which will assign a random station
         number to each new instance of BeebEm.
         <br>
-        To specify a specific number to start an instance on station 254 for a
-        file server, use the <a href="commandline.html">-EcoStn</a> option
-        <code>-EcoStn 254</code>.
+        To specify a specific number for an instance, use the
+        <a href="commandline.html" class="cmd">-EcoStn</a> option. For example
+        use <span class="cmd">-EcoStn 254</span> to run a file server on station
+        number 254.
       </p>
 
       <p>
         You can also specify the <span class="file">Econet.cfg</span> and <span
         class="file">AUNMap</span> file names on the command line, using the
-        <code>-EconetCfg</code> and <code>-AUNMap</code>
+        <span class="cmd">-EconetCfg</span> and <span class="cmd">-AUNMap</span>
         options. Refer to the <a href="commandline.html">command line
         options</a> for more details.
       </p>
@@ -178,11 +180,71 @@
       </p>
       <p>
         The automatic host discovery protocol uses packets which are based on
-        the AUN protocol but have an invalid AUN packet type. This may cause
-        issues when used on a network with original AUN hardware and disrupts
+        the AUN protocol but have an invalid AUN packet type. This disrupts
         Econet emulation in older versions of BeebEm. All automated address
         configuration can be disabled by deactivating the <span
-        class="cmd">AUTOCONFIGURE</span> setting in <span class="file">Econet.cfg</span>
+        class="cmd">AUTOCONFIGURE</span> setting in
+        <span class="file">Econet.cfg</span>
+      </p>
+
+      <h2 id="numbering">Econet station numbering</h2>
+
+      <p>
+        Econet station numbers are assigned to instances of the emulator in a
+        number of different ways, depending on the settings present in the two
+        configuration files and the machine type selected.
+      </p>
+
+      <p>
+        If the <span class="cmd">AUTOCONFIGURE</span> setting is disabled in
+        <span class="file">Econet.cfg</span>, the
+        station number is determined in the following order:
+      </p>
+
+      <ol>
+        <li>
+          Station number specified by <span class="cmd">-EcoStn</span>
+          (must match a station defined in <span class="file">Econet.cfg</span>,
+          or the host's AUN address on a network defined in
+          <span class="file">AUNMap</span>)
+        </li>
+        <li>
+          First free station entry in <span class="file">Econet.cfg</span>
+        </li>
+        <li>
+          AUN address on first appropriate network specified in
+          <span class="file">AUNMap</span>
+        </li>
+      </ol>
+
+      <p>
+        If the <span class="cmd">AUTOCONFIGURE</span> setting is enabled in
+        <span class="file">Econet.cfg</span>, the
+        station number is determined in the following order:
+      </p>
+      <ol>
+        <li>
+          Station number specified by <span class="cmd">-EcoStn</span>
+        </li>
+        <li>
+          Station number stored in CMOS (Master 128 and Master ET machines)
+        </li>
+        <li>
+          First free station entry in <span class="file">Econet.cfg</span>
+        </li>
+        <li>
+          AUN address on first appropriate network specified in
+          <span class="file">AUNMap</span>
+        </li>
+        <li>
+          Randomly selected station number
+        </li>
+      </ol>
+      
+      <p>
+        When <span class="cmd">AUTOCONFIGURE</span> is enabled, instances
+        broadcast their addresses periodically to enable the discovery of other
+        emulator instances on the local network, and detect address collisions.
       </p>
     </main>
 
