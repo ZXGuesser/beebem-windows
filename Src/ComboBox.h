@@ -1,7 +1,6 @@
 /****************************************************************
 BeebEm - BBC Micro and Master 128 Emulator
-Copyright (C) 2009 Mike Wyatt
-Copyright (C) 2024 Chris Needham
+Copyright (C) 2026  Chris Needham
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -19,46 +18,33 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-#ifndef ROM_CONFIG_DIALOG_HEADER
-#define ROM_CONFIG_DIALOG_HEADER
+#ifndef COMBOBOX_HEADER
+#define COMBOBOX_HEADER
 
-#include "ComboBox.h"
-#include "Dialog.h"
-#include "ListView.h"
-#include "Model.h"
-#include "RomConfigFile.h"
-
-class RomConfigDialog : public Dialog
+class ComboBox
 {
 	public:
-		RomConfigDialog(
-			HINSTANCE hInstance,
-			HWND hwndParent,
-			const RomConfigFile& Config
-		);
+		ComboBox();
+		ComboBox(const ComboBox&) = delete;
+		ComboBox& operator=(const ComboBox&) = delete;
 
 	public:
-		const RomConfigFile& GetRomConfig() const;
+		void Init(HWND hWnd, UINT nDlgItemID);
+		void ResetContent();
+
+		int AddString(const char* pszItem);
+		int AddItem(const char* pszItem, LPARAM ItemData);
+		LPARAM GetItemData(int Index);
+		void SetItemData(int Index, LPARAM ItemData);
+		int FindItemData(int StartIndex, LPARAM ItemData);
+
+		int GetCurSel();
+		void SetCurSel(int Index);
+
+		void EnableWindow(bool Enable);
 
 	private:
-		virtual INT_PTR DlgProc(
-			UINT   nMessage,
-			WPARAM wParam,
-			LPARAM lParam
-		);
-
-		void UpdateROMField(int Row);
-		void FillModelList();
-		void FillROMList();
-		bool LoadROMConfigFile();
-		bool SaveROMConfigFile();
-		bool GetROMFile(char *pszFileName);
-
-	private:
-		ListView m_ROMListView;
-		ComboBox m_ModelComboBox;
-		RomConfigFile m_RomConfig;
-		Model m_Model;
+		HWND m_hWnd;
 };
 
 #endif

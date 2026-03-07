@@ -47,7 +47,6 @@ RomConfigDialog::RomConfigDialog(HINSTANCE hInstance,
                                  HWND hwndParent,
                                  const RomConfigFile& Config) :
 	Dialog(hInstance, hwndParent, IDD_ROMCONFIG),
-	m_hWndModel(nullptr),
 	m_Model(MachineType),
 	m_RomConfig(Config)
 {
@@ -95,14 +94,12 @@ void RomConfigDialog::UpdateROMField(int Row)
 
 void RomConfigDialog::FillModelList()
 {
-	HWND hWndModel = GetDlgItem(m_hwnd, IDC_MODEL);
-
 	for (int i = 0; i < MODEL_COUNT; i++)
 	{
-		ComboBox_AddString(hWndModel, GetModelName(static_cast<Model>(i)));
+		m_ModelComboBox.AddString(GetModelName(static_cast<Model>(i)));
 	}
 
-	ComboBox_SetCurSel(hWndModel, static_cast<int>(m_Model));
+	m_ModelComboBox.SetCurSel(static_cast<int>(m_Model));
 }
 
 /****************************************************************************/
@@ -137,6 +134,7 @@ INT_PTR RomConfigDialog::DlgProc(UINT   nMessage,
 	{
 		case WM_INITDIALOG:
 			m_ROMListView.Init(m_hwnd, IDC_ROMLIST);
+			m_ModelComboBox.Init(m_hwnd, IDC_MODEL);
 
 			m_ROMListView.SetExtendedStyle(LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
 			m_ROMListView.InsertColumn(0, "Bank", LVCFMT_LEFT, 45);
@@ -156,8 +154,7 @@ INT_PTR RomConfigDialog::DlgProc(UINT   nMessage,
 			case IDC_MODEL:
 				if (Notification == CBN_SELCHANGE)
 				{
-					HWND hWndModelCombo = GetDlgItem(m_hwnd, IDC_MODEL);
-					m_Model = static_cast<Model>(ComboBox_GetCurSel(hWndModelCombo));
+					m_Model = static_cast<Model>(m_ModelComboBox.GetCurSel());
 					FillROMList();
 				}
 				break;
