@@ -147,6 +147,9 @@
     <ClCompile Include="JoystickDialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="JoystickOptions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="KeyboardLinksDialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -450,6 +453,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="JoystickDialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="JoystickOptions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="KeyboardLinksDialog.h">

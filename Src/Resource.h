@@ -233,8 +233,13 @@
 #define IDC_PORT2_STATIC                1142
 #define IDC_PORT3_STATIC                1143
 #define IDC_PORT4_STATIC                1144
-#define IDC_JOYSTICK_LIST               1145
-#define IDC_REFRESH                     1146
+#define IDC_REFRESH                     1145
+#define IDC_CHANNEL01_DEVICE_COMBO      1146
+#define IDC_CHANNEL01_INPUT_COMBO       1147
+#define IDC_CHANNEL23_DEVICE_COMBO      1148
+#define IDC_CHANNEL23_INPUT_COMBO       1149
+#define IDC_BUTTON0_INPUT_COMBO         1150
+#define IDC_BUTTON1_INPUT_COMBO         1151
 #define IDM_ABOUT                       40001
 #define IDM_DISC                        40002
 #define IDM_LOADDISC0                   40002
@@ -394,7 +399,7 @@
 #define IDM_EJECTDISC0                  40201
 #define IDM_EJECTDISC1                  40202
 #define IDM_EXPVOLUME                   40203
-#define IDM_SELECT_JOYSTICK             40204
+#define IDM_CONFIGURE_JOYSTICK          40204
 #define IDM_BREAKOUT                    40208
 #define IDM_TEXTTOSPEECH_ENABLE         40209
 #define IDM_TEXTVIEW                    40210
@@ -476,9 +481,9 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        122
+#define _APS_NEXT_RESOURCE_VALUE        123
 #define _APS_NEXT_COMMAND_VALUE         40327
-#define _APS_NEXT_CONTROL_VALUE         1147
+#define _APS_NEXT_CONTROL_VALUE         1152
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

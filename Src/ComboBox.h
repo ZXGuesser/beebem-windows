@@ -36,7 +36,7 @@ class ComboBox
 		int AddItem(const char* pszItem, LPARAM ItemData);
 		LPARAM GetItemData(int Index);
 		void SetItemData(int Index, LPARAM ItemData);
-		int FindItemData(int StartIndex, LPARAM ItemData);
+		int FindItemData(LPARAM ItemData);
 
 		int GetCurSel();
 		void SetCurSel(int Index);

@@ -158,8 +158,21 @@ enum class JoystickOption
 {
 	Disabled,
 	Joystick,
-	AnalogueMouseStick,
-	DigitalMouseStick
+	AnalogueMousestick,
+	DigitalMousestick
+};
+
+enum class AnalogueInputDevice
+{
+	None,
+	Joystick,
+	Mouse
+};
+
+enum class MousestickType
+{
+	Analogue,
+	Digital,
 };
 
 enum class BitmapCaptureFormat
@@ -495,13 +508,14 @@ public:
 	bool NewTape(char* FileName, int Size);
 
 	// Joystick
-	void OnSelectJoystick();
+	void OnInitJoystick();
+	void OnConfigureJoystick();
+	void ApplyJoystickConfig();
 	void SetJoystickOption(JoystickOption Option);
-	void ResetJoystick();
 	void UpdateJoystick();
 
-	// Mousestick
-	void SetMousestickButton(int Index, bool ButtonPressed);
+	// MouseStick
+	void SetMousestickButton(int Button, bool Pressed);
 	void ScaleMousestick(unsigned int x, unsigned int y);
 
 	// Save/Restore State
@@ -627,8 +641,6 @@ public:
 	void LoadUserPortBreakoutPreferences();
 	void SavePreferences(bool saveAll);
 
-	int FindEnum(const std::string& Value, const char* const* Names, int Default);
-
 	// Main window
 	HWND m_hWnd;
 	bool m_FullScreen;
@@ -725,9 +737,17 @@ public:
 	IDirect3DTexture9* m_pTexture;
 	D3DMATRIX m_TextureMatrix;
 
-	// Joystick input
+	// Analogue / Joystick input
 	JoystickController m_JoystickController;
-	JoystickOption m_JoystickOption;
+	bool m_bInitJoystick;
+	AnalogueInputDevice m_AnalogueInputDevice[2];
+	int m_JoystickDeviceIndex[2];
+	JoystickDeviceType m_JoystickDeviceType[2];
+	std::string m_JoystickDeviceID[2];
+	int m_JoystickControl[2];
+	int m_JoystickButton[2];
+	MousestickType m_MousestickType[2];
+	int m_JoystickMouseButton[2];
 
 	// Mouse capture
 	bool m_HideCursor;

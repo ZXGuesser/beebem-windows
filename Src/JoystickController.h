@@ -29,23 +29,8 @@ Boston, MA  02110-1301, USA.
 #include <string>
 #include <vector>
 
-enum class JoystickDeviceType
-{
-    XInput,
-    DirectInput
-};
-
-class JoystickDeviceInfo
-{
-	public:
-		JoystickDeviceType Type;
-		std::string Name;
-		DWORD XInputIndex;
-		GUID DirectInputGuid;
-
-	public:
-		JoystickDeviceInfo();
-};
+typedef DWORD (WINAPI *XINPUT_GET_STATE)(DWORD, XINPUT_STATE*);
+typedef DWORD (WINAPI *XINPUT_SET_STATE)(DWORD, XINPUT_VIBRATION*);
 
 // Same as XINPUT_STATE values
 
@@ -64,9 +49,107 @@ constexpr int JOYSTICK_BUTTON_BUTTONS = 0xF000;
 class JoystickState
 {
 	public:
-		int X; // 0 (right) to 65535 (left)
-		int Y; // 0 (down) to 65535 (up)
+		int LeftX; // 0 (right) to 65535 (left)
+		int LeftY; // 0 (down) to 65535 (up)
+		int RightX; // 0 (right) to 65535 (left)
+		int RightY; // 0 (down) to 65535 (up)
 		int Buttons;
+};
+
+enum class JoystickDeviceType
+{
+    XInput,
+    DirectInput
+};
+
+class JoystickDevice
+{
+	public:
+		JoystickDevice(JoystickDeviceType Type, const std::string& Name);
+		virtual ~JoystickDevice();
+
+	public:
+		JoystickDeviceType GetType() const;
+		bool IsActive() const;
+		void Release();
+
+		virtual void Acquire(bool Acquire) = 0;
+		virtual bool GetState(JoystickState* pState) const = 0;
+
+		const std::string& GetName() const;
+		virtual std::string GetID() const = 0;
+
+	protected:
+		virtual void DoRelease() = 0;
+
+		void SetActive(bool Active);
+
+	private:
+		JoystickDeviceType m_Type;
+		bool m_Active;
+		std::string m_Name;
+};
+
+class XInputJoystickDevice : public JoystickDevice
+{
+	public:
+		XInputJoystickDevice(const std::string& Name,
+		                      DWORD XInputIndex);
+
+	public:
+		HRESULT Activate(XINPUT_GET_STATE XInputGetState);
+
+		virtual void Acquire(bool Acquire);
+		virtual bool GetState(JoystickState* pState) const;
+
+		virtual std::string GetID() const;
+
+	protected:
+		virtual void DoRelease();
+
+	private:
+		DWORD m_XInputIndex;
+		XINPUT_GET_STATE m_XInputGetState;
+};
+
+class DirectInputJoystickDevice : public JoystickDevice
+{
+	public:
+		DirectInputJoystickDevice(const std::string& Name,
+		                          GUID DirectInputGuid);
+
+	public:
+		HRESULT Activate(IDirectInput8* pDirectInput, HWND hWnd);
+
+		virtual void Acquire(bool Acquire);
+		virtual bool GetState(JoystickState* pState) const;
+
+		virtual std::string GetID() const;
+
+	protected:
+		virtual void DoRelease();
+
+	private:
+		void EnumObjects();
+		static BOOL CALLBACK EnumObjectsCallback(const DIDEVICEOBJECTINSTANCE* pDeviceObjectInstance,
+		                                         void* pContext);
+		BOOL EnumObjectsCallback(const DIDEVICEOBJECTINSTANCE* pDeviceObjectInstance);
+
+		HRESULT Init(IDirectInput8* pDirectInput, HWND hWnd);
+
+		HRESULT QueryRange(DWORD Object, int* pMin, int* pMax);
+
+	private:
+		GUID m_InstanceGuid;
+		IDirectInputDevice8* m_pDirectInputDevice;
+		int m_MinX;
+		int m_MaxX;
+		int m_MinY;
+		int m_MaxY;
+		int m_MinRX;
+		int m_MaxRX;
+		int m_MinRY;
+		int m_MaxRY;
 };
 
 class JoystickController
@@ -82,13 +165,16 @@ class JoystickController
 
 		void EnumerateDevices();
 
-		size_t GetDeviceCount() const;
-		const JoystickDeviceInfo& GetDeviceInfo(size_t Index) const;
+		int GetDeviceCount() const;
+		const JoystickDevice& GetDevice(int Index) const;
+		int FindDevice(JoystickDeviceType Type,
+		               const std::string& ID);
 
-		size_t GetActiveDevice() const;
-		void SetActiveDevice(size_t Index);
+		HRESULT SetDeviceActive(int Index);
+		void ReleaseDevice(int Index);
+		void ReleaseAllDevices();
 
-		bool GetState(JoystickState* pState) const;
+		bool GetState(int Index, JoystickState* pState) const;
 
 		void Acquire(bool Acquire);
 
@@ -99,29 +185,20 @@ class JoystickController
 		                                        void* pContext);
 		BOOL EnumDInputCallback(const DIDEVICEINSTANCE* pDeviceInstance);
 
-		void AcquireActiveDevice();
-		void ReleaseActiveDevice();
+		void ClearDevices();
 
 	private:
 		HINSTANCE m_hInstance;
 		HWND m_hWnd;
 		HMODULE m_hXInputModule;
 
-		typedef DWORD (WINAPI *XINPUT_GET_STATE)(DWORD, XINPUT_STATE*);
-		typedef DWORD (WINAPI *XINPUT_SET_STATE)(DWORD, XINPUT_VIBRATION*);
-
 		XINPUT_GET_STATE m_XInputGetState;
-		XINPUT_SET_STATE m_XInputSetState;
 
 		IDirectInput8* m_pDirectInput;
-		IDirectInputDevice8* m_pDirectInputDevice;
-		int m_MinX;
-		int m_MaxX;
-		int m_MinY;
-		int m_MaxY;
 
-		std::vector<JoystickDeviceInfo> m_Devices;
-		size_t m_ActiveDevice;
+		std::vector<JoystickDevice*> m_Devices;
 };
+
+#define DEBUG_JOYSTICK
 
 #endif

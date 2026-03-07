@@ -77,9 +77,19 @@ void ComboBox::SetItemData(int Index, LPARAM ItemData)
 
 /****************************************************************************/
 
-int ComboBox::FindItemData(int StartIndex, LPARAM ItemData)
+int ComboBox::FindItemData(LPARAM ItemData)
 {
-	return ComboBox_FindItemData(m_hWnd, StartIndex, ItemData);
+	int Count = ComboBox_GetCount(m_hWnd);
+
+	for (int i = 0; i < Count; i++)
+	{
+		if (ComboBox_GetItemData(m_hWnd, i) == ItemData)
+		{
+			return i;
+		}
+	}
+
+	return CB_ERR;
 }
 
 /****************************************************************************/

@@ -22,8 +22,8 @@ Boston, MA  02110-1301, USA.
 #define JOYSTICKDIALOG_HEADER
 
 #include "BeebWin.h"
+#include "ComboBox.h"
 #include "Dialog.h"
-#include "ListView.h"
 
 class JoystickController;
 
@@ -33,25 +33,45 @@ class JoystickDialog : public Dialog
 		JoystickDialog(HINSTANCE hInstance,
 		               HWND hwndParent,
 		               JoystickController& Controller,
-		               JoystickOption Option);
+		               AnalogueInputDevice Device[2],
+		               JoystickDeviceType DeviceType[2],
+		               const std::string* pDeviceID,
+		               int JoystickControl[2],
+		               int JoystickButton[2],
+		               MousestickType Mousestick[2],
+		               int JoystickMouseButton[2]);
 
 	public:
-		JoystickOption GetJoystickOption() const;
-		size_t GetDeviceIndex() const;
+		AnalogueInputDevice GetAnalogueInputDevice(int Joystick) const;
+		JoystickDeviceType GetJoystickDeviceType(int Joystick) const { return m_JoystickDeviceType[Joystick]; }
+		const std::string& GetJoystickDeviceID(int Joystick) const { return m_JoystickDeviceID[Joystick]; }
+		int GetJoystickControl(int Joystick) const;
+		int GetJoystickButton(int Joystick) const;
+		MousestickType GetMousestickType(int Joystick) const;
+		int GetJoystickMouseButton(int Joystick) const;
 
 	private:
-		virtual INT_PTR DlgProc(UINT   nMessage,
+		virtual INT_PTR DlgProc(UINT nMessage,
 		                        WPARAM wParam,
 		                        LPARAM lParam);
 
+		void InitDeviceList();
+		void OnDeviceSelChange(int Index);
 		void UpdateJoystickList();
 		void UpdateSelected();
 
 	private:
 		JoystickController& m_JoystickController;
-		JoystickOption m_JoystickOption;
-		size_t m_DeviceIndex;
-		ListView m_JoystickListView;
+		AnalogueInputDevice m_AnalogueInputDevice[2];
+		JoystickDeviceType m_JoystickDeviceType[2];
+		std::string m_JoystickDeviceID[2];
+		int m_JoystickControl[2];
+		int m_JoystickButton[2];
+		MousestickType m_MousestickType[2];
+		int m_JoystickMouseButton[2];
+		ComboBox m_JoystickDevice[2];
+		ComboBox m_AnalogInput[2];
+		ComboBox m_ButtonInput[2];
 };
 
 #endif

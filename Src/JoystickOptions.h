@@ -1,6 +1,6 @@
 /****************************************************************
 BeebEm - BBC Micro and Master 128 Emulator
-Copyright (C) 2020  Chris Needham
+Copyright (C) 2026  Chris Needham
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -18,26 +18,31 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-#ifndef STRING_UTILS_HEADER
-#define STRING_UTILS_HEADER
-
-#include <guiddef.h>
+#ifndef JOYSTICK_OPTIONS_HEADER
+#define JOYSTICK_OPTIONS_HEADER
 
 #include <string>
-#include <vector>
 
-void Trim(std::string& str);
-void ParseLine(const std::string& Line, std::vector<std::string>& Tokens);
-bool ParseNumber(const std::string& str, int* pValue);
-int ParseNumber(const char* Name, const std::string& str, int Min, int Max);
-bool ParseHexNumber(const std::string& str, unsigned long* pValue);
-char ToHexDigit(int Value);
-std::string BytesToString(const unsigned char* pData, int Length);
-bool StringEndsWith(const std::string& str, const std::string& suffix);
-std::string WStr2Str(const std::wstring& str);
-std::wstring Str2WStr(const std::string& str);
-int StrCaseCmp(const char *str1, const char *str2);
-char *StrCopy(char *pDest, const char *pSrc);
-std::string GuidToString(const GUID& Guid);
+constexpr int JOYSTICK_ANALOGUE_INPUT_LEFT_THUMBSTICK  = 0x01;
+constexpr int JOYSTICK_ANALOGUE_INPUT_RIGHT_THUMBSTICK = 0x02;
+constexpr int JOYSTICK_ANALOGUE_INPUT_DPAD             = 0x04;
+
+constexpr int MOUSE_BUTTON_LEFT  = 0x01;
+constexpr int MOUSE_BUTTON_RIGHT = 0x02;
+
+struct OptionValue
+{
+	const char*	Name;
+	const char* ConfigName;
+	int Value;
+};
+
+extern const OptionValue JoystickButtonOptions[];
+extern const OptionValue JoystickControlOptions[];
+extern const OptionValue MousestickOptions[];
+extern const OptionValue MouseButtonOptions[];
+
+int FindOptionValue(const std::string& Value, const OptionValue* pValues, int Default);
+const char* GetOptionValueStr(const OptionValue* pValues, int Value);
 
 #endif

@@ -86,8 +86,20 @@ const char* const CFG_SOUND_PART_SAMPLES           = "PartSamples";
 const char* const CFG_SOUND_PART_SAMPLES_OLD       = "Part Samples"; // For BeebEm v4.19 and earlier.
 const char* const CFG_MUSIC5000_ENABLED            = "Music5000Enabled";
 
-// Keyboard and joystick
+// Joystick
 const char* const CFG_OPTIONS_STICKS               = "Sticks";
+const char* const CFG_JOYSTICK1_DEVICE             = "Joystick1Device";
+const char* const CFG_JOYSTICK1_DEVICE_TYPE        = "Joystick1DeviceType";
+const char* const CFG_JOYSTICK1_CONTROLLER         = "Joystick1Controller";
+const char* const CFG_JOYSTICK1_ANALOGUE_INPUT     = "Joystick1AnalogueInput";
+const char* const CFG_JOYSTICK1_BUTTON_INPUT       = "Joystick1ButtonInput";
+const char* const CFG_JOYSTICK2_DEVICE             = "Joystick2Device";
+const char* const CFG_JOYSTICK2_DEVICE_TYPE        = "Joystick2DeviceType";
+const char* const CFG_JOYSTICK2_CONTROLLER         = "Joystick2Controller";
+const char* const CFG_JOYSTICK2_ANALOGUE_INPUT     = "Joystick2AnalogueInput";
+const char* const CFG_JOYSTICK2_BUTTON_INPUT       = "Joystick2ButtonInput";
+
+// Keyboard
 const char* const CFG_OPTIONS_KEY_MAPPING          = "KeyMapping";
 const char* const CFG_OPTIONS_USER_KEY_MAP_FILE    = "UserKeyMapFile";
 
@@ -211,5 +223,7 @@ const char* const CFG_FDC_DLL                      = "FDCDLL%d";
 
 // User port breakout box
 const char* const CFG_BIT_KEYS                     = "BitKeys";
+
+int FindEnum(const std::string& Value, const char* const* Names, int Default);
 
 #endif

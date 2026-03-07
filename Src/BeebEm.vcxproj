@@ -205,6 +205,7 @@
     <ClCompile Include="Ide.cpp" />
     <ClCompile Include="JoystickController.cpp" />
     <ClCompile Include="JoystickDialog.cpp" />
+    <ClCompile Include="JoystickOptions.cpp" />
     <ClCompile Include="KeyboardLinksDialog.cpp" />
     <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="IP232.cpp" />
@@ -374,6 +375,7 @@
     <ClInclude Include="IC32Latch.h" />
     <ClInclude Include="JoystickController.h" />
     <ClInclude Include="JoystickDialog.h" />
+    <ClInclude Include="JoystickOptions.h" />
     <ClInclude Include="KeyboardLinksDialog.h" />
     <ClInclude Include="ListView.h" />
     <ClInclude Include="Master512CoPro.h" />

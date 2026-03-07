@@ -43,43 +43,49 @@
         BeebEm supports joysticks and game controllers
         via XInput and DirectInput, connected to the emulated BBC Micro's
         "analogue in" socket. Use the <span class="ui">Options &rarr;
-        Select Joystick&hellip;</span> menu item to configure the input device.
+        Configure Joystick&hellip;</span> menu item to configure the input devices.
+      </p>
+
+      <p>
+        The input controller can be set independently for the Beeb's Joystick 1
+        and Joystick 2. Joystick 1 uses the Beeb's analogue input channels 0
+        (X direction) and 1 (Y direction), and pushbutton 0. Joystick 2 uses
+        the Beeb's analogue input channels 2 (X direction) and 3 (Y direction),
+        and pushbutton 1.
       </p>
 
       <figure>
-        <img src="joysticks.png" alt="Select Joystick dialog box" width="368" height="191">
+        <img src="joysticks.png" alt="Configure Joystick dialog box" width="475" height="287">
       </figure>
 
       <p>
-        The dialog box shows a list of the controllers that have been detected.
-        Only one controller can be used at a time, mapped to the Beeb's analog
-        input channels 0 (X direction) and 1 (Y direction).
-        Note that the same game controller may appear twice in the list, as both
-        an XInput and a DirectInput device.
+        Use the <span class="ui">Device</span> option to select the input
+        controller device. The dialog box shows a list of the controllers that
+        have been detected. Note that the same game controller may appear twice
+        in the list, as both an XInput and a DirectInput device. If both are
+        listed, choose the XInput version in preference to DirectInput.
       </p>
 
       <p>
-        Select <span class="ui">None</span> to switch joystick support off.
-      </p>
-
-      <p>
-        For XBox controllers, the left stick and the D-pad are both enabled.
-        Buttons A, B, X, and Y are all mapped to the joystick 0 fire button.
+        Use the <span class="ui">Analogue Input</span> option to select
+        the joystick or game controller input, or mousestick setting.
       </p>
 
       <p>
         Select <span class="ui">Analogue Mousestick</span> to enable
         the mapping of mouse position to analogue Beeb joystick position.
-        This allows you to use the mouse as a joystick. The left mouse button
-        controls the joystick 1 fire button and the right mouse button controls
-        the joystick 2 fire button.
+        This allows you to use the mouse as a joystick.
       </p>
 
       <p>
         Select <span class="ui">Digital Mousestick</span> to enable
         the mapping of mouse movements to digital Beeb joystick movements.
-        The left mouse button controls the joystick 1 fire button and the right
-        mouse button controls the joystick 2 fire button.
+      </p>
+
+      <p>
+        Use the <span class="ui">Button Input</span> option to select
+        which of the controller's buttons are mapped to the Beeb's
+        pushbutton inputs.
       </p>
 
       <p>

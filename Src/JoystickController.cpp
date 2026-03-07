@@ -18,19 +18,17 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 #include <assert.h>
 
 #include "JoystickController.h"
 #include "DebugTrace.h"
-
-// #define DEBUG_JOYSTICK
+#include "StringUtils.h"
 
 /****************************************************************************/
 
-#ifdef DEBUG_JOYSTICK
+#if defined(DEBUG_JOYSTICK) && !defined(NDEBUG)
 
 static const char* DInputErrorStr(HRESULT hResult)
 {
@@ -60,6 +58,9 @@ static const char* DInputErrorStr(HRESULT hResult)
 		case E_PENDING:
 			return "E_PENDING";
 
+		case E_ACCESSDENIED:
+			return "E_ACCESSDENIED";
+
 		default:
 			return "?";
 	}
@@ -69,11 +70,442 @@ static const char* DInputErrorStr(HRESULT hResult)
 
 /****************************************************************************/
 
-JoystickDeviceInfo::JoystickDeviceInfo() :
-	Type(JoystickDeviceType::XInput),
-	XInputIndex(0)
+JoystickDevice::JoystickDevice(JoystickDeviceType Type, const std::string& Name) :
+	m_Type(Type),
+	m_Name(Name),
+	m_Active(false)
 {
-	ZeroMemory(&DirectInputGuid, sizeof(DirectInputGuid));
+}
+
+/****************************************************************************/
+
+JoystickDevice::~JoystickDevice()
+{
+}
+
+/****************************************************************************/
+
+JoystickDeviceType JoystickDevice::GetType() const
+{
+	return m_Type;
+}
+
+/****************************************************************************/
+
+bool JoystickDevice::IsActive() const
+{
+	return m_Active;
+}
+
+/****************************************************************************/
+
+void JoystickDevice::Release()
+{
+	#ifdef DEBUG_JOYSTICK
+	DebugTrace("JoystickDevice::Release()\n");
+	#endif
+
+	DoRelease();
+
+	m_Active = false;
+}
+
+/****************************************************************************/
+
+const std::string& JoystickDevice::GetName() const
+{
+	return m_Name;
+}
+
+/****************************************************************************/
+
+void JoystickDevice::SetActive(bool Active)
+{
+	#ifdef DEBUG_JOYSTICK
+	DebugTrace("JoystickDevice::SetActive(%d)\n", (int)Active);
+	#endif
+
+	m_Active = Active;
+}
+
+/****************************************************************************/
+
+XInputJoystickDevice::XInputJoystickDevice(const std::string& Name, DWORD XInputIndex) :
+	JoystickDevice(JoystickDeviceType::XInput, Name),
+	m_XInputIndex(XInputIndex),
+	m_XInputGetState(nullptr)
+{
+}
+
+/****************************************************************************/
+
+HRESULT XInputJoystickDevice::Activate(XINPUT_GET_STATE XInputGetState)
+{
+	m_XInputGetState = XInputGetState;
+	SetActive(true);
+
+	return S_OK;
+}
+
+/****************************************************************************/
+
+void XInputJoystickDevice::Acquire(bool /* Acquire */)
+{
+}
+
+/****************************************************************************/
+
+bool XInputJoystickDevice::GetState(JoystickState* pState) const
+{
+	if (!IsActive())
+	{
+		return false;
+	}
+
+	XINPUT_STATE State;
+
+	DWORD Result = m_XInputGetState(m_XInputIndex, &State);
+
+	if (Result != ERROR_SUCCESS)
+	{
+		#ifdef DEBUG_JOYSTICK
+		DebugTrace("XInputJoystickDevice::GetState()\n");
+		DebugTrace("XInputGetState returned %u\n", Result);
+		#endif
+
+		return false;
+	}
+
+	pState->LeftX = 32767 - (int)State.Gamepad.sThumbLX;
+	pState->LeftY = (int)State.Gamepad.sThumbLY + 32768;
+
+	pState->RightX = 32767 - (int)State.Gamepad.sThumbRX;
+	pState->RightY = (int)State.Gamepad.sThumbRY + 32768;
+
+	pState->Buttons = State.Gamepad.wButtons;
+
+	return true;
+}
+
+/****************************************************************************/
+
+std::string XInputJoystickDevice::GetID() const
+{
+	return std::to_string(m_XInputIndex);
+}
+
+/****************************************************************************/
+
+void XInputJoystickDevice::DoRelease()
+{
+}
+
+/****************************************************************************/
+
+DirectInputJoystickDevice::DirectInputJoystickDevice(const std::string& Name, GUID InstanceGuid) :
+	JoystickDevice(JoystickDeviceType::DirectInput, Name),
+	m_InstanceGuid(InstanceGuid),
+	m_pDirectInputDevice(nullptr),
+	m_MinX(0),
+	m_MaxX(65535),
+	m_MinY(0),
+	m_MaxY(65535),
+	m_MinRX(0),
+	m_MaxRX(65535),
+	m_MinRY(0),
+	m_MaxRY(65535)
+{
+}
+
+/****************************************************************************/
+
+void DirectInputJoystickDevice::EnumObjects()
+{
+	#ifdef DEBUG_JOYSTICK
+	DebugTrace("DirectInputJoystickDevice::EnumObjects\n");
+	#endif
+
+	m_pDirectInputDevice->EnumObjects(EnumObjectsCallback, this, DIDFT_AXIS | DIDFT_BUTTON);
+
+	#ifdef DEBUG_JOYSTICK
+	DebugTrace("DirectInputJoystickDevice::EnumObjects completed\n");
+	#endif
+}
+
+/****************************************************************************/
+
+BOOL CALLBACK DirectInputJoystickDevice::EnumObjectsCallback(const DIDEVICEOBJECTINSTANCE* pDeviceObjectInstance,
+                                                             void* pContext)
+{
+	DirectInputJoystickDevice* pJoystickDevice = reinterpret_cast<DirectInputJoystickDevice*>(pContext);
+
+	return pJoystickDevice->EnumObjectsCallback(pDeviceObjectInstance);
+}
+
+/****************************************************************************/
+
+BOOL DirectInputJoystickDevice::EnumObjectsCallback(const DIDEVICEOBJECTINSTANCE* pDeviceObjectInstance)
+{
+	#ifdef DEBUG_JOYSTICK
+	DebugTrace("Type: %08X, Collection %d: %s\n", pDeviceObjectInstance->dwType,
+	                                              pDeviceObjectInstance->wCollectionNumber,
+	                                              pDeviceObjectInstance->tszName);
+	#else
+	UNREFERENCED_PARAMETER(pDeviceObjectInstance);
+	#endif
+
+	return TRUE;
+}
+
+/****************************************************************************/
+
+HRESULT DirectInputJoystickDevice::Activate(IDirectInput8* pDirectInput, HWND hWnd)
+{
+	if (m_pDirectInputDevice != nullptr)
+	{
+		return S_OK;
+	}
+
+	HRESULT hResult = Init(pDirectInput, hWnd);
+
+	if (SUCCEEDED(hResult))
+	{
+		SetActive(true);
+	}
+
+	return hResult;
+}
+
+/****************************************************************************/
+
+HRESULT DirectInputJoystickDevice::Init(IDirectInput8* pDirectInput, HWND hWnd)
+{
+	HRESULT hResult = pDirectInput->CreateDevice(m_InstanceGuid,
+	                                             &m_pDirectInputDevice,
+	                                             nullptr);
+
+	if (FAILED(hResult))
+	{
+		#ifdef DEBUG_JOYSTICK
+		DebugTrace("m_pDirectInput->CreateDevice() returned %s\n", DInputErrorStr(hResult));
+		#endif
+
+		return hResult;
+	}
+
+	// EnumObjects();
+
+	hResult = m_pDirectInputDevice->SetDataFormat(&c_dfDIJoystick);
+
+	if (FAILED(hResult))
+	{
+		#ifdef DEBUG_JOYSTICK
+		DebugTrace("m_pDirectInputDevice->SetDataFormat() returned %s\n", DInputErrorStr(hResult));
+		#endif
+
+		Release();
+		return hResult;
+	}
+
+	hResult = m_pDirectInputDevice->SetCooperativeLevel(hWnd,
+	                                                    DISCL_FOREGROUND | DISCL_NONEXCLUSIVE);
+
+	if (FAILED(hResult))
+	{
+		#ifdef DEBUG_JOYSTICK
+		DebugTrace("m_pDirectInputDevice->SetCooperativeLevel() returned %s\n", DInputErrorStr(hResult));
+		#endif
+
+		Release();
+		return hResult;
+	}
+
+	QueryRange(DIJOFS_X, &m_MinX, &m_MaxX);
+	QueryRange(DIJOFS_Y, &m_MinY, &m_MaxY);
+	QueryRange(DIJOFS_RX, &m_MinRX, &m_MaxRX);
+	QueryRange(DIJOFS_RY, &m_MinRY, &m_MaxRY);
+
+	hResult = m_pDirectInputDevice->Acquire();
+
+	if (FAILED(hResult))
+	{
+		#ifdef DEBUG_JOYSTICK
+		DebugTrace("m_pDirectInputDevice->Acquire() returned %s\n", DInputErrorStr(hResult));
+		#endif
+	}
+
+	return hResult;
+}
+
+/****************************************************************************/
+
+HRESULT DirectInputJoystickDevice::QueryRange(DWORD Object, int* pMin, int* pMax)
+{
+	DIPROPRANGE Range;
+	ZeroMemory(&Range, sizeof(Range));
+	Range.diph.dwSize = sizeof(DIPROPRANGE);
+	Range.diph.dwHeaderSize = sizeof(DIPROPHEADER);
+	Range.diph.dwHow = DIPH_BYOFFSET;
+	Range.diph.dwObj = Object;
+
+	HRESULT hResult = m_pDirectInputDevice->GetProperty(DIPROP_RANGE, &Range.diph);
+
+	if (SUCCEEDED(hResult))
+	{
+		*pMin = Range.lMin;
+		*pMax = Range.lMax;
+	}
+
+	return hResult;
+}
+
+/****************************************************************************/
+
+void DirectInputJoystickDevice::Acquire(bool Acquire)
+{
+	assert(m_pDirectInputDevice != nullptr);
+
+	if (Acquire)
+	{
+		HRESULT hResult = m_pDirectInputDevice->Acquire();
+
+		if (FAILED(hResult))
+		{
+			#ifdef DEBUG_JOYSTICK
+			DebugTrace("m_pDirectInputDevice->Acquire() returned %s\n", DInputErrorStr(hResult));
+			#endif
+		}
+	}
+	else
+	{
+		HRESULT hResult = m_pDirectInputDevice->Unacquire();
+
+		if (FAILED(hResult))
+		{
+			#ifdef DEBUG_JOYSTICK
+			DebugTrace("m_pDirectInputDevice->Unacquire() returned %s\n", DInputErrorStr(hResult));
+			#endif
+		}
+	}
+}
+
+/****************************************************************************/
+
+static int NormalizeRange(int Value, int Min, int Max)
+{
+    return ((Value - Min) * 65535LL) / (Max - Min);
+}
+
+/****************************************************************************/
+
+bool DirectInputJoystickDevice::GetState(JoystickState* pState) const
+{
+	if (m_pDirectInputDevice == nullptr)
+	{
+		#ifdef DEBUG_JOYSTICK
+		DebugTrace("DirectInputJoystickDevice::GetState()\n");
+		DebugTrace("m_pDirectInputDevice is NULL\n");
+		#endif
+
+		return false;
+	}
+
+	HRESULT hResult = m_pDirectInputDevice->Poll();
+
+	if (FAILED(hResult))
+	{
+		#ifdef DEBUG_JOYSTICK
+		DebugTrace("DirectInputJoystickDevice::GetState()\n");
+		DebugTrace("m_pDirectInputDevice->Poll() returned %s\n", DInputErrorStr(hResult));
+		#endif
+
+		return hResult == DIERR_NOTACQUIRED;
+	}
+
+	DIJOYSTATE State;
+
+	hResult = m_pDirectInputDevice->GetDeviceState(sizeof(State), &State);
+
+	if (FAILED(hResult))
+	{
+		#ifdef DEBUG_JOYSTICK
+		DebugTrace("DirectInputJoystickDevice::GetState()\n");
+		DebugTrace("m_pDirectInputDevice->GetDeviceState() returned %s\n", DInputErrorStr(hResult));
+		#endif
+
+		return hResult == DIERR_NOTACQUIRED;
+	}
+
+	pState->LeftX = 65535 - NormalizeRange(State.lX, m_MinX, m_MaxX);
+	pState->LeftY = 65535 - NormalizeRange(State.lY, m_MinY, m_MaxY);
+
+	pState->RightX = 65535 - NormalizeRange(State.lRx, m_MinRX, m_MaxRX);
+	pState->RightY = 65535 - NormalizeRange(State.lRy, m_MinRX, m_MaxRX);
+
+	pState->Buttons = 0;
+
+	for (int i = 0; i < 4; i++)
+	{
+		if (State.rgbButtons[i] & 0x80)
+		{
+			pState->Buttons |= JOYSTICK_BUTTON_A << i;
+		}
+	}
+
+	switch (State.rgdwPOV[0])
+	{
+		case 0:
+			pState->Buttons |= JOYSTICK_BUTTON_UP;
+			break;
+
+		case 4500:
+			pState->Buttons |= JOYSTICK_BUTTON_RIGHT | JOYSTICK_BUTTON_UP;
+			break;
+
+		case 9000:
+			pState->Buttons |= JOYSTICK_BUTTON_RIGHT;
+			break;
+
+		case 13500:
+			pState->Buttons |= JOYSTICK_BUTTON_RIGHT | JOYSTICK_BUTTON_DOWN;
+			break;
+
+		case 18000:
+			pState->Buttons |= JOYSTICK_BUTTON_DOWN;
+			break;
+
+		case 22500:
+			pState->Buttons |= JOYSTICK_BUTTON_LEFT | JOYSTICK_BUTTON_DOWN;
+			break;
+
+		case 27000:
+			pState->Buttons |= JOYSTICK_BUTTON_LEFT;
+			break;
+
+		case 31500:
+			pState->Buttons |= JOYSTICK_BUTTON_LEFT | JOYSTICK_BUTTON_UP;
+			break;
+	}
+
+	return true;
+}
+
+/****************************************************************************/
+
+std::string DirectInputJoystickDevice::GetID() const
+{
+	return GuidToString(m_InstanceGuid);
+}
+
+/****************************************************************************/
+
+void DirectInputJoystickDevice::DoRelease()
+{
+	if (m_pDirectInputDevice != nullptr)
+	{
+		m_pDirectInputDevice->Release();
+		m_pDirectInputDevice = nullptr;
+	}
 }
 
 /****************************************************************************/
@@ -83,14 +515,7 @@ JoystickController::JoystickController() :
 	m_hWnd(nullptr),
 	m_hXInputModule(nullptr),
 	m_XInputGetState(nullptr),
-	m_XInputSetState(nullptr),
-	m_pDirectInput(nullptr),
-	m_pDirectInputDevice(nullptr),
-	m_ActiveDevice(0),
-	m_MinX(0),
-	m_MaxX(65535),
-	m_MinY(0),
-	m_MaxY(65535)
+	m_pDirectInput(nullptr)
 {
 }
 
@@ -104,11 +529,7 @@ JoystickController::~JoystickController()
 		m_hXInputModule = nullptr;
 	}
 
-	if (m_pDirectInputDevice != nullptr)
-	{
-		m_pDirectInputDevice->Release();
-		m_pDirectInputDevice = nullptr;
-	}
+	ClearDevices();
 
 	if (m_pDirectInput != nullptr)
 	{
@@ -143,10 +564,6 @@ bool JoystickController::Init(HINSTANCE hInstance, HWND hWnd)
 			m_XInputGetState = reinterpret_cast<XINPUT_GET_STATE>(
 				GetProcAddress(m_hXInputModule, "XInputGetState")
 			);
-
-			m_XInputSetState = reinterpret_cast<XINPUT_SET_STATE>(
-				GetProcAddress(m_hXInputModule, "XInputSetState")
-			);
 			break;
 		}
 	}
@@ -164,7 +581,7 @@ bool JoystickController::Init(HINSTANCE hInstance, HWND hWnd)
 
 void JoystickController::EnumerateDevices()
 {
-	m_Devices.clear();
+	ClearDevices();
 
 	EnumerateXInputDevices();
 	EnumerateDirectInputDevices();
@@ -185,13 +602,12 @@ void JoystickController::EnumerateXInputDevices()
 
 		if (m_XInputGetState(i, &State) == ERROR_SUCCESS)
 		{
-			JoystickDeviceInfo Info;
+			XInputJoystickDevice* pDevice = new XInputJoystickDevice(
+				"XBox Controller - Slot " + std::to_string(i) + " [XInput]",
+				i
+			);
 
-			Info.Type = JoystickDeviceType::XInput;
-			Info.Name = "XBox Controller - Slot " + std::to_string(i) + " [XInput]";
-			Info.XInputIndex = i;
-
-			m_Devices.emplace_back(Info);
+			m_Devices.emplace_back(pDevice);
 		}
 	}
 }
@@ -225,282 +641,129 @@ BOOL CALLBACK JoystickController::EnumDInputCallback(const DIDEVICEINSTANCE* pDe
 
 BOOL JoystickController::EnumDInputCallback(const DIDEVICEINSTANCE* pDeviceInstance)
 {
-	JoystickDeviceInfo Info;
+	DirectInputJoystickDevice* pDevice = new DirectInputJoystickDevice(
+		std::string(pDeviceInstance->tszProductName) + " [DirectInput]",
+		pDeviceInstance->guidInstance
+	);
 
-	Info.Type = JoystickDeviceType::DirectInput;
-	Info.Name = std::string(pDeviceInstance->tszProductName) + " [DirectInput]";
-	Info.DirectInputGuid = pDeviceInstance->guidInstance;
-
-	m_Devices.emplace_back(Info);
+	m_Devices.emplace_back(pDevice);
 
 	return DIENUM_CONTINUE;
 }
 
 /****************************************************************************/
 
-size_t JoystickController::GetDeviceCount() const
+void JoystickController::ClearDevices()
+{
+	for (size_t i = 0; i < m_Devices.size(); i++)
+	{
+		m_Devices[i]->Release();
+
+		delete m_Devices[i];
+	}
+
+	m_Devices.clear();
+}
+
+/****************************************************************************/
+
+int JoystickController::GetDeviceCount() const
 {
 	return m_Devices.size();
 }
 
 /****************************************************************************/
 
-const JoystickDeviceInfo& JoystickController::GetDeviceInfo(size_t Index) const
+const JoystickDevice& JoystickController::GetDevice(int Index) const
 {
-	return m_Devices[Index];
+	return *m_Devices[Index];
 }
 
 /****************************************************************************/
 
-size_t JoystickController::GetActiveDevice() const
+int JoystickController::FindDevice(JoystickDeviceType Type,
+                                   const std::string& ID)
 {
-	return m_ActiveDevice;
-}
-
-/****************************************************************************/
-
-void JoystickController::SetActiveDevice(size_t Index)
-{
-	ReleaseActiveDevice();
-
-	if (Index < m_Devices.size())
+	for (size_t i = 0; i < m_Devices.size(); i++)
 	{
-		m_ActiveDevice = Index;
+		if (m_Devices[i]->GetType() == Type &&
+		    m_Devices[i]->GetID() == ID)
+		{
+			return i;
+		}
+	}
 
-		AcquireActiveDevice();
-	}
-	else
-	{
-		m_ActiveDevice = 0;
-	}
+	return -1;
 }
 
 /****************************************************************************/
 
-void JoystickController::ReleaseActiveDevice()
-{
-	if (m_pDirectInputDevice != nullptr)
-	{
-		m_pDirectInputDevice->Release();
-		m_pDirectInputDevice = nullptr;
-	}
-}
-
-/****************************************************************************/
-
-void JoystickController::AcquireActiveDevice()
+HRESULT JoystickController::SetDeviceActive(int Index)
 {
 	#ifdef DEBUG_JOYSTICK
-	DebugTrace("JoystickController::AcquireActiveDevice()\n");
+	DebugTrace("JoystickController::SetDeviceActive(%u)\n", Index);
 	#endif
 
-	const JoystickDeviceInfo& DeviceInfo = m_Devices[m_ActiveDevice];
+	HRESULT hResult = E_FAIL;
 
-	if (DeviceInfo.Type == JoystickDeviceType::DirectInput)
+	if (Index >= 0 && Index < (int)m_Devices.size())
 	{
-		HRESULT hResult = m_pDirectInput->CreateDevice(DeviceInfo.DirectInputGuid,
-		                                               &m_pDirectInputDevice,
-		                                               nullptr);
+		JoystickDevice* pDevice = m_Devices[Index];
 
-		if (FAILED(hResult))
+		switch (pDevice->GetType())
 		{
-			#ifdef DEBUG_JOYSTICK
-			DebugTrace("m_pDirectInput->CreateDevice() returned %s\n", DInputErrorStr(hResult));
-			#endif
+			case JoystickDeviceType::XInput:
+				hResult = static_cast<XInputJoystickDevice*>(pDevice)->Activate(m_XInputGetState);
+				break;
 
-			return;
-		}
+			case JoystickDeviceType::DirectInput:
+				hResult = static_cast<DirectInputJoystickDevice*>(pDevice)->Activate(m_pDirectInput, m_hWnd);
+				break;
 
-        hResult = m_pDirectInputDevice->SetDataFormat(&c_dfDIJoystick);
-
-		if (FAILED(hResult))
-		{
-			#ifdef DEBUG_JOYSTICK
-			DebugTrace("m_pDirectInputDevice->SetDataFormat() returned %s\n", DInputErrorStr(hResult));
-			#endif
-
-			m_pDirectInputDevice->Release();
-			m_pDirectInputDevice = nullptr;
-			return;
-		}
-
-		hResult = m_pDirectInputDevice->SetCooperativeLevel(m_hWnd,
-		                                                    DISCL_FOREGROUND | DISCL_NONEXCLUSIVE);
-
-		if (FAILED(hResult))
-		{
-			#ifdef DEBUG_JOYSTICK
-			DebugTrace("m_pDirectInputDevice->SetCooperativeLevel() returned %s\n", DInputErrorStr(hResult));
-			#endif
-
-			m_pDirectInputDevice->Release();
-			m_pDirectInputDevice = nullptr;
-			return;
-		}
-
-		DIPROPRANGE Range;
-		ZeroMemory(&Range, sizeof(Range));
-		Range.diph.dwSize = sizeof(DIPROPRANGE);
-		Range.diph.dwHeaderSize = sizeof(DIPROPHEADER);
-		Range.diph.dwHow = DIPH_BYOFFSET;
-		Range.diph.dwObj = DIJOFS_X;
-
-		hResult = m_pDirectInputDevice->GetProperty(DIPROP_RANGE, &Range.diph);
-
-		if (SUCCEEDED(hResult))
-		{
-			m_MinX = Range.lMin;
-			m_MaxX = Range.lMax;
-		}
-
-		ZeroMemory(&Range, sizeof(Range));
-		Range.diph.dwSize = sizeof(DIPROPRANGE);
-		Range.diph.dwHeaderSize = sizeof(DIPROPHEADER);
-		Range.diph.dwHow = DIPH_BYOFFSET;
-		Range.diph.dwObj = DIJOFS_Y;
-
-		hResult = m_pDirectInputDevice->GetProperty(DIPROP_RANGE, &Range.diph);
-
-		if (SUCCEEDED(hResult))
-		{
-			m_MinY = Range.lMin;
-			m_MaxY = Range.lMax;
-		}
-
-		hResult = m_pDirectInputDevice->Acquire();
-
-		if (FAILED(hResult))
-		{
-			#ifdef DEBUG_JOYSTICK
-			DebugTrace("m_pDirectInputDevice->Acquire() returned %s\n", DInputErrorStr(hResult));
-			#endif
+			default:
+				assert(false);
+				break;
 		}
 	}
+
+	return hResult;
 }
 
 /****************************************************************************/
 
-static int NormalizeRange(int Value, int Min, int Max)
+void JoystickController::ReleaseDevice(int Index)
 {
-    return ((Value - Min) * 65535LL) / (Max - Min);
+	#ifdef DEBUG_JOYSTICK
+	DebugTrace("JoystickController::ReleaseDevice(%u)\n", Index);
+	#endif
+
+	if (Index >= 0 && Index < (int)m_Devices.size())
+	{
+		m_Devices[Index]->Release();
+	}
 }
 
 /****************************************************************************/
 
-bool JoystickController::GetState(JoystickState* pState) const
+void JoystickController::ReleaseAllDevices()
 {
-	const JoystickDeviceInfo& DeviceInfo = m_Devices[m_ActiveDevice];
-
-	if (DeviceInfo.Type == JoystickDeviceType::XInput)
+	for (size_t i = 0; i < m_Devices.size(); i++)
 	{
-		XINPUT_STATE State;
-
-		DWORD Result = m_XInputGetState(DeviceInfo.XInputIndex, &State);
-
-		if (Result != ERROR_SUCCESS)
-		{
-			#ifdef DEBUG_JOYSTICK
-			DebugTrace("JoystickController::GetState()\n");
-			DebugTrace("XInputGetState returned %u\n", Result);
-			#endif
-
-			return false;
-		}
-
-		pState->X = 32767 - (int)State.Gamepad.sThumbLX;
-		pState->Y = (int)State.Gamepad.sThumbLY + 32768;
-		pState->Buttons = State.Gamepad.wButtons;
+		m_Devices[i]->Release();
 	}
-	else // DirectInput
-	{
-		if (m_pDirectInputDevice == nullptr)
-		{
-			#ifdef DEBUG_JOYSTICK
-			DebugTrace("JoystickController::GetState()\n");
-			DebugTrace("m_pDirectInputDevice is NULL\n");
-			#endif
-
-			return false;
-		}
-
-		HRESULT hResult = m_pDirectInputDevice->Poll();
-
-		if (FAILED(hResult))
-		{
-			#ifdef DEBUG_JOYSTICK
-			DebugTrace("JoystickController::GetState()\n");
-			DebugTrace("m_pDirectInputDevice->Poll() returned %s\n", DInputErrorStr(hResult));
-			#endif
-
-			return hResult == DIERR_NOTACQUIRED;
-		}
-
-		DIJOYSTATE State;
-
-		hResult = m_pDirectInputDevice->GetDeviceState(sizeof(State), &State);
-
-		if (FAILED(hResult))
-		{
-			#ifdef DEBUG_JOYSTICK
-			DebugTrace("JoystickController::GetState()\n");
-			DebugTrace("m_pDirectInputDevice->GetDeviceState() returned %s\n", DInputErrorStr(hResult));
-			#endif
-
-			return hResult == DIERR_NOTACQUIRED;
-		}
-
-		pState->X = 65535 - NormalizeRange(State.lX, m_MinX, m_MaxX);
-		pState->Y = 65535 - NormalizeRange(State.lY, m_MinY, m_MaxY);
-		pState->Buttons = 0;
-
-		for (int i = 0; i < 4; i++)
-		{
-			if (State.rgbButtons[i] & 0x80)
-			{
-				pState->Buttons |= JOYSTICK_BUTTON_A << i;
-			}
-		}
-
-		switch (State.rgdwPOV[0])
-		{
-			case 0:
-				pState->Buttons |= JOYSTICK_BUTTON_UP;
-				break;
-
-			case 4500:
-				pState->Buttons |= JOYSTICK_BUTTON_RIGHT | JOYSTICK_BUTTON_UP;
-				break;
-
-			case 9000:
-				pState->Buttons |= JOYSTICK_BUTTON_RIGHT;
-				break;
-
-			case 13500:
-				pState->Buttons |= JOYSTICK_BUTTON_RIGHT | JOYSTICK_BUTTON_DOWN;
-				break;
-
-			case 18000:
-				pState->Buttons |= JOYSTICK_BUTTON_DOWN;
-				break;
-
-			case 22500:
-				pState->Buttons |= JOYSTICK_BUTTON_LEFT | JOYSTICK_BUTTON_DOWN;
-				break;
-
-			case 27000:
-				pState->Buttons |= JOYSTICK_BUTTON_LEFT;
-				break;
-
-			case 31500:
-				pState->Buttons |= JOYSTICK_BUTTON_LEFT | JOYSTICK_BUTTON_UP;
-				break;
-		}
-	}
-
-	return true;
 }
 
 /****************************************************************************/
+
+bool JoystickController::GetState(int DeviceIndex, JoystickState* pState) const
+{
+	return m_Devices[DeviceIndex]->GetState(pState);
+}
+
+/****************************************************************************/
+
+// Called when the BeebEm window is activated and deactivated. This is used
+// to acquire or release access to DirectInput devices.
 
 void JoystickController::Acquire(bool Acquire)
 {
@@ -508,29 +771,13 @@ void JoystickController::Acquire(bool Acquire)
 	DebugTrace("JoystickController::Acquire(%d)\n", (int)Acquire);
 	#endif
 
-	if (m_pDirectInputDevice != nullptr)
+	for (size_t i = 0; i < m_Devices.size(); i++)
 	{
-		if (Acquire)
-		{
-			HRESULT hResult = m_pDirectInputDevice->Acquire();
+		JoystickDevice* pDevice = m_Devices[i];
 
-			if (FAILED(hResult))
-			{
-				#ifdef DEBUG_JOYSTICK
-				DebugTrace("m_pDirectInputDevice->Acquire() returned %s\n", DInputErrorStr(hResult));
-				#endif
-			}
-		}
-		else
+		if (pDevice->IsActive())
 		{
-			HRESULT hResult = m_pDirectInputDevice->Unacquire();
-
-			if (FAILED(hResult))
-			{
-				#ifdef DEBUG_JOYSTICK
-				DebugTrace("m_pDirectInputDevice->Unacquire() returned %s\n", DInputErrorStr(hResult));
-				#endif
-			}
+			pDevice->Acquire(Acquire);
 		}
 	}
 }

@@ -34,6 +34,7 @@ Boston, MA  02110-1301, USA.
 #include "FileUtils.h"
 #include "Ide.h"
 #include "IP232.h"
+#include "JoystickOptions.h"
 #include "KeyMap.h"
 #include "Main.h"
 #include "Music5000.h"
@@ -128,8 +129,23 @@ static const char* const JoystickOptionStr[] =
 {
 	"Disabled",
 	"Joystick",
-	"AnalogueMouseStick",
-	"DigitalMouseStick",
+	"AnalogueMousestick",
+	"DigitalMousestick",
+	nullptr
+};
+
+static const char* const AnalogueInputDeviceStr[] =
+{
+	"None",
+	"Joystick",
+	"Mouse",
+	nullptr
+};
+
+static const char* const JoystickDeviceTypeStr[] =
+{
+	"XInput",
+	"DirectInput",
 	nullptr
 };
 
@@ -211,23 +227,17 @@ static const char* const TeletextSourceTypeStr[] =
 
 /****************************************************************************/
 
-int BeebWin::FindEnum(const std::string& Value, const char* const* Names, int Default)
+int FindEnum(const std::string& Value, const char* const* Names, int Default)
 {
-	int Index = Default;
-	int i = 0;
-
-	while (Names[i] != nullptr)
+	for (int i = 0; Names[i] != nullptr; i++)
 	{
 		if (StrCaseCmp(Value.c_str(), Names[i]) == 0)
 		{
-			Index = i;
-			break;
+			return i;
 		}
-
-		i++;
 	}
 
-	return Index;
+	return Default;
 }
 
 /****************************************************************************/
@@ -890,14 +900,65 @@ void BeebWin::LoadInputPreferences(int Version)
 	{
 		std::string Value;
 
-		m_Preferences.GetStringValue(CFG_OPTIONS_STICKS, Value, JoystickOptionStr[0]);
-
-		m_JoystickOption = static_cast<JoystickOption>(FindEnum(Value, JoystickOptionStr, 0));
-
-		// Don't automatically enable joysticks, in case unplugged.
-		if (m_JoystickOption == JoystickOption::Joystick)
+		if (m_Preferences.GetStringValue(CFG_JOYSTICK1_DEVICE, Value, AnalogueInputDeviceStr[0]))
 		{
-			m_JoystickOption = JoystickOption::Disabled;
+			m_AnalogueInputDevice[0] = static_cast<AnalogueInputDevice>(FindEnum(Value, AnalogueInputDeviceStr, 0));
+
+			if (m_AnalogueInputDevice[0] == AnalogueInputDevice::Joystick)
+			{
+				m_Preferences.GetStringValue(CFG_JOYSTICK1_DEVICE_TYPE, Value, JoystickDeviceTypeStr[0]);
+				m_JoystickDeviceType[0] = static_cast<JoystickDeviceType>(FindEnum(Value, JoystickDeviceTypeStr, 0));
+
+				m_Preferences.GetStringValue(CFG_JOYSTICK1_CONTROLLER, m_JoystickDeviceID[0], "");
+
+				m_Preferences.GetStringValue(CFG_JOYSTICK1_ANALOGUE_INPUT, Value, JoystickControlOptions[0].ConfigName);
+				m_JoystickControl[0] = FindOptionValue(Value, JoystickControlOptions, JOYSTICK_ANALOGUE_INPUT_LEFT_THUMBSTICK);
+
+				m_Preferences.GetStringValue(CFG_JOYSTICK1_BUTTON_INPUT, Value, JoystickButtonOptions[0].ConfigName);
+				m_JoystickButton[0] = FindOptionValue(Value, JoystickButtonOptions, JOYSTICK_BUTTON_A);
+			}
+			else if (m_AnalogueInputDevice[0] == AnalogueInputDevice::Mouse)
+			{
+				m_Preferences.GetStringValue(CFG_JOYSTICK1_ANALOGUE_INPUT, Value, MousestickOptions[0].ConfigName);
+				m_MousestickType[0] = static_cast<MousestickType>(FindOptionValue(Value, MousestickOptions, 0));
+
+				m_Preferences.GetStringValue(CFG_JOYSTICK1_BUTTON_INPUT, Value, MouseButtonOptions[1].ConfigName);
+				m_JoystickMouseButton[0] = FindOptionValue(Value, MouseButtonOptions, 0);
+			}
+
+			m_Preferences.GetStringValue(CFG_JOYSTICK2_DEVICE, Value, AnalogueInputDeviceStr[0]);
+
+			m_AnalogueInputDevice[1] = static_cast<AnalogueInputDevice>(FindEnum(Value, AnalogueInputDeviceStr, 0));
+
+			if (m_AnalogueInputDevice[1] == AnalogueInputDevice::Joystick)
+			{
+				m_Preferences.GetStringValue(CFG_JOYSTICK2_DEVICE_TYPE, Value, JoystickDeviceTypeStr[1]);
+				m_JoystickDeviceType[1] = static_cast<JoystickDeviceType>(FindEnum(Value, JoystickDeviceTypeStr, 0));
+
+				m_Preferences.GetStringValue(CFG_JOYSTICK2_CONTROLLER, m_JoystickDeviceID[1], "");
+
+				m_Preferences.GetStringValue(CFG_JOYSTICK2_ANALOGUE_INPUT, Value, JoystickControlOptions[0].ConfigName);
+				m_JoystickControl[1] = FindOptionValue(Value, JoystickControlOptions, JOYSTICK_ANALOGUE_INPUT_LEFT_THUMBSTICK);
+
+				m_Preferences.GetStringValue(CFG_JOYSTICK2_BUTTON_INPUT, Value, JoystickButtonOptions[0].ConfigName);
+				m_JoystickButton[1] = FindOptionValue(Value, JoystickButtonOptions, JOYSTICK_BUTTON_A);
+			}
+			else if (m_AnalogueInputDevice[1] == AnalogueInputDevice::Mouse)
+			{
+				m_Preferences.GetStringValue(CFG_JOYSTICK2_ANALOGUE_INPUT, Value, MousestickOptions[0].ConfigName);
+				m_MousestickType[1] = static_cast<MousestickType>(FindOptionValue(Value, MousestickOptions, 0));
+
+				m_Preferences.GetStringValue(CFG_JOYSTICK2_BUTTON_INPUT, Value, MouseButtonOptions[1].ConfigName);
+				m_JoystickMouseButton[1] = FindOptionValue(Value, MouseButtonOptions, 0);
+			}
+		}
+		else
+		{
+			m_Preferences.GetStringValue(CFG_OPTIONS_STICKS, Value, JoystickOptionStr[0]);
+
+			JoystickOption Option = static_cast<JoystickOption>(FindEnum(Value, JoystickOptionStr, 0));
+
+			SetJoystickOption(Option);
 		}
 	}
 	else
@@ -907,13 +968,17 @@ void BeebWin::LoadInputPreferences(int Version)
 		// BeebEm 4.19 and earlier stored a menu item ID.
 		m_Preferences.GetDWORDValue(CFG_OPTIONS_STICKS, Value, 0);
 
+		JoystickOption Option;
+
 		switch (Value)
 		{
-			case 40030:          m_JoystickOption = JoystickOption::Disabled; break; // Not Joystick, in case unplugged
-			case 40205:          m_JoystickOption = JoystickOption::AnalogueMouseStick; break;
-			case 40206:          m_JoystickOption = JoystickOption::DigitalMouseStick; break;
-			case 0:     default: m_JoystickOption = JoystickOption::Disabled; break;
+			case 40030:          Option = JoystickOption::Disabled; break; // Not Joystick, in case unplugged
+			case 40205:          Option = JoystickOption::AnalogueMousestick; break;
+			case 40206:          Option = JoystickOption::DigitalMousestick; break;
+			case 0:     default: Option = JoystickOption::Disabled; break;
 		}
+
+		SetJoystickOption(Option);
 	}
 
 	if (Version >= 3)
@@ -1778,8 +1843,38 @@ void BeebWin::SavePreferences(bool saveAll)
 		m_Preferences.EraseValue(CFG_SOUND_PART_SAMPLES_OLD);
 		m_Preferences.SetBoolValue(CFG_MUSIC5000_ENABLED, Music5000Enabled);
 
-		// Keyboard and joystick
-		m_Preferences.SetStringValue(CFG_OPTIONS_STICKS, JoystickOptionStr[(int)m_JoystickOption]);
+		// Joystick
+		m_Preferences.SetStringValue(CFG_JOYSTICK1_DEVICE, AnalogueInputDeviceStr[(int)m_AnalogueInputDevice[0]]);
+
+		if (m_AnalogueInputDevice[0] == AnalogueInputDevice::Joystick)
+		{
+			m_Preferences.SetStringValue(CFG_JOYSTICK1_DEVICE_TYPE, JoystickDeviceTypeStr[(int)m_JoystickDeviceType[0]]);
+			m_Preferences.SetStringValue(CFG_JOYSTICK1_CONTROLLER, m_JoystickDeviceID[0]);
+			m_Preferences.SetStringValue(CFG_JOYSTICK1_ANALOGUE_INPUT, GetOptionValueStr(JoystickControlOptions, m_JoystickControl[0]));
+			m_Preferences.SetStringValue(CFG_JOYSTICK1_BUTTON_INPUT, GetOptionValueStr(JoystickButtonOptions, m_JoystickButton[0]));
+		}
+		else if (m_AnalogueInputDevice[0] == AnalogueInputDevice::Mouse)
+		{
+			m_Preferences.SetStringValue(CFG_JOYSTICK1_ANALOGUE_INPUT, GetOptionValueStr(MousestickOptions, (int)m_MousestickType[0]));
+			m_Preferences.SetStringValue(CFG_JOYSTICK1_BUTTON_INPUT, GetOptionValueStr(MouseButtonOptions, m_JoystickMouseButton[0]));
+		}
+
+		m_Preferences.SetStringValue(CFG_JOYSTICK2_DEVICE, AnalogueInputDeviceStr[(int)m_AnalogueInputDevice[1]]);
+
+		if (m_AnalogueInputDevice[1] == AnalogueInputDevice::Joystick)
+		{
+			m_Preferences.SetStringValue(CFG_JOYSTICK2_DEVICE_TYPE, JoystickDeviceTypeStr[(int)m_JoystickDeviceType[1]]);
+			m_Preferences.SetStringValue(CFG_JOYSTICK2_CONTROLLER, m_JoystickDeviceID[1]);
+			m_Preferences.SetStringValue(CFG_JOYSTICK2_ANALOGUE_INPUT, GetOptionValueStr(JoystickControlOptions, m_JoystickControl[1]));
+			m_Preferences.SetStringValue(CFG_JOYSTICK2_BUTTON_INPUT, GetOptionValueStr(JoystickButtonOptions, m_JoystickButton[1]));
+		}
+		else if (m_AnalogueInputDevice[1] == AnalogueInputDevice::Mouse)
+		{
+			m_Preferences.SetStringValue(CFG_JOYSTICK2_ANALOGUE_INPUT, GetOptionValueStr(MousestickOptions, (int)m_MousestickType[1]));
+			m_Preferences.SetStringValue(CFG_JOYSTICK2_BUTTON_INPUT, GetOptionValueStr(MouseButtonOptions, m_JoystickMouseButton[1]));
+		}
+
+		// Keyboard
 		m_Preferences.SetStringValue(CFG_OPTIONS_KEY_MAPPING, KeyboardMappingTypeStr[(int)m_KeyboardMapping]);
 		m_Preferences.SetStringValue(CFG_OPTIONS_USER_KEY_MAP_FILE, m_UserKeyMapPath);
 

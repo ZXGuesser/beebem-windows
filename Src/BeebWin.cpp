@@ -60,6 +60,7 @@ using std::max;
 #include "AtoDConv.h"
 #include "AviWriter.h"
 #include "BeebMem.h"
+#include "BeebWinPrefs.h"
 #include "Debug.h"
 #include "DebugTrace.h"
 #include "Disc1770.h"
@@ -73,6 +74,7 @@ using std::max;
 #include "Ide.h"
 #include "IP232.h"
 #include "JoystickDialog.h"
+#include "JoystickOptions.h"
 #include "KeyboardLinksDialog.h"
 #include "KeyMap.h"
 #include "Log.h"
@@ -127,6 +129,7 @@ const char DefaultBlurIntensities[8] = { 100, 88, 75, 62, 50, 38, 25, 12 };
 
 /****************************************************************************/
 
+static void ResetJoystick(int Joystick);
 static int CentreMessageBox(HWND hWnd, LPCTSTR pszText, LPCTSTR pszCaption, UINT Type);
 
 /****************************************************************************/
@@ -229,8 +232,19 @@ BeebWin::BeebWin()
 	m_pTexture = nullptr;
 	ZeroMemory(&m_TextureMatrix, sizeof(m_TextureMatrix));
 
-	// Joystick input
-	m_JoystickOption = JoystickOption::Disabled;
+	// Analog / Joystick input
+	m_bInitJoystick = false;
+
+	for (int Joystick = 0; Joystick < 2; Joystick++)
+	{
+		m_AnalogueInputDevice[Joystick] = AnalogueInputDevice::None;
+		m_JoystickDeviceIndex[Joystick] = 0;
+		m_JoystickDeviceType[Joystick] = JoystickDeviceType::XInput;
+		m_JoystickControl[Joystick] = JOYSTICK_ANALOGUE_INPUT_LEFT_THUMBSTICK;
+		m_JoystickButton[Joystick] = JOYSTICK_BUTTON_A;
+		m_MousestickType[Joystick] = MousestickType::Analogue;
+		m_JoystickMouseButton[Joystick] = MOUSE_BUTTON_LEFT;
+	}
 
 	// Mouse capture
 	m_HideCursor = false;
@@ -481,7 +495,13 @@ bool BeebWin::Initialise()
 	m_hMenu = GetMenu(m_hWnd);
 	m_hDC = GetDC(m_hWnd);
 
+	if (!m_JoystickController.Init(hInst, m_hWnd))
+	{
+		Report(MessageType::Error, "Failed to initialise XInput and DirectInput support");
+	}
+
 	RomConfig.Load(RomFile);
+
 	ApplyPreferences(true);
 
 	if (!m_DebugScriptFileName.empty())
@@ -515,12 +535,6 @@ bool BeebWin::Initialise()
 
 		return false;
 	}
-
-	if (!m_JoystickController.Init(hInst, m_hWnd))
-	{
-		Report(MessageType::Error, "Failed to initialise XInput and DirectInput support");
-	}
-
 
 	// Boot file if passed on command line
 	HandleCommandLineFile(1, m_CommandLineFileName2);
@@ -621,6 +635,9 @@ void BeebWin::ApplyPreferences(bool StartUp)
 	SoundReset();
 	if (SoundDefault) SoundInit();
 	SetSoundMenu();
+
+	// Avoid an E_ACCESSDENIED error when initialising a DirectInput joystick.
+	PostMessage(m_hWnd, WM_INIT_JOYSTICK, 0, 0);
 
 	// Serial init
 	if (SerialPortEnabled)
@@ -848,11 +865,14 @@ void BeebWin::ResetBeebSystem(Model NewModelType, bool LoadRoms)
 	AtoDInit();
 	SetRomMenu();
 
-	ResetJoystick();
+	ResetJoystick(0);
+	ResetJoystick(1);
 
 	if (NewModelType == Model::MasterET)
 	{
-		SetJoystickOption(JoystickOption::Disabled);
+		m_AnalogueInputDevice[0] = AnalogueInputDevice::None;
+		m_AnalogueInputDevice[1] = AnalogueInputDevice::None;
+		ApplyJoystickConfig();
 	}
 
 	char szDiscName[2][MAX_PATH];
@@ -1873,7 +1893,7 @@ void BeebWin::UpdateModelMenu()
 	EnableMenuItem(IDM_USER_PORT_RTC_MODULE, !IsMasterET);
 
 	// Options Menu
-	EnableMenuItem(IDM_SELECT_JOYSTICK, !IsMasterET);
+	EnableMenuItem(IDM_CONFIGURE_JOYSTICK, !IsMasterET);
 }
 
 void BeebWin::UpdateSFXMenu()
@@ -2031,138 +2051,332 @@ void BeebWin::SetRomMenu()
 
 /****************************************************************************/
 
-void BeebWin::OnSelectJoystick()
+void BeebWin::OnInitJoystick()
+{
+	m_JoystickController.EnumerateDevices();
+
+	for (int Joystick = 0; Joystick < 2; Joystick++)
+	{
+		if (m_AnalogueInputDevice[Joystick] == AnalogueInputDevice::Joystick)
+		{
+			int Index = m_JoystickController.FindDevice(m_JoystickDeviceType[Joystick],
+			                                            m_JoystickDeviceID[Joystick]);
+
+			if (Index != -1)
+			{
+				HRESULT hResult = m_JoystickController.SetDeviceActive(Index);
+
+				if (SUCCEEDED(hResult))
+				{
+					m_JoystickDeviceIndex[Joystick] = Index;
+				}
+				else
+				{
+					Report(MessageType::Error,
+					       "Failed to initialise joystick %d.\n\nError %08X",
+					       Joystick + 1, hResult);
+				}
+			}
+			else
+			{
+				m_AnalogueInputDevice[Joystick] = AnalogueInputDevice::None;
+			}
+		}
+	}
+
+	m_bInitJoystick = true;
+}
+
+/****************************************************************************/
+
+void BeebWin::OnConfigureJoystick()
 {
 	JoystickDialog Dialog(hInst,
 	                      m_hWnd,
 	                      m_JoystickController,
-	                      m_JoystickOption);
+	                      m_AnalogueInputDevice,
+	                      m_JoystickDeviceType,
+	                      m_JoystickDeviceID,
+	                      m_JoystickControl,
+	                      m_JoystickButton,
+	                      m_MousestickType,
+	                      m_JoystickMouseButton);
 
 	if (Dialog.DoModal())
 	{
-		JoystickOption Option = Dialog.GetJoystickOption();
-
-		if (Option == JoystickOption::Joystick)
+		for (int Joystick = 0; Joystick < 2; Joystick++)
 		{
-			size_t Index = Dialog.GetDeviceIndex();
+			m_AnalogueInputDevice[Joystick] = Dialog.GetAnalogueInputDevice(Joystick);
 
-			m_JoystickController.SetActiveDevice(Index);
+			switch (m_AnalogueInputDevice[Joystick])
+			{
+				case AnalogueInputDevice::Joystick:
+					m_JoystickDeviceType[Joystick] = Dialog.GetJoystickDeviceType(Joystick);
+					m_JoystickDeviceID[Joystick] = Dialog.GetJoystickDeviceID(Joystick);
+					m_JoystickDeviceIndex[Joystick] = m_JoystickController.FindDevice(m_JoystickDeviceType[Joystick], m_JoystickDeviceID[Joystick]);
+					m_JoystickControl[Joystick] = Dialog.GetJoystickControl(Joystick);
+					m_JoystickButton[Joystick] = Dialog.GetJoystickButton(Joystick);
+					m_MousestickType[Joystick] = MousestickType::Analogue;
+					m_JoystickMouseButton[Joystick] = 0;
+					break;
+
+				case AnalogueInputDevice::Mouse:
+					m_JoystickDeviceType[Joystick] = JoystickDeviceType::XInput;
+					m_JoystickDeviceID[Joystick].clear();
+					m_JoystickDeviceIndex[Joystick] = 0;
+					m_JoystickControl[Joystick] = 0;
+					m_JoystickButton[Joystick] = 0;
+					m_MousestickType[Joystick] = Dialog.GetMousestickType(Joystick);
+					m_JoystickMouseButton[Joystick] = Dialog.GetJoystickMouseButton(Joystick);
+					break;
+
+				case AnalogueInputDevice::None:
+				default:
+					m_JoystickDeviceType[Joystick] = JoystickDeviceType::XInput;
+					m_JoystickDeviceID[Joystick].clear();
+					m_JoystickDeviceIndex[Joystick] = 0;
+					m_JoystickControl[Joystick] = 0;
+					m_JoystickButton[Joystick] = 0;
+					m_MousestickType[Joystick] = MousestickType::Analogue;
+					m_JoystickMouseButton[Joystick] = 0;
+					break;
+			}
 		}
 
-		SetJoystickOption(Option);
+		ApplyJoystickConfig();
 	}
 }
 
 /****************************************************************************/
 
-void BeebWin::SetJoystickOption(JoystickOption Option)
+static void SetAtoDState(int Joystick, int x, int y)
 {
-	// Disable current selection.
-	if (m_JoystickOption == JoystickOption::Joystick)
-	{
-		ResetJoystick();
-	}
-	else if (m_JoystickOption == JoystickOption::AnalogueMouseStick ||
-	         m_JoystickOption == JoystickOption::DigitalMouseStick)
-	{
-		ResetJoystick();
-	}
-
-	// Initialise new selection.
-	m_JoystickOption = Option;
+	AtoDChannel[Joystick * 2]     = x;
+	AtoDChannel[Joystick * 2 + 1] = y;
 }
 
 /****************************************************************************/
 
-void BeebWin::ResetJoystick()
+static void ResetJoystick(int Joystick)
 {
 	// Move joystick to middle (Super Pool looks at joystick even when
 	// not selected)
-	AtoDChannel[0] = 32768;
-	AtoDChannel[1] = 32768;
+	SetAtoDState(Joystick, 32768, 32768);
+}
+
+/****************************************************************************/
+
+void BeebWin::ApplyJoystickConfig()
+{
+	m_JoystickController.ReleaseAllDevices();
+
+	for (int Joystick = 0; Joystick < 2; Joystick++)
+	{
+		ResetJoystick(Joystick);
+
+		if (m_AnalogueInputDevice[Joystick] == AnalogueInputDevice::Joystick)
+		{
+			int Index = m_JoystickController.FindDevice(m_JoystickDeviceType[Joystick],
+			                                            m_JoystickDeviceID[Joystick]);
+
+			if (Index != -1)
+			{
+				HRESULT hResult = m_JoystickController.SetDeviceActive(Index);
+
+				if (FAILED(hResult))
+				{
+					Report(MessageType::Error,
+					       "Failed to initialise joystick %d.\n\nError %08X",
+					       Joystick + 1, hResult);
+				}
+			}
+		}
+	}
+}
+
+/****************************************************************************/
+
+// Used when reading Preferences files from BeebEm 4.22 or earlier.
+
+void BeebWin::SetJoystickOption(JoystickOption Option)
+{
+	switch (Option)
+	{
+		case JoystickOption::Disabled:
+		default:
+			m_AnalogueInputDevice[0] = AnalogueInputDevice::None;
+			m_AnalogueInputDevice[1] = AnalogueInputDevice::None;
+			break;
+
+		case JoystickOption::Joystick:
+			// Don't automatically enable joysticks, in case unplugged.
+			m_AnalogueInputDevice[0] = AnalogueInputDevice::None;
+			m_AnalogueInputDevice[1] = AnalogueInputDevice::None;
+			break;
+
+		case JoystickOption::AnalogueMousestick:
+			m_AnalogueInputDevice[0] = AnalogueInputDevice::Mouse;
+			m_MousestickType[0] = MousestickType::Analogue;
+			m_JoystickMouseButton[0] = MOUSE_BUTTON_LEFT | MOUSE_BUTTON_RIGHT;
+
+			m_AnalogueInputDevice[1] = AnalogueInputDevice::None;
+			break;
+
+		case JoystickOption::DigitalMousestick:
+			m_AnalogueInputDevice[0] = AnalogueInputDevice::Mouse;
+			m_MousestickType[0] = MousestickType::Digital;
+			m_JoystickMouseButton[0] = MOUSE_BUTTON_LEFT | MOUSE_BUTTON_RIGHT;
+
+			m_AnalogueInputDevice[1] = AnalogueInputDevice::None;
+			break;
+	}
+}
+
+/****************************************************************************/
+
+static void SetAtoDStateFromDPad(int Joystick, int ButtonState)
+{
+	int x = 32768;
+	int y = 32768;
+
+	if (ButtonState & JOYSTICK_BUTTON_LEFT)
+	{
+		x = 65535;
+	}
+	else if (ButtonState & JOYSTICK_BUTTON_RIGHT)
+	{
+		x = 0;
+	}
+
+	if (ButtonState & JOYSTICK_BUTTON_DOWN)
+	{
+		y = 0;
+	}
+	else if (ButtonState & JOYSTICK_BUTTON_UP)
+	{
+		y = 65535;
+	}
+
+	SetAtoDState(Joystick, x, y);
 }
 
 /****************************************************************************/
 
 void BeebWin::UpdateJoystick()
 {
-	JoystickState State;
+	bool Reset = false;
 
-	if (m_JoystickController.GetState(&State))
+	for (int Joystick = 0; Joystick < 2; Joystick++)
 	{
-		if (State.Buttons & JOYSTICK_BUTTON_DPAD)
+		if (m_AnalogueInputDevice[Joystick] != AnalogueInputDevice::Joystick)
 		{
-			AtoDChannel[0] = 32768;
-			AtoDChannel[1] = 32768;
+			continue;
+		}
 
-			if (State.Buttons & JOYSTICK_BUTTON_LEFT)
+		JoystickState State;
+
+		if (m_JoystickController.GetState(m_JoystickDeviceIndex[Joystick], &State))
+		{
+			if ((m_JoystickControl[Joystick] & JOYSTICK_ANALOGUE_INPUT_DPAD) &&
+			    (m_JoystickControl[Joystick] & (JOYSTICK_ANALOGUE_INPUT_LEFT_THUMBSTICK |
+			                                    JOYSTICK_ANALOGUE_INPUT_RIGHT_THUMBSTICK)))
 			{
-				AtoDChannel[0] = 65535;
+				if (State.Buttons & JOYSTICK_BUTTON_DPAD)
+				{
+					SetAtoDStateFromDPad(Joystick, State.Buttons);
+				}
+				else if (m_JoystickControl[Joystick] & JOYSTICK_ANALOGUE_INPUT_LEFT_THUMBSTICK)
+				{
+					SetAtoDState(Joystick, State.LeftX, State.LeftY);
+				}
+				else if (m_JoystickControl[Joystick] & JOYSTICK_ANALOGUE_INPUT_RIGHT_THUMBSTICK)
+				{
+					SetAtoDState(Joystick, State.RightX, State.RightY);
+				}
 			}
-			else if (State.Buttons & JOYSTICK_BUTTON_RIGHT)
+			else if (m_JoystickControl[Joystick] & JOYSTICK_ANALOGUE_INPUT_DPAD)
 			{
-				AtoDChannel[0] = 0;
+				SetAtoDStateFromDPad(Joystick, State.Buttons);
+			}
+			else if (m_JoystickControl[Joystick] & JOYSTICK_ANALOGUE_INPUT_LEFT_THUMBSTICK)
+			{
+				SetAtoDState(Joystick, State.LeftX, State.LeftY);
+			}
+			else if (m_JoystickControl[Joystick] & JOYSTICK_ANALOGUE_INPUT_RIGHT_THUMBSTICK)
+			{
+				SetAtoDState(Joystick, State.RightX, State.RightY);
 			}
 
-			if (State.Buttons & JOYSTICK_BUTTON_DOWN)
-			{
-				AtoDChannel[1] = 0;
-			}
-			else if (State.Buttons & JOYSTICK_BUTTON_UP)
-			{
-				AtoDChannel[1] = 65535;
-			}
+			const int Buttons = State.Buttons & JOYSTICK_BUTTON_BUTTONS & m_JoystickButton[Joystick];
+
+			SysVIAButton[Joystick] = Buttons != 0;
 		}
 		else
 		{
-			AtoDChannel[0] = State.X;
-			AtoDChannel[1] = State.Y;
+			#ifdef DEBUG_JOYSTICK
+			DebugTrace("Joystick GetState() returned false, set AnalogueInputDevice::None\n");
+			#endif
+
+			m_AnalogueInputDevice[Joystick] = AnalogueInputDevice::None;
+			Reset = true;
 		}
-
-		SysVIAButton[0] = (State.Buttons & JOYSTICK_BUTTON_BUTTONS) != 0;
 	}
-	else
+
+	if (Reset)
 	{
-		SetJoystickOption(JoystickOption::Disabled);
+		ApplyJoystickConfig();
 	}
 }
 
 /****************************************************************************/
 
-void BeebWin::SetMousestickButton(int Index, bool ButtonPressed)
+void BeebWin::SetMousestickButton(int Button, bool Pressed)
 {
-	if (m_JoystickOption == JoystickOption::AnalogueMouseStick ||
-	    m_JoystickOption == JoystickOption::DigitalMouseStick)
+	for (int Joystick = 0; Joystick < 2; Joystick++)
 	{
-		SysVIAButton[Index] = ButtonPressed;
+		if (m_AnalogueInputDevice[Joystick] == AnalogueInputDevice::Mouse)
+		{
+			if ((m_JoystickMouseButton[Joystick] & Button) != 0)
+			{
+				SysVIAButton[Joystick] = Pressed;
+			}
+		}
 	}
 }
 
 /****************************************************************************/
+
 void BeebWin::ScaleMousestick(unsigned int x, unsigned int y)
 {
 	static int LastX = 32768;
 	static int LastY = 32768;
 
-	if (m_JoystickOption == JoystickOption::AnalogueMouseStick)
+	int dx = x - LastX;
+	int dy = y - LastY;
+
+	for (int Joystick = 0; Joystick < 2; Joystick++)
 	{
-		AtoDChannel[0] = (m_XWinSize - x) * 65535 / m_XWinSize;
-		AtoDChannel[1] = (m_YWinSize - y) * 65535 / m_YWinSize;
+		if (m_AnalogueInputDevice[Joystick] == AnalogueInputDevice::Mouse)
+		{
+			if (m_MousestickType[Joystick] == MousestickType::Analogue)
+			{
+				SetAtoDState(Joystick,
+				             (m_XWinSize - x) * 65535 / m_XWinSize,
+				             (m_YWinSize - y) * 65535 / m_YWinSize);
+			}
+			else if (m_MousestickType[Joystick] == MousestickType::Digital)
+			{
+				if (dx > 4) AtoDChannel[2 * Joystick + 0] = 0;
+				if (dx < -4) AtoDChannel[2 * Joystick + 0] = 65535;
+
+				if (dy > 4) AtoDChannel[2 * Joystick + 1] = 0;
+				if (dy < -4) AtoDChannel[2 * Joystick + 1] = 65535;
+			}
+		}
 	}
-	else if (m_JoystickOption == JoystickOption::DigitalMouseStick)
-	{
-		int dx = x - LastX;
-		int dy = y - LastY;
 
-		if (dx > 4) AtoDChannel[0] = 0;
-		if (dx < -4) AtoDChannel[0] = 65535;
-
-		if (dy > 4) AtoDChannel[1] = 0;
-		if (dy < -4) AtoDChannel[1] = 65535;
-
-		LastX = x;
-		LastY = y;
-	}
+	LastX = x;
+	LastY = y;
 }
 
 /****************************************************************************/
@@ -2549,13 +2763,13 @@ LRESULT BeebWin::WndProc(UINT nMessage, WPARAM wParam, LPARAM lParam)
 			}
 			else
 			{
-				SetMousestickButton(0, (wParam & MK_LBUTTON) != 0);
+				SetMousestickButton(MOUSE_BUTTON_LEFT, (wParam & MK_LBUTTON) != 0);
 				AMXButtons |= AMX_LEFT_BUTTON;
 			}
 			break;
 
 		case WM_LBUTTONUP:
-			SetMousestickButton(0, (wParam & MK_LBUTTON) != 0);
+			SetMousestickButton(MOUSE_BUTTON_LEFT, (wParam & MK_LBUTTON) != 0);
 			AMXButtons &= ~AMX_LEFT_BUTTON;
 			break;
 
@@ -2568,12 +2782,12 @@ LRESULT BeebWin::WndProc(UINT nMessage, WPARAM wParam, LPARAM lParam)
 			break;
 
 		case WM_RBUTTONDOWN:
-			SetMousestickButton(1, (wParam & MK_RBUTTON) != 0);
+			SetMousestickButton(MOUSE_BUTTON_RIGHT, (wParam & MK_RBUTTON) != 0);
 			AMXButtons |= AMX_RIGHT_BUTTON;
 			break;
 
 		case WM_RBUTTONUP:
-			SetMousestickButton(1, (wParam & MK_RBUTTON) != 0);
+			SetMousestickButton(MOUSE_BUTTON_RIGHT, (wParam & MK_RBUTTON) != 0);
 			AMXButtons &= ~AMX_RIGHT_BUTTON;
 			break;
 
@@ -2626,6 +2840,10 @@ LRESULT BeebWin::WndProc(UINT nMessage, WPARAM wParam, LPARAM lParam)
 			free(Buffer);
 			break;
 		}
+
+		case WM_INIT_JOYSTICK:
+			OnInitJoystick();
+			break;
 
 		default: // Passes it on if unprocessed
 			return DefWindowProc(m_hWnd, nMessage, wParam, lParam);
@@ -2763,7 +2981,10 @@ bool BeebWin::StartOfFrame()
 		}
 	}
 
-	if (UpdateScreen && m_JoystickOption == JoystickOption::Joystick)
+	if (m_bInitJoystick &&
+	    UpdateScreen &&
+	    (m_AnalogueInputDevice[0] == AnalogueInputDevice::Joystick ||
+	     m_AnalogueInputDevice[1] == AnalogueInputDevice::Joystick))
 	{
 		UpdateJoystick();
 	}
@@ -3715,9 +3936,11 @@ void BeebWin::ConfigureSerial()
 			{
 				// Also switch on analogue mousestick (touch screen uses
 				// mousestick position)
-				if (m_JoystickOption != JoystickOption::AnalogueMouseStick)
+				if (m_AnalogueInputDevice[0] != AnalogueInputDevice::Mouse)
 				{
-					SetJoystickOption(JoystickOption::AnalogueMouseStick);
+					m_AnalogueInputDevice[0] = AnalogueInputDevice::Mouse;
+					m_MousestickType[0] = MousestickType::Analogue;
+					ApplyJoystickConfig();
 				}
 
 				TouchScreenOpen();
@@ -4331,8 +4554,8 @@ void BeebWin::HandleCommand(UINT MenuID)
 		TogglePause();
 		break;
 
-	case IDM_SELECT_JOYSTICK:
-		OnSelectJoystick();
+	case IDM_CONFIGURE_JOYSTICK:
+		OnConfigureJoystick();
 		break;
 
 	case IDM_FREEZEINACTIVE:
@@ -5002,7 +5225,8 @@ void BeebWin::OnActivate(bool Active)
 		ReleaseMouse();
 	}
 
-	if (m_JoystickOption == JoystickOption::Joystick)
+	if (m_AnalogueInputDevice[0] == AnalogueInputDevice::Joystick ||
+	    m_AnalogueInputDevice[1] == AnalogueInputDevice::Joystick)
 	{
 		m_JoystickController.Acquire(Active);
 	}
