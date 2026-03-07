@@ -86,6 +86,8 @@ struct RomInfo {
 extern bool Sh_Display;
 /* End of Master 128 Specific Stuff, note initialised anyway regardless of Model Type in use */
 
+extern unsigned char InitialRAMValue;
+
 extern RomConfigFile RomConfig;
 extern char RomPath[MAX_PATH];
 extern char RomFile[MAX_PATH];

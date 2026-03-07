@@ -33,6 +33,7 @@ const char* const CFG_PREFERENCES_VERSION          = "PrefsVersion";
 const char* const CFG_MACHINE_TYPE                 = "MachineType";
 const char* const CFG_BASIC_HARDWARE_ONLY          = "BasicHardwareOnly";
 const char* const CFG_BASIC_HARDWARE_ONLY_OLD      = "Basic Hardware"; // For BeebEm v4.19 and earlier.
+const char* const CFG_INITIAL_RAM_VALUE            = "InitialRAMValue";
 const char* const CFG_SPEECH_ENABLED               = "SpeechEnabled";
 const char* const CFG_ECONET_ENABLED               = "EconetEnabled";
 const char* const CFG_KEYBOARD_LINKS               = "KeyboardLinks";

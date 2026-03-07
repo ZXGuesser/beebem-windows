@@ -140,6 +140,8 @@ static bool FSRAMSelect;
 static bool Sh_CPUX, Sh_CPUE;
 /* End of Master 128 Specific Stuff, note initialised anyway regardless of Model Type in use */
 
+unsigned char InitialRAMValue = 0x00;
+
 /* ROM file data */
 char RomPath[MAX_PATH];
 char RomFile[MAX_PATH];
@@ -1390,30 +1392,30 @@ void IntegraBRTCReset()
 void BeebMemInit(bool LoadRoms, bool SkipIntegraBConfig)
 {
   // Reset everything
-  memset(WholeRam,0,0x8000);
-  memset(FSRam,0,0x2000);
-  memset(ShadowRAM,0,0x8000);
-  memset(PrivateRAM,0,0x1000);
+  memset(WholeRam, InitialRAMValue, 0x8000);
+  memset(FSRam, InitialRAMValue, 0x2000);
+  memset(ShadowRAM, InitialRAMValue, 0x8000);
+  memset(PrivateRAM, InitialRAMValue, 0x1000);
   ACCCON = 0;
   Sh_Display = false;
   FSRAMSelect = false;
   PrivateRAMSelect = false;
   Sh_CPUE = false;
   Sh_CPUX = false;
-  memset(Private,0,0x3000);
+  memset(Private, InitialRAMValue, 0x3000);
   Private[0x3b2] = 0x04; // Default OSMODE to 4
   Private[0x3b5] = 0x14; // Default Century to 2000
   Private[0x3b8] = 0xFF; // Default
   Private[0x3b9] = 0xFF; // Default
   Private[0x3ba] = 0x90; // Default
   Private[0x3ff] = 0x0F; // Default RAM in bank locations 4, 5, 6 & 7
-  memset(ShadowRam,0,0x5000);
+  memset(ShadowRam, InitialRAMValue, 0x5000);
   MemSel = PrvEn = ShEn = Prvs1 = Prvs4 = Prvs8 = false;
   HidAdd = 0;
 
   if (!SkipIntegraBConfig)
   {
-	  memset(Hidden,0,256);
+	  memset(Hidden, InitialRAMValue, 256);
 	  memcpy(Hidden, HiddenDefault, 32);
   }
 

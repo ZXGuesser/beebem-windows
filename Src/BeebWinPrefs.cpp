@@ -378,6 +378,10 @@ void BeebWin::LoadHardwarePreferences(int Version)
 		m_Preferences.GetBoolValue(CFG_BASIC_HARDWARE_ONLY_OLD, BasicHardwareOnly, false);
 	}
 
+	DWORD Value;
+	m_Preferences.GetDWORDValue(CFG_INITIAL_RAM_VALUE, Value, 0);
+	InitialRAMValue = (unsigned char)Value;
+
 	#if ENABLE_SPEECH
 
 	m_Preferences.GetBoolValue(CFG_SPEECH_ENABLED, SpeechEnabled, false);
