@@ -9,6 +9,20 @@ Contributors: Chris Needham
 * Added support for modern game controllers, using XInput and
   DirectInput. These are selected from a new dialog box, replacing
   the Options -> Joystick menu options.
+* Fixed the BBSn and BBRn 65C02 instructions in the Tube coprocessor.
+* Added an InitialRAMValue Preferences setting.
+* Fixed the zip file distribution to include the Master ET ROMs.
+* Debugger improvements:
+  - Fixed the "watch" debugger command as it was not possible to remove
+    a watch if the maximum number of watches was reached.
+  - The debugger state (e.g., watches, breakpoints, etc) is now
+    preserved on closing and reopening the Debug window.
+  - Improved Z80 disassembler output.
+  - Added disassembler support for the ARM coprocessor.
+  - Fixed DebugLookupAddress() to allow for host and co-processor
+    addresses.
+  - The memory address information display now supports co-processor
+    addresses.
 
 Version 4.22 (30 January 2026)
 ------------
@@ -29,14 +43,14 @@ Contributors: Chris Needham, Alistair Cree, Ken Lowe, Tom Seddon
   enable Text to Speech via the menu, or on loading a Preferences file that
   has Text to Speech enabled.
 * Debugger improvements:
-  * The -DebugLabels command line option and "labels load" debugger command
+  - The -DebugLabels command line option and "labels load" debugger command
     now accept either BeebAsm or VICE format label files.
-  * Debug labels can now be set independently for the host and Tube
+  - Debug labels can now be set independently for the host and Tube
     processors.
-  * Added a -DebugTubeLabels command line option to load labels for the
+  - Added a -DebugTubeLabels command line option to load labels for the
     Tube coprocessor.
-  * Added a "labels clear" debugger command to clear all existing labels.
-  * The "peek" and "poke" debugger commands can now read and write memory
+  - Added a "labels clear" debugger command to clear all existing labels.
+  - The "peek" and "poke" debugger commands can now read and write memory
     in all Tube coprocessors.
 * BeebEm can now be compiled wthout requiring the DirectX9 SDK to be
   installed.
