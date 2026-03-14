@@ -1244,9 +1244,10 @@ static void SetMemoryBit(int bit)
 static void BranchOnBitReset(int bit)
 {
 	const int EffectiveAddress = TubeRam[TubeProgramCounter++];
-	const int Offset = TubeRam[TubeProgramCounter++];
+	const int Offset = (signed char)TubeRam[TubeProgramCounter++];
 
-	if ((TubeRam[EffectiveAddress] & (1 << bit)) == 0) {
+	if ((TubeRam[EffectiveAddress] & (1 << bit)) == 0)
+	{
 		TubeProgramCounter += Offset;
 	}
 }
@@ -1254,9 +1255,10 @@ static void BranchOnBitReset(int bit)
 static void BranchOnBitSet(int bit)
 {
 	const int EffectiveAddress = TubeRam[TubeProgramCounter++];
-	const int Offset = TubeRam[TubeProgramCounter++];
+	const int Offset = (signed char)TubeRam[TubeProgramCounter++];
 
-	if (TubeRam[EffectiveAddress] & (1 << bit)) {
+	if (TubeRam[EffectiveAddress] & (1 << bit))
+	{
 		TubeProgramCounter += Offset;
 	}
 }
