@@ -548,7 +548,7 @@ bool JoystickController::Init(HINSTANCE hInstance, HWND hWnd)
 	m_hInstance = hInstance;
 	m_hWnd = hWnd;
 
-	static const char* XInputLibraries[] =
+	static const char* const XInputLibraries[] =
 	{
 		"xinput1_4.dll",
 		"xinput1_3.dll",
