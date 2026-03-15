@@ -413,7 +413,6 @@ public:
 	void SaveEmuUEF(FILE *SUEF);
 	void LoadEmuUEF(FILE *SUEF,int Version);
 
-	void UpdateOptionsMenu();
 	void FlashWindow();
 
 	void SetMonitorType(MonitorType Type);
