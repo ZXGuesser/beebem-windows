@@ -30,7 +30,6 @@ Boston, MA  02110-1301, USA.
 #include <vector>
 
 typedef DWORD (WINAPI *XINPUT_GET_STATE)(DWORD, XINPUT_STATE*);
-typedef DWORD (WINAPI *XINPUT_SET_STATE)(DWORD, XINPUT_VIBRATION*);
 
 // Same as XINPUT_STATE values
 
@@ -191,14 +190,11 @@ class JoystickController
 		HINSTANCE m_hInstance;
 		HWND m_hWnd;
 		HMODULE m_hXInputModule;
-
 		XINPUT_GET_STATE m_XInputGetState;
-
 		IDirectInput8* m_pDirectInput;
-
 		std::vector<JoystickDevice*> m_Devices;
 };
 
-#define DEBUG_JOYSTICK
+// #define DEBUG_JOYSTICK
 
 #endif
