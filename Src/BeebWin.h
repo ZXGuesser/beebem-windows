@@ -256,6 +256,14 @@ public:
 	void ApplyPreferences(bool StartUp);
 	void Shutdown();
 
+	bool InitClass();
+	bool CreateBeebWindow();
+	void InitMenu();
+	DWORD SetWindowStyle(DWORD StylesToAdd, DWORD StylesToClear);
+	void CreateBitmap();
+	void ReleaseBitmap();
+	HWND GethWnd() { return m_hWnd; }
+
 	static LRESULT CALLBACK WndProc(HWND hWnd,
 	                                UINT nMessage,
 	                                WPARAM wParam,
@@ -264,19 +272,19 @@ public:
 	LRESULT WndProc(UINT nMessage, WPARAM wParam, LPARAM lParam);
 
 	void UpdateModelMenu();
-	void SetSoundMenu(void);
 	void SetImageName(const char *DiscName, int Drive, DiscType Type);
-	void SetTapeSpeedMenu();
-	void SetUnlockTape(bool Unlock);
 	void SetRomMenu(); // LRW  Added for individual ROM/RAM
 	void SelectTube(TubeDevice Device);
 	void UpdateTubeMenu();
+	void UpdateLEDMenu();
+
+	// Floppy Disk Controller
 	void SelectFDC();
 	bool LoadFDC(char *DLLName, bool Save);
-	void UpdateLEDMenu();
 	void SetDriveControl(unsigned char value);
-	unsigned char GetDriveControl(void);
-	void doLED(int sx, bool on);
+	unsigned char GetDriveControl();
+
+	// Image rendering
 	void UpdateLines(HDC hDC, int StartY, int NLines);
 	void UpdateLines(int StartY, int NLines) {
 		UpdateLines(m_hDC, StartY, NLines);
@@ -333,11 +341,14 @@ public:
 		return (SixteenUChars *)(m_screen + Offset);
 	}
 
-	HWND GethWnd() { return m_hWnd; }
+	void doLED(int sx, bool on);
+	void DisplayClientAreaText(HDC hDC);
+	void DisplayFDCBoardInfo(HDC hDC, int x, int y);
 
 	void SetModel(Model NewModelType);
 	void ResetBeebSystem(Model NewModelType, bool LoadRoms);
 	void Break();
+	bool RebootSystem();
 
 	void CreateArmCoPro();
 	void DestroyArmCoPro();
@@ -350,29 +361,22 @@ public:
 	bool ShouldDisplayTiming() const;
 	void UpdateWindowTitle();
 	bool IsWindowMinimized() const;
-	void DisplayClientAreaText(HDC hDC);
-	void DisplayFDCBoardInfo(HDC hDC, int x, int y);
 
 	void HandleCommand(UINT MenuID);
-	void SetAMXPosition(unsigned int x, unsigned int y);
-	void ChangeAMXPosition(int deltaX, int deltaY);
 	void CaptureMouse();
 	void ReleaseMouse();
 	void OnActivate(bool Active);
 	void OnSetFocus(bool Focus);
 	void OnSize(WPARAM ResizeType, int Width, int Height);
+
 	bool IsFrozen() const;
 	void TogglePause();
 	bool IsPaused() const;
 	void SetFreezeWhenInactive(bool State);
-	void EditRomConfig();
-	void OpenUserKeyboardDialog();
-	void UserKeyboardDialogClosed();
-	void ShowMenu(bool Show);
-	void HideMenu(bool Hide);
-	bool IsFullScreen() const { return m_FullScreen; }
 	void ResetTiming(void);
-	int TranslateKey(int vkey, bool keyUp, int &row, int &col);
+
+	void EditRomConfig();
+
 	void ParseCommandLine(void);
 	void CheckForLocalPrefs(const char *path, bool bLoadPrefs);
 	bool FindCommandLineFile(char *FileName);
@@ -385,16 +389,13 @@ public:
 	const char *GetUserDataPath() const { return m_UserDataPath; }
 	void GetDataPath(const char *Folder, char *Path);
 
-	bool LoadUEFTape(const char *FileName);
-	bool LoadCSWTape(const char *FileName);
-
-	void HandleKeyboardTimer();
+	// Clipboard
 	void OnCopy();
 	void OnPaste();
 	void ClearClipboardBuffer();
-	void PrintChar(unsigned char Value);
 	void CopyPrinterBufferToClipboard();
 
+	// Screen capture
 	void SetBitmapCaptureFormat(BitmapCaptureFormat Format);
 	void UpdateBitmapCaptureFormatMenu();
 	void SetBitmapCaptureResolution(BitmapCaptureResolution Resolution);
@@ -407,22 +408,18 @@ public:
 	void SetBootDiscTimer();
 	void OnTimer(UINT_PTR TimerID);
 
+	// UEF saved states
 	void SaveBeebEmID(FILE *SUEF);
 	void SaveEmuUEF(FILE *SUEF);
 	void LoadEmuUEF(FILE *SUEF,int Version);
 
-	bool InitClass();
-	bool CreateBeebWindow();
-	DWORD SetWindowStyle(DWORD StylesToAdd, DWORD StylesToClear);
-
 	void UpdateOptionsMenu();
 	void FlashWindow();
-	void CreateBitmap();
-	void ReleaseBitmap();
-	void InitMenu();
+
 	void SetMonitorType(MonitorType Type);
 	void UpdateMonitorMenu();
 
+	// Serial
 	void ToggleSerial();
 	void DisableSerial();
 	void ConfigureSerial();
@@ -433,8 +430,6 @@ public:
 	void ToggleEconet();
 	void UpdateEconetMenu();
 
-	void UpdateSFXMenu();
-
 	void DisableWindowsKeys();
 	void UpdateDisableKeysMenu();
 
@@ -442,19 +437,23 @@ public:
 	void UpdateDisplayRendererMenu();
 	void UpdateDisplayRendererOptionsMenu();
 
+	// Sound
+	void SetSoundMenu();
 	void SetSoundStreamer(SoundStreamerType StreamerType);
 	void UpdateSoundStreamerMenu();
-
 	void SetSoundSampleRate(unsigned int SampleRate);
 	void UpdateSoundSampleRateMenu();
-
 	void SetSoundVolume(int Volume);
+	void UpdateSFXMenu();
 	void UpdateSoundVolumeMenu();
 
 	#if ENABLE_SPEECH
 	void EnableSpeech(bool Enable);
 	#endif
 
+	// Menu
+	void ShowMenu(bool Show);
+	void HideMenu(bool Hide);
 	void CheckMenuItem(UINT id, bool Checked);
 	void CheckMenuRadioItem(UINT FirstID, UINT LastID, UINT SelectedID);
 	void EnableMenuItem(UINT id, bool Enabled);
@@ -485,9 +484,11 @@ public:
 	void SetWindowSize(int Width, int Height);
 	void UpdateWindowSizeMenu();
 	void SetDirectXFullScreenMode(DirectXFullScreenMode Mode);
-	void TranslateDDSize();
 	void UpdateDirectXFullScreenModeMenu();
+	void TranslateDDSize();
 	void ToggleFullScreen();
+	bool IsFullScreen() const { return m_FullScreen; }
+	HRESULT SetWindowAttributes(bool WasFullScreen);
 	void CalcAspectRatioAdjustment(int DisplayWidth, int DisplayHeight);
 
 	// Timing
@@ -495,17 +496,25 @@ public:
 	void TranslateTiming();
 	void SetRealTimeTarget(double RealTimeTarget);
 
+	// Keyboard input
+	void LoadUserKeyMap();
+	void SaveUserKeyMap();
+	void OpenUserKeyboardDialog();
+	void UserKeyboardDialogClosed();
 	void SetKeyboardMapping(KeyboardMappingType KeyboardMapping);
 	void UpdateKeyboardMappingMenu();
 	void TranslateKeyMapping();
-	bool ReadDisc(int Drive, bool bCheckForPrefs);
-	bool Load1770DiscImage(const char *FileName, int Drive, DiscType Type);
-	bool Load8271DiscImage(const char *FileName, int Drive, int Tracks, DiscType Type);
+	int TranslateKey(int vkey, bool keyUp, int &row, int &col);
+	void HandleKeyboardTimer();
 
 	// Tape
 	void LoadTape();
 	bool LoadTape(const char *FileName);
+	bool LoadUEFTape(const char *FileName);
+	bool LoadCSWTape(const char *FileName);
 	bool NewTape(char* FileName, int Size);
+	void SetTapeSpeedMenu();
+	void SetUnlockTape(bool Unlock);
 
 	// Joystick
 	void OnInitJoystick();
@@ -527,28 +536,37 @@ public:
 	void SaveUEFState(const char* FileName);
 	void EnableSaveState(bool Enable);
 
+	// Disks
+	bool ReadDisc(int Drive, bool bCheckForPrefs);
+	bool Load1770DiscImage(const char *FileName, int Drive, DiscType Type);
+	bool Load8271DiscImage(const char *FileName, int Drive, int Tracks, DiscType Type);
 	void NewDiscImage(int Drive);
 	void CreateDFSDiscImage(const char *FileName, int Drive, int Heads, int Tracks);
 	void EjectDiscImage(int Drive);
 	void ExportDiscFiles(int menuId);
 	void ImportDiscFiles(int menuId);
-	void SelectHardDriveFolder();
 	void ToggleWriteProtect(int Drive);
 	void SetDiscWriteProtect(int Drive, bool WriteProtect);
 	void SetDiscWriteProtects();
-	HRESULT SetWindowAttributes(bool WasFullScreen);
 
+	void SelectHardDriveFolder();
+
+	// AMX mouse
+	void SetAMXPosition(unsigned int x, unsigned int y);
+	void ChangeAMXPosition(int deltaX, int deltaY);
 	void SetAMXSize(AMXSizeType Size);
 	void UpdateAMXSizeMenu();
 	void TranslateAMX();
 	void SetAMXAdjust(int Adjust);
 	void UpdateAMXAdjustMenu();
 
+	// Printer
 	void SetPrinterPort(PrinterPortType PrinterPort);
 	void UpdatePrinterPortMenu();
 	bool GetPrinterFileName();
 	bool EnablePrinter(bool Enable);
 	void TranslatePrinterPort();
+	void PrintChar(unsigned char Value);
 
 	// AVI recording
 	void SetVideoCaptureResolution(VideoCaptureResolution Resolution);
@@ -572,6 +590,7 @@ public:
 	// Debugger
 	void OpenDebugWindow();
 
+	// Text to speech
 	bool InitTextToSpeech();
 	void TextToSpeechResetState();
 	void CloseTextToSpeech();
@@ -599,16 +618,13 @@ public:
 	void TextToSpeechReadScreen();
 	void TextToSpeechKey(WPARAM wParam);
 
+	// Text view
 	void InitTextView();
 	void CloseTextView();
 	void TextView();
 	void TextViewSpeechSync();
 	void TextViewSetCursorPos(int line, int col);
 	void TextViewSyncWithBeebCursor();
-
-	bool RebootSystem();
-	void LoadUserKeyMap(void);
-	void SaveUserKeyMap(void);
 
 	MessageResult Report(MessageType type, const char *format, ...);
 	MessageResult ReportV(MessageType type, const char *format, va_list args);
