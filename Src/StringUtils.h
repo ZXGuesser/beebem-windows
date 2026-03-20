@@ -28,9 +28,11 @@ Boston, MA  02110-1301, USA.
 
 void Trim(std::string& str);
 void ParseLine(const std::string& Line, std::vector<std::string>& Tokens);
+const char* ParseToken(const char* Str, std::string& Token);
 bool ParseNumber(const std::string& str, int* pValue);
 int ParseNumber(const char* Name, const std::string& str, int Min, int Max);
 bool ParseHexNumber(const std::string& str, unsigned long* pValue);
+bool ParseHexNumber(const std::string& str, int* pValue);
 char ToHexDigit(int Value);
 std::string BytesToString(const unsigned char* pData, int Length);
 bool StringEndsWith(const std::string& str, const std::string& suffix);

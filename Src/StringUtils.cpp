@@ -88,6 +88,31 @@ void ParseLine(const std::string& Line, std::vector<std::string>& Tokens)
 
 /****************************************************************************/
 
+const char* ParseToken(const char* Str, std::string& Token)
+{
+	Token.clear();
+
+	while (*Str != '\0' && isspace(*Str))
+	{
+		Str++;
+	}
+
+	while (*Str != '\0' && !isspace(*Str))
+	{
+		Token += *Str;
+		Str++;
+	}
+
+	while (*Str != '\0' && isspace(*Str))
+	{
+		Str++;
+	}
+
+	return Str;
+}
+
+/****************************************************************************/
+
 bool ParseNumber(const std::string& str, int* pValue)
 {
 	try
@@ -137,6 +162,29 @@ bool ParseHexNumber(const std::string& str, unsigned long* pValue)
 		std::size_t Pos = 0;
 
 		*pValue = std::stoul(str, &Pos, 16);
+
+		if (Pos != str.size())
+		{
+			return false;
+		}
+	}
+	catch (std::exception&)
+	{
+		return false;
+	}
+
+	return true;
+}
+
+/****************************************************************************/
+
+bool ParseHexNumber(const std::string& str, int* pValue)
+{
+	try
+	{
+		std::size_t Pos = 0;
+
+		*pValue = std::stoi(str, &Pos, 16);
 
 		if (Pos != str.size())
 		{

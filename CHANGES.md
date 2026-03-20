@@ -10,17 +10,17 @@ Contributors: Chris Needham
   DirectInput. These are selected from a new dialog box, replacing
   the Options -> Joystick menu options.
 * Fixed the BBSn and BBRn 65C02 instructions in the Tube coprocessor.
-* Added an InitialRAMValue Preferences setting.
+* Added an InitialRAMValue Preferences setting that lets you control
+  how RAM is initialised on reset.
 * Fixed the zip file distribution to include the Master ET ROMs.
 * Debugger improvements:
   - Fixed the "watch" debugger command as it was not possible to remove
     a watch if the maximum number of watches was reached.
+  - The "file" debugger command now supports co-processor addresses.
   - The debugger state (e.g., watches, breakpoints, etc) is now
     preserved on closing and reopening the Debug window.
   - Improved Z80 disassembler output.
   - Added disassembler support for the ARM coprocessor.
-  - Fixed DebugLookupAddress() to allow for host and co-processor
-    addresses.
   - The memory address information display now supports co-processor
     addresses.
 
