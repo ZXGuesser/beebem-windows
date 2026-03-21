@@ -258,6 +258,9 @@
     <ClCompile Include="Tube.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="UdpServer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Uef.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -588,6 +591,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Tube.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="UdpServer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Uef.h">

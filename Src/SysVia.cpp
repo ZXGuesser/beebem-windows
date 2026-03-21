@@ -49,7 +49,7 @@ Boston, MA  02110-1301, USA.
 // #define DEBUG_IC32
 // #define DEBUG_KEYBOARD
 // #define DEBUG_SLOW_DATA_BUS
-#define DEBUG_TIMER2
+// #define DEBUG_TIMER2
 
 // Shift register stuff
 // static unsigned char SRCount;
