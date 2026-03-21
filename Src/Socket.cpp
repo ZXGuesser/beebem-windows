@@ -256,3 +256,13 @@ bool IpAddressToString(int Family, const void* pAddress, std::string& Dest)
 }
 
 /****************************************************************************/
+
+std::string IpAddressStr(unsigned long IpAddress)
+{
+	std::string str;
+	IpAddressToString(AF_INET, &IpAddress, str);
+
+	return str;
+}
+
+/****************************************************************************/
