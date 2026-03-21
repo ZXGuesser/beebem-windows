@@ -243,6 +243,7 @@
     <ClCompile Include="Thread.cpp" />
     <ClCompile Include="TouchScreen.cpp" />
     <ClCompile Include="Tube.cpp" />
+    <ClCompile Include="UdpServer.cpp" />
     <ClCompile Include="Uef.cpp" />
     <ClCompile Include="UefState.cpp" />
     <ClCompile Include="UserKeyboardDialog.cpp" />
@@ -421,6 +422,7 @@
     <ClInclude Include="Thread.h" />
     <ClInclude Include="TouchScreen.h" />
     <ClInclude Include="Tube.h" />
+    <ClInclude Include="UdpServer.h" />
     <ClInclude Include="Uef.h" />
     <ClInclude Include="UefState.h" />
     <ClInclude Include="UserKeyboardDialog.h" />

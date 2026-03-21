@@ -34,5 +34,6 @@ unsigned long ParseIPAddress(const char* Name, const std::string& Value);
 int ParseIPAddress(int Family, const char* pszName, void* pAddr);
 bool IpAddressToString(int Family, const void* pAddress,
                        std::string& Dest);
+std::string IpAddressStr(unsigned long IpAddress);
 
 #endif
