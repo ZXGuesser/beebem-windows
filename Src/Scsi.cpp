@@ -113,6 +113,42 @@ static int SCSISize[4];
 
 bool SCSIDriveEnabled = false;
 
+static bool ReadGeometryFile(int lun)
+{
+	bool Success = true;
+
+	char FileName[MAX_PATH];
+	MakeFileName(FileName, MAX_PATH, HardDrivePath, "scsi%d.dsc", lun);
+
+	FILE* pFile = fopen(FileName, "rb");
+
+	if (pFile != nullptr)
+	{
+		unsigned char buff[22];
+		size_t BytesRead = fread(buff, 1, 22, pFile);
+
+		if (BytesRead == 22)
+		{
+			const int Heads = buff[15];
+			const int Cylinders = buff[13] * 256 + buff[14];
+
+			SCSISize[lun] = Heads * Cylinders * 33; // Number of sectors on disk = heads * cyls * 33
+		}
+		else
+		{
+			Success = false;
+		}
+
+		fclose(pFile);
+	}
+	else
+	{
+		Success = false;
+	}
+
+	return Success;
+}
+
 void SCSIReset()
 {
 	scsi.code = 0x00;
@@ -144,22 +180,7 @@ void SCSIReset()
 
 		if (SCSIDisc[i] != nullptr)
 		{
-			MakeFileName(FileName, MAX_PATH, HardDrivePath, "scsi%d.dsc", i);
-
-			FILE *f = fopen(FileName, "rb");
-
-			if (f != nullptr)
-			{
-				unsigned char buff[22];
-				fread(buff, 1, 22, f);
-
-				// heads = buf[15];
-				// cyl   = buf[13] * 256 + buf[14];
-
-				SCSISize[i] = buff[15] * (buff[13] * 256 + buff[14]) * 33; // Number of sectors on disk = heads * cyls * 33
-
-				fclose(f);
-			}
+			ReadGeometryFile(i);
 		}
 	}
 
@@ -800,23 +821,7 @@ static bool DiscFormat(unsigned char * /* buf */)
 
 	if (SCSIDisc[scsi.lun] == nullptr) return false;
 
-	MakeFileName(FileName, MAX_PATH, HardDrivePath, "scsi%d.dsc", scsi.lun);
-
-	FILE *f = fopen(FileName, "rb");
-
-	if (f != nullptr)
-	{
-		unsigned char buff[22];
-		fread(buff, 1, 22, f);
-
-		// heads = buf[15];
-		// cyl   = buf[13] * 256 + buf[14];
-
-		// Number of sectors on disk = heads * cyls * 33
-		SCSISize[scsi.lun] = buff[15] * (buff[13] * 256 + buff[14]) * 33;
-
-		fclose(f);
-	}
+	ReadGeometryFile(scsi.lun);
 
 	return true;
 }
