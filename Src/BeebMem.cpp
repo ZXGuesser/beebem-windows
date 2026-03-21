@@ -609,11 +609,11 @@ unsigned char BeebReadMem(int Address) {
 	}
 
 	if ((Address & ~0x3)==0xfc10) {
-		return(TeletextRead(Address & 0x3));
+		return TeletextRead(Address & 0x3);
 	}
 
 	if ((Address & ~0x3)==0xfc40) {
-		if (SCSIDriveEnabled) return(SCSIRead(Address & 0x3));
+		if (SCSIDriveEnabled) return SCSIRead(Address & 0x3);
 	}
 
 	if ((Address & ~0x7)==0xfc40) {
@@ -629,16 +629,15 @@ unsigned char BeebReadMem(int Address) {
 		return ret;
 
 	if ((Address & ~0x3)==0xfdf0) {
-		return(SASIRead(Address & 0x3));
+		return SASIRead(Address & 0x3);
 	}
 
 	if ((MachineType != Model::Master128 && MachineType != Model::MasterET) && Address >= EFDCAddr && Address < (EFDCAddr+4) && !NativeFDC) {
-		// mainWin->Report(MessageType::Error, "Read of 1770 Extension Board");
 		return Read1770Register(Address - EFDCAddr);
 	}
 
 	if ((MachineType != Model::Master128 && MachineType != Model::MasterET) && Address == EDCAddr && !NativeFDC) {
-		return(mainWin->GetDriveControl());
+		return mainWin->GetDriveControl();
 	}
 
 	return(0xFF);
