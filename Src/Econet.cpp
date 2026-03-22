@@ -1032,7 +1032,7 @@ bool EconetReset()
 		else
 		{
 			#ifdef DEBUG_ECONET
-			DebugTrace("Econet: Failed to find station %d.%d in Econet.cfg\n", EconetNetworkID, EconetStationID);
+			DebugTrace("Econet: Failed to find station %d.%d in Econet.cfg\n", PreferredNetworkID, PreferredStationID);
 			#endif
 
 			EconetStationID = 0;
@@ -1055,8 +1055,10 @@ bool EconetReset()
 		AnnounceHandle = 0;
 	}
 
-	if (!EconetStationID)
+	if (EconetStationID == 0)
+	{
 		goto Fail;
+	}
 
 	#ifdef DEBUG_ECONET
 	DebugTrace("Econet: Station number set to %d, port %d\n",
