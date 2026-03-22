@@ -420,8 +420,11 @@ bool BeebWin::Initialise()
 
 	LoadPreferences();
 	
-	if (PreferredStationID)
-		EconetEnabled = true; // enable Econet automatically if we got a station number with -EcoStn
+	// Enable Econet automatically if we got a station number with -EcoStn.
+	if (PreferredStationID != 0)
+	{
+		EconetEnabled = true;
+	}
 
 	// Read disc images path from registry
 	if (!RegGetStringValue(HKEY_CURRENT_USER, CFG_REG_KEY, "DiscsPath",
