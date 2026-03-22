@@ -788,34 +788,29 @@ static void AllocateNewAddress()
 			// Create randomly shuffled pool of all free (unconfigured)
 			// station numbers in our net.
 
-			std::vector<unsigned char> numbers;
-			for (unsigned char i = 0; i < 255; i++) numbers.push_back(i); // vector of numbers 0-254
-			numbers[254] = 0; // Mark out station 254 so it can never be automatically assigned.
+			std::vector<unsigned char> Numbers;
+			for (unsigned char i = 0; i < 255; i++) Numbers.push_back(i); // vector of numbers 0-254
+			Numbers[254] = 0; // Mark out station 254 so it can never be automatically assigned.
 
 			for (size_t i = 0; i < Stations.size(); ++i)
 			{
 				// Mark out any configured station numbers in net.
 				if (Stations[i].network == PreferredNetworkID)
 				{
-					numbers[Stations[i].station] = 0;
+					Numbers[Stations[i].station] = 0;
 				}
 			}
 
 			// Mark out preferred station number.
-			numbers[PreferredStationID] = 0;
+			Numbers[PreferredStationID] = 0;
 
 			// Remove all the marked out numbers.
-			for (int j = (int)numbers.size() - 1; j >= 0; j--)
-			{
-				if (numbers[j] == 0)
-				{
-					numbers.erase(numbers.begin() + j);
-				}
-			}
+			Numbers.erase(std::remove(Numbers.begin(), Numbers.end(), 0),
+			              Numbers.end());
 
 			// Shuffle remaining station numbers.
 			std::srand((unsigned int)std::time(0));
-			std::random_shuffle(numbers.begin(), numbers.end());
+			std::random_shuffle(Numbers.begin(), Numbers.end());
 
 			unsigned char StationID;
 
@@ -826,13 +821,13 @@ static void AllocateNewAddress()
 			}
 			else
 			{
-				StationID = numbers[0];
+				StationID = Numbers[0];
 
 				// Reset station announcement sequence number.
 				AnnounceHandle = 0;
 			}
 
-			for (size_t j = 0; j < numbers.size(); )
+			for (size_t j = 0; j < Numbers.size(); )
 			{
 				const unsigned short Port = 10000 + (PreferredNetworkID << 8) + StationID;
 				service.sin_port = htons(Port);
@@ -857,7 +852,7 @@ static void AllocateNewAddress()
 				// Reset station announcement sequence number.
 				AnnounceHandle = 0;
 
-				StationID = numbers[++j]; // The next number in the shuffled vector.
+				StationID = Numbers[++j]; // The next number in the shuffled vector.
 			}
 		}
 
