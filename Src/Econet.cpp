@@ -702,7 +702,7 @@ static void AllocateNewAddress()
 			if (Station.inet_addr == inet_addr("127.0.0.1") ||
 			    Station.inet_addr == IpAddress)
 			{
-				if (!PreferredStationID ||
+				if (PreferredStationID == 0 ||
 				    (Station.station == PreferredStationID &&
 				     Station.network == PreferredNetworkID))
 				{
@@ -817,16 +817,16 @@ static void AllocateNewAddress()
 			std::srand((unsigned int)std::time(0));
 			std::random_shuffle(numbers.begin(), numbers.end());
 
-			unsigned char s;
+			unsigned char StationID;
 
 			// Try to bind the station ID asked for before picking randomly.
-			if (PreferredStationID)
+			if (PreferredStationID != 0)
 			{
-				s = PreferredStationID;
+				StationID = PreferredStationID;
 			}
 			else
 			{
-				s = numbers[0];
+				StationID = numbers[0];
 
 				// Reset station announcement sequence number.
 				AnnounceHandle = 0;
@@ -834,13 +834,13 @@ static void AllocateNewAddress()
 
 			for (size_t j = 0; j < numbers.size(); )
 			{
-				const unsigned short Port = 10000 + (PreferredNetworkID << 8) + s;
+				const unsigned short Port = 10000 + (PreferredNetworkID << 8) + StationID;
 				service.sin_port = htons(Port);
 
 				if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 				{
 					EconetListenPort = Port;
-					EconetStationID = s;
+					EconetStationID = StationID;
 					EconetNetworkID = PreferredNetworkID;
 
 					#ifdef DEBUG_ECONET
@@ -857,7 +857,7 @@ static void AllocateNewAddress()
 				// Reset station announcement sequence number.
 				AnnounceHandle = 0;
 
-				s = numbers[++j]; // The next number in the shuffled vector.
+				StationID = numbers[++j]; // The next number in the shuffled vector.
 			}
 		}
 
@@ -868,6 +868,8 @@ static void AllocateNewAddress()
 		}
 	}
 }
+
+//---------------------------------------------------------------------------
 
 bool EconetReset()
 {
