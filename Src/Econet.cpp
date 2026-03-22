@@ -709,37 +709,40 @@ static void AllocateNewAddress()
 		DebugTrace("Econet: couldn't get host from configured addresses - trying automatic\n");
 		#endif
 
-		for (size_t j = 0; j < Networks.size() && PreferredStationID == 0; j++)
+		if (PreferredStationID == 0)
 		{
-			const EconetNet& Network = Networks[j];
-
-			for (int a = 0; host->h_addr_list[a] != NULL; ++a)
+			for (size_t j = 0; j < Networks.size(); j++)
 			{
-				struct in_addr localaddr;
-				memcpy(&localaddr, host->h_addr_list[a], sizeof(struct in_addr));
+				const EconetNet& Network = Networks[j];
 
-				if (Network.inet_addr == (localaddr.s_addr & 0x00FFFFFF))
+				for (int a = 0; host->h_addr_list[a] != NULL; ++a)
 				{
-					service.sin_port = htons(DEFAULT_AUN_PORT);
-					service.sin_addr.s_addr = localaddr.s_addr;
+					struct in_addr localaddr;
+					memcpy(&localaddr, host->h_addr_list[a], sizeof(struct in_addr));
 
-					if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
+					if (Network.inet_addr == (localaddr.s_addr & 0x00FFFFFF))
 					{
-						EconetListenIP = localaddr.s_addr;
-						EconetListenPort = DEFAULT_AUN_PORT;
-						EconetStationID = localaddr.s_addr >> 24;
-						EconetNetworkID = Network.network;
+						service.sin_port = htons(DEFAULT_AUN_PORT);
+						service.sin_addr.s_addr = localaddr.s_addr;
 
-						#ifdef DEBUG_ECONET
-						DebugTrace("Econet: Automatically assigned station %d.%d using AUNMap\n",
-						           EconetNetworkID,
-						           EconetStationID);
-						#endif
-					}
-					else
-					{
-						// Reset station announcement sequence number.
-						AnnounceHandle = 0;
+						if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
+						{
+							EconetListenIP = localaddr.s_addr;
+							EconetListenPort = DEFAULT_AUN_PORT;
+							EconetStationID = localaddr.s_addr >> 24;
+							EconetNetworkID = Network.network;
+
+							#ifdef DEBUG_ECONET
+							DebugTrace("Econet: Automatically assigned station %d.%d using AUNMap\n",
+							           EconetNetworkID,
+							           EconetStationID);
+							#endif
+						}
+						else
+						{
+							// Reset station announcement sequence number.
+							AnnounceHandle = 0;
+						}
 					}
 				}
 			}
