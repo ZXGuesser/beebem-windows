@@ -638,27 +638,52 @@ static void EconetCloseSockets()
 
 //---------------------------------------------------------------------------
 
-// Find an available station number.
-
-static void AllocateNewAddress()
+static bool GetLocalIpAddresses(std::vector<unsigned long>& IpAddresses)
 {
+	IpAddresses.clear();
+
 	// Get localhost IP address.
 
-	char localhost[256];
+	char LocalHostName[256];
 
-	if (gethostname(localhost, sizeof(localhost)) == SOCKET_ERROR)
+	if (gethostname(LocalHostName, sizeof(LocalHostName)) == SOCKET_ERROR)
 	{
 		EconetError("Econet: Failed to get local host name");
-		return;
+		return false;
 	}
 
-	hostent *host = gethostbyname(localhost);
+	hostent *host = gethostbyname(LocalHostName);
 
 	if (host == nullptr)
 	{
 		EconetError("Econet: Failed to resolve local IP address");
-		return;
+		return false;
 	}
+
+	// Check address for each network interface/card.
+	for (int a = 0; host->h_addr_list[a] != nullptr; ++a)
+	{
+		struct in_addr Addr;
+		memcpy(&Addr, host->h_addr_list[a], sizeof(struct in_addr));
+
+		#ifdef DEBUG_ECONET
+		DebugTrace("Local IP address: %s\n", IpAddressStr(Addr.s_addr));
+		#endif
+
+		IpAddresses.emplace_back(Addr.s_addr);
+	}
+
+	return true;
+}
+
+//---------------------------------------------------------------------------
+
+// Find an available station number.
+
+static void AllocateNewAddress()
+{
+	std::vector<unsigned long> LocalIpAddresses;
+	GetLocalIpAddresses(LocalIpAddresses);
 
 	sockaddr_in service;
 	service.sin_family = AF_INET;
@@ -670,13 +695,12 @@ static void AllocateNewAddress()
 		const EconetHost& Station = Stations[i];
 
 		// Check address for each network interface/card.
-		for (int a = 0; host->h_addr_list[a] != nullptr; ++a)
+		for (size_t j = 0; j < LocalIpAddresses.size(); ++j)
 		{
-			struct in_addr localaddr;
-			memcpy(&localaddr, host->h_addr_list[a], sizeof(struct in_addr));
+			unsigned long IpAddress = LocalIpAddresses[j];
 
 			if (Station.inet_addr == inet_addr("127.0.0.1") ||
-			    Station.inet_addr == localaddr.s_addr)
+			    Station.inet_addr == IpAddress)
 			{
 				if (!PreferredStationID ||
 				    (Station.station == PreferredStationID &&
@@ -711,25 +735,24 @@ static void AllocateNewAddress()
 
 		if (PreferredStationID == 0)
 		{
-			for (size_t j = 0; j < Networks.size(); j++)
+			for (size_t i = 0; i < Networks.size(); ++i)
 			{
-				const EconetNet& Network = Networks[j];
+				const EconetNet& Network = Networks[i];
 
-				for (int a = 0; host->h_addr_list[a] != NULL; ++a)
+				for (size_t j = 0; j < LocalIpAddresses.size(); ++j)
 				{
-					struct in_addr localaddr;
-					memcpy(&localaddr, host->h_addr_list[a], sizeof(struct in_addr));
+					unsigned long IpAddress = LocalIpAddresses[j];
 
-					if (Network.inet_addr == (localaddr.s_addr & 0x00FFFFFF))
+					if (Network.inet_addr == (IpAddress & 0x00FFFFFF))
 					{
 						service.sin_port = htons(DEFAULT_AUN_PORT);
-						service.sin_addr.s_addr = localaddr.s_addr;
+						service.sin_addr.s_addr = IpAddress;
 
 						if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 						{
-							EconetListenIP = localaddr.s_addr;
+							EconetListenIP = IpAddress;
 							EconetListenPort = DEFAULT_AUN_PORT;
-							EconetStationID = localaddr.s_addr >> 24;
+							EconetStationID = IpAddress >> 24;
 							EconetNetworkID = Network.network;
 
 							#ifdef DEBUG_ECONET
@@ -754,14 +777,12 @@ static void AllocateNewAddress()
 			// We assign station numbers at random to reduce the chances
 			// of collisions between instances on different PCs. We have
 			// no other way to prevent them so hope for the best!
-			struct in_addr localaddr;
-			memcpy(&localaddr, host->h_addr_list[0], sizeof(struct in_addr));
 
 			// TODO: This will use the first network address of this PC.
 			// This might not be useful if there are multiple network
 			// adapters but we have no good way to determine which to use
 			// in the absence of any user configuration.
-			EconetListenIP = localaddr.s_addr;
+			EconetListenIP = LocalIpAddresses[0];
 			service.sin_addr.s_addr = EconetListenIP;
 
 			// Create randomly shuffled pool of all free (unconfigured)
