@@ -1009,9 +1009,8 @@ bool EconetReset()
 			// IP address, and port for the socket that is being bound.
 			sockaddr_in service;
 			service.sin_family = AF_INET;
-			service.sin_addr.s_addr = INADDR_ANY; //inet_addr("127.0.0.1");
-			service.sin_port = htons(EconetListenPort);
 			service.sin_addr.s_addr = EconetListenIP;
+			service.sin_port = htons(EconetListenPort);
 
 			if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) != 0)
 			{
