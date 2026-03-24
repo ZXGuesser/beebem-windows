@@ -706,10 +706,6 @@ static void AllocateNewAddress()
 	unsigned long LocalHostAddr;
 	ParseIPAddress(AF_INET, "127.0.0.1", &LocalHostAddr);
 
-	sockaddr_in service;
-	service.sin_family = AF_INET;
-	service.sin_addr.s_addr = INADDR_ANY;
-
 	// See if configured addresses match local IPs.
 	for (size_t i = 0; i < Stations.size(); ++i)
 	{
@@ -727,8 +723,10 @@ static void AllocateNewAddress()
 				    (Station.station == PreferredStationID &&
 				     Station.network == PreferredNetworkID))
 				{
-					service.sin_port = htons(Station.port);
+					sockaddr_in service;
+					service.sin_family = AF_INET;
 					service.sin_addr.s_addr = Station.inet_addr;
+					service.sin_port = htons(Station.port);
 
 					if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 					{
@@ -766,8 +764,10 @@ static void AllocateNewAddress()
 
 					if (Network.inet_addr == (IpAddress & 0x00FFFFFF))
 					{
-						service.sin_port = htons(DEFAULT_AUN_PORT);
+						sockaddr_in service;
+						service.sin_family = AF_INET;
 						service.sin_addr.s_addr = IpAddress;
+						service.sin_port = htons(DEFAULT_AUN_PORT);
 
 						if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 						{
@@ -798,13 +798,6 @@ static void AllocateNewAddress()
 			// We assign station numbers at random to reduce the chances
 			// of collisions between instances on different PCs. We have
 			// no other way to prevent them so hope for the best!
-
-			// TODO: This will use the first network address of this PC.
-			// This might not be useful if there are multiple network
-			// adapters but we have no good way to determine which to use
-			// in the absence of any user configuration.
-			EconetListenIP = LocalIpAddresses[0];
-			service.sin_addr.s_addr = EconetListenIP;
 
 			// Create randomly shuffled pool of all free (unconfigured)
 			// station numbers in our net.
@@ -851,10 +844,20 @@ static void AllocateNewAddress()
 			for (size_t j = 0; j < Numbers.size(); )
 			{
 				const unsigned short Port = 10000 + (PreferredNetworkID << 8) + StationID;
+
+				// TODO: This will use the first network address of this PC.
+				// This might not be useful if there are multiple network
+				// adapters but we have no good way to determine which to use
+				// in the absence of any user configuration.
+
+				sockaddr_in service;
+				service.sin_family = AF_INET;
+				service.sin_addr.s_addr = LocalIpAddresses[0];
 				service.sin_port = htons(Port);
 
 				if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 				{
+					EconetListenIP = LocalIpAddresses[0];
 					EconetListenPort = Port;
 					EconetStationID = StationID;
 					EconetNetworkID = PreferredNetworkID;
