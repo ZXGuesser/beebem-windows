@@ -23,6 +23,7 @@ Boston, MA  02110-1301, USA.
 #include <ws2tcpip.h>
 
 #include "Socket.h"
+#include "StringUtils.h"
 
 #ifndef WIN32
 #include <errno.h>
@@ -117,16 +118,20 @@ bool EnableBroadcast(SOCKET Socket)
 
 unsigned long ParseIPAddress(const char* Name, const std::string& Value)
 {
+	wchar_t AddressStr[INET6_ADDRSTRLEN + 1];
+
+	std::wstring wstrValue = Str2WStr(Value);
+	wcsncpy(AddressStr, wstrValue.c_str(), _countof(AddressStr));
+	AddressStr[_countof(AddressStr) - 1] = '\0';
+
 	sockaddr_in Address;
 	int AddressLength = sizeof(Address);
 
-	int Result = WSAStringToAddress(
-		(LPSTR)Value.c_str(),
-		AF_INET,
-		NULL,
-		(SOCKADDR*)&Address,
-		&AddressLength
-	);
+	int Result = WSAStringToAddressW(AddressStr,
+	                                 AF_INET,
+	                                 NULL,
+	                                 (SOCKADDR*)&Address,
+	                                 &AddressLength);
 
 	if (Result != 0)
 	{
@@ -137,6 +142,96 @@ unsigned long ParseIPAddress(const char* Name, const std::string& Value)
 	}
 
 	return Address.sin_addr.s_addr;
+}
+
+/****************************************************************************/
+
+// Similar to inet_pton, which isn't available on Windows XP.
+
+int ParseIPAddress(int Family, const char* pszName, void* pAddr)
+{
+	SOCKADDR_STORAGE_XP Addr;
+	ZeroMemory(&Addr, sizeof(Addr));
+	int AddressLength = sizeof(Addr);
+
+	wchar_t Name[INET6_ADDRSTRLEN + 1];
+
+	std::wstring wstrName = Str2WStr(pszName);
+	wcsncpy(Name, wstrName.c_str(), _countof(Name));
+	Name[_countof(Name) - 1] = '\0';
+
+	int Result = WSAStringToAddressW(Name,
+	                                 Family,
+	                                 NULL,
+	                                 (struct sockaddr*)&Addr,
+	                                 &AddressLength);
+
+	if (Result == 0)
+	{
+		if (Family == AF_INET)
+		{
+			struct in_addr* pInetAddr = (struct in_addr*)pAddr;
+
+			*pInetAddr = ((struct sockaddr_in*)&Addr)->sin_addr;
+			return 1;
+		}
+		else if (Family == AF_INET6)
+		{
+			struct in6_addr* pInetAddr = (struct in6_addr*)pAddr;
+
+			*pInetAddr = ((struct sockaddr_in6*)&Addr)->sin6_addr;
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+
+	return 0;
+}
+
+/****************************************************************************/
+
+// Similar to inet_ntop, which isn't available on Windows XP.
+
+bool IpAddressToString(int Family, const void* pAddress, std::string& Dest)
+{
+	SOCKADDR_STORAGE_XP Addr;
+	ZeroMemory(&Addr, sizeof(Addr));
+
+	if (Family == AF_INET)
+	{
+		struct sockaddr_in* pInetAddr = (struct sockaddr_in*)&Addr;
+		pInetAddr->sin_family = AF_INET;
+		memcpy(&pInetAddr->sin_addr, pAddress, sizeof(struct in_addr));
+	}
+	else if (Family == AF_INET6)
+	{
+		struct sockaddr_in6* pInetAddr = (struct sockaddr_in6*)&Addr;
+		pInetAddr->sin6_family = AF_INET6;
+		memcpy(&pInetAddr->sin6_addr, pAddress, sizeof(struct in6_addr));
+	}
+	else
+	{
+		return false;
+	}
+
+	wchar_t Name[INET6_ADDRSTRLEN + 1];
+	DWORD AddressLength = INET6_ADDRSTRLEN + 1;
+
+	int Result = WSAAddressToStringW((struct sockaddr*)&Addr,
+	                                 sizeof(Addr),
+	                                 nullptr,
+	                                 Name,
+	                                 &AddressLength);
+
+	if (Result == 0)
+	{
+		Dest = WStr2Str(Name);
+	}
+
+	return nullptr;
 }
 
 /****************************************************************************/
