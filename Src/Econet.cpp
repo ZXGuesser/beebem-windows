@@ -32,7 +32,10 @@ Boston, MA  02110-1301, USA.
 // * https://mdfs.net/Docs/Comp/Econet/Specs/Ports
 // * https://mdfs.net/Docs/Comp/Econet/Specs/Packets
 
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 
 #include <stdio.h>
 
@@ -195,7 +198,7 @@ unsigned char PreferredStationID = 0;
 unsigned char PreferredNetworkID = 0;
 
 static unsigned short EconetListenPort = 0; // Default listen port
-static unsigned long EconetListenIP = inet_addr("127.0.0.1"); // IP address
+static unsigned long EconetListenIP = 0; // IP address
 
 static SOCKET Socket = INVALID_SOCKET; // Also used to flag line up and clock running
 static SOCKET BroadcastListenSocket = INVALID_SOCKET;
@@ -544,12 +547,12 @@ static bool IsBroadcastStation(unsigned char Station)
 
 //---------------------------------------------------------------------------
 
-static const char* IpAddressStr(unsigned long inet_addr)
+static std::string IpAddressStr(unsigned long IpAddress)
 {
-	in_addr in;
-	in.s_addr = inet_addr;
+	std::string str;
+	IpAddressToString(AF_INET, &IpAddress, str);
 
-	return inet_ntoa(in);
+	return str;
 }
 
 //---------------------------------------------------------------------------
@@ -592,7 +595,7 @@ void AddStation(unsigned char Station,
 		DebugTrace("Econet: Replaced station %d.%d in host list (now at %s:%u)\n",
 		           (int)Network,
 		           (int)Station,
-		           IpAddressStr(IPAddress),
+		           IpAddressStr(IPAddress).c_str(),
 		           Port);
 		#endif
 	}
@@ -613,7 +616,7 @@ void AddStation(unsigned char Station,
 		DebugTrace("Econet: Added station %d.%d on %s:%u to host list\n",
 		           (int)Network,
 		           (int)Station,
-		           IpAddressStr(IPAddress),
+		           IpAddressStr(IPAddress).c_str(),
 		           Port);
 		#endif
 	}
@@ -652,26 +655,41 @@ static bool GetLocalIpAddresses(std::vector<unsigned long>& IpAddresses)
 		return false;
 	}
 
-	hostent *host = gethostbyname(LocalHostName);
+	struct addrinfo Hints;
+	ZeroMemory(&Hints, sizeof(Hints));
+	Hints.ai_family = AF_INET;
+	Hints.ai_socktype = SOCK_DGRAM;
+	Hints.ai_protocol = IPPROTO_UDP;
 
-	if (host == nullptr)
+	struct addrinfo* pAddrInfo = nullptr;
+
+	char ServiceName[20];
+	sprintf(ServiceName, "%d", DEFAULT_AUN_PORT);
+
+	int Result = getaddrinfo(LocalHostName,
+	                         ServiceName,
+	                         &Hints,
+	                         &pAddrInfo);
+
+	if (Result != 0)
 	{
 		EconetError("Econet: Failed to resolve local IP address");
 		return false;
 	}
 
 	// Check address for each network interface/card.
-	for (int a = 0; host->h_addr_list[a] != nullptr; ++a)
+	for (struct addrinfo* p = pAddrInfo; p != nullptr; p = p->ai_next)
 	{
-		struct in_addr Addr;
-		memcpy(&Addr, host->h_addr_list[a], sizeof(struct in_addr));
+		struct sockaddr_in* pAddr = (struct sockaddr_in *)p->ai_addr;
 
 		#ifdef DEBUG_ECONET
-		DebugTrace("Local IP address: %s\n", IpAddressStr(Addr.s_addr));
+		DebugTrace("Local IP address: %s\n", IpAddressStr(pAddr->sin_addr.s_addr).c_str());
 		#endif
 
-		IpAddresses.emplace_back(Addr.s_addr);
+		IpAddresses.emplace_back(pAddr->sin_addr.s_addr);
 	}
+
+	freeaddrinfo(pAddrInfo);
 
 	return true;
 }
@@ -684,6 +702,9 @@ static void AllocateNewAddress()
 {
 	std::vector<unsigned long> LocalIpAddresses;
 	GetLocalIpAddresses(LocalIpAddresses);
+
+	unsigned long LocalHostAddr;
+	ParseIPAddress(AF_INET, "127.0.0.1", &LocalHostAddr);
 
 	sockaddr_in service;
 	service.sin_family = AF_INET;
@@ -699,7 +720,7 @@ static void AllocateNewAddress()
 		{
 			unsigned long IpAddress = LocalIpAddresses[j];
 
-			if (Station.inet_addr == inet_addr("127.0.0.1") ||
+			if (Station.inet_addr == LocalHostAddr ||
 			    Station.inet_addr == IpAddress)
 			{
 				if (PreferredStationID == 0 ||
@@ -842,7 +863,7 @@ static void AllocateNewAddress()
 					DebugTrace("Econet: automatically assigned random station %d.%d on %s:%d\n",
 					           EconetNetworkID,
 					           EconetStationID,
-					           IpAddressStr(EconetListenIP),
+					           IpAddressStr(EconetListenIP).c_str(),
 					           EconetListenPort);
 					#endif
 
@@ -993,7 +1014,7 @@ bool EconetReset()
 		RTCWriteAddress(0xE);
 		PreferredStationID = RTCReadData();
 	}
-	
+
 	if (PreferredStationID != 0)
 	{
 		EconetHost* pNetworkConfig = FindNetworkConfig(PreferredStationID, PreferredNetworkID);
@@ -1015,7 +1036,7 @@ bool EconetReset()
 			if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) != 0)
 			{
 				EconetError("Econet: Failed to bind to address %s:%d",
-				            IpAddressStr(EconetListenIP),
+				            IpAddressStr(EconetListenIP).c_str(),
 				            EconetListenPort);
 
 				// Clear this so we don't try to allocate it again.
@@ -1237,7 +1258,7 @@ static bool ReadEconetConfigFile()
 
 					#ifdef DEBUG_ECONET
 					DebugTrace("Econet: ConfigFile Gateway IP %s Port %d",
-					           IpAddressStr(Gateway.inet_addr),
+					           IpAddressStr(Gateway.inet_addr).c_str(),
 					           Gateway.port);
 					#endif
 
@@ -1266,7 +1287,7 @@ static bool ReadEconetConfigFile()
 				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: ConfigFile Net %d IP %s Port %d\n",
 				           Network.network,
-				           IpAddressStr(Network.inet_addr),
+				           IpAddressStr(Network.inet_addr).c_str(),
 				           Network.port);
 				#endif
 
@@ -1403,7 +1424,7 @@ static bool ReadAUNConfigFile()
 
 				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: AUNMap Net %d IP %s:%u\n",
-				           Network.network, IpAddressStr(Network.inet_addr), Network.port);
+				           Network.network, IpAddressStr(Network.inet_addr).c_str(), Network.port);
 				#endif
 
 				Networks.emplace_back(Network);
@@ -1984,7 +2005,7 @@ bool EconetPollReal()
 		{
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Failed to send Gateway keepalive (%s port %u)\n",
-			           IpAddressStr(RecvAddr.sin_addr.s_addr),
+			           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
 			           (unsigned int)htons(RecvAddr.sin_port));
 			#endif
 		}
@@ -2487,7 +2508,7 @@ static void EconetSendPacket()
 	           BeebTx.Pointer,
 	           (int)BeebTx.EconetHeader.DestNet,
 	           (int)BeebTx.EconetHeader.DestStn,
-	           IpAddressStr(RecvAddr.sin_addr.s_addr),
+	           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
 	           (unsigned int)htons(RecvAddr.sin_port));
 
 	DebugDumpBytes("Econet: Packet data:", BeebTx.Buffer, BeebTx.Pointer);
@@ -2695,7 +2716,7 @@ static void EconetSendPacket()
 			DebugTrace("Econet: Send packet to station %d.%d (%s port %u)\n",
 			           (int)EconetTx.DestNet,
 			           (int)EconetTx.DestStn,
-			           IpAddressStr(RecvAddr.sin_addr.s_addr),
+			           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
 			           (unsigned int)htons(RecvAddr.sin_port));
 
 			DebugDumpBytes("Econet: Ethernet data:", (const unsigned char*)p, SendLen);
@@ -2706,7 +2727,7 @@ static void EconetSendPacket()
 			{
 				EconetError("Econet: Failed to send packet to station %d (%s port %u)",
 				            (int)EconetTx.DestStn,
-				            IpAddressStr(RecvAddr.sin_addr.s_addr),
+				            IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
 				            (unsigned int)htons(RecvAddr.sin_port));
 			}
 		}
@@ -2725,7 +2746,7 @@ static void EconetSendPacket()
 			           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 			{
 				EconetError("Econet: Failed to send broadcast to gateway (%s port %u)",
-				            IpAddressStr(RecvAddr.sin_addr.s_addr),
+				            IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
 				            (unsigned int)htons(RecvAddr.sin_port));
 			}
 		}
@@ -2813,7 +2834,7 @@ GetNewPacket:
 				#ifdef DEBUG_ECONET
 				DebugTrace("EconetPoll: Packet received: %d bytes from %s port %u\n",
 				           BytesReceived,
-				           IpAddressStr(RecvAddr.sin_addr.s_addr),
+				           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
 				           htons(RecvAddr.sin_port));
 
 				DebugDumpBytes("EconetPoll: Packet data:",
@@ -3011,7 +3032,7 @@ GetNewPacket:
 
 								#ifdef DEBUG_ECONET
 								DebugTrace("Econet: Learned about gateway at %s:%d. Bridge sees us as station %d.%d\n",
-								           IpAddressStr(Gateway.inet_addr),
+								           IpAddressStr(Gateway.inet_addr).c_str(),
 								           Gateway.port,
 								           (unsigned int)rx->EconetHeader.DestNet,
 								           (unsigned int)rx->EconetHeader.DestStn);
@@ -3027,7 +3048,7 @@ GetNewPacket:
 								// to the one we already have configured!
 								#ifdef DEBUG_ECONET
 								DebugTrace("Econet: Ignored gateway response from %s:%d",
-								           IpAddressStr(RecvAddr.sin_addr.s_addr),
+								           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
 								           htons(RecvAddr.sin_port));
 								#endif
 							}
