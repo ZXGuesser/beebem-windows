@@ -161,6 +161,9 @@ int ParseNumber(const char* Name, const std::string& str, int Min, int Max)
 bool IsNumber(const char* str)
 {
 	if (str == nullptr || str[0] == '\0')
+	{
+		return false;
+	}
 
 	for (; *str != '\0'; str++)
 	{
