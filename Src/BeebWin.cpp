@@ -481,9 +481,9 @@ bool BeebWin::Initialise()
 
 	WSADATA WsaData;
 
-	if (WSAStartup(MAKEWORD(1, 1), &WsaData) != 0)
+	if (WSAStartup(MAKEWORD(2, 2), &WsaData) != 0)
 	{
-		Report(MessageType::Error, "WSA initialisation failed");
+		Report(MessageType::Error, "Windows Sockets initialisation failed");
 		return false;
 	}
 
