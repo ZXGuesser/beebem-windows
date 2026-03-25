@@ -1036,6 +1036,12 @@ bool EconetReset()
 		RTCWriteAddress(0xE);
 		PreferredStationID = RTCReadData();
 	}
+	else if (EconetStationID) // We already have a station num
+	{
+		// Try to get same address again.
+		PreferredStationID = EconetStationID;
+		PreferredNetworkID = EconetNetworkID;
+	}
 
 	if (PreferredStationID != 0)
 	{
