@@ -865,19 +865,15 @@ static void AllocateNewAddress()
 			{
 				const unsigned short Port = 10000 + (PreferredNetworkID << 8) + StationID;
 
-				// TODO: This will use the first network address of this PC.
-				// This might not be useful if there are multiple network
-				// adapters but we have no good way to determine which to use
-				// in the absence of any user configuration.
-
+				// bind to all available adapters
 				sockaddr_in service;
 				service.sin_family = AF_INET;
-				service.sin_addr.s_addr = LocalIpAddresses[0];
+				service.sin_addr.s_addr = INADDR_ANY;
 				service.sin_port = htons(Port);
 
 				if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 				{
-					EconetListenIP = LocalIpAddresses[0];
+					EconetListenIP = INADDR_ANY;
 					EconetListenPort = Port;
 					EconetStationID = StationID;
 					EconetNetworkID = PreferredNetworkID;
@@ -1013,10 +1009,6 @@ bool EconetReset()
 		goto Fail;
 	}
 
-	/* needed if we bind our socket to 0.0.0.0, but means bringing in winsock2
-	   which causes VS2022 to get very upset about lots of deprecated functions
-	   that we can't replace if we want to retain XP compatibility
-
 	// Stops multiple instances binding to the same port (which shouldn't be
 	// possible but happens anyway where we bind to a wildcard address)
 	if (!SetExclusiveAddrUse(Socket))
@@ -1024,7 +1016,6 @@ bool EconetReset()
 		EconetError("Econet: Failed to set exclusive socket lock: %d", GetLastSocketError());
 		goto Fail;
 	}
-	*/
 
 	unsigned char LastEconetStationID = EconetStationID;
 
