@@ -667,14 +667,14 @@ void JoystickController::ClearDevices()
 
 /****************************************************************************/
 
-int JoystickController::GetDeviceCount() const
+size_t JoystickController::GetDeviceCount() const
 {
 	return m_Devices.size();
 }
 
 /****************************************************************************/
 
-const JoystickDevice& JoystickController::GetDevice(int Index) const
+const JoystickDevice& JoystickController::GetDevice(size_t Index) const
 {
 	return *m_Devices[Index];
 }
@@ -684,7 +684,7 @@ const JoystickDevice& JoystickController::GetDevice(int Index) const
 int JoystickController::FindDevice(JoystickDeviceType Type,
                                    const std::string& ID)
 {
-	for (size_t i = 0; i < m_Devices.size(); i++)
+	for (int i = 0; i < (int)m_Devices.size(); i++)
 	{
 		if (m_Devices[i]->GetType() == Type &&
 		    m_Devices[i]->GetID() == ID)

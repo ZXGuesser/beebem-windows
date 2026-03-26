@@ -173,9 +173,9 @@ void JoystickDialog::InitDeviceList()
 		m_JoystickDevice[i].AddItem("None",
 		                            MAKELPARAM(0, (int)AnalogueInputDevice::None));
 
-		int Count = m_JoystickController.GetDeviceCount();
+		size_t Count = m_JoystickController.GetDeviceCount();
 
-		for (int DeviceIndex = 0; DeviceIndex < Count; DeviceIndex++)
+		for (size_t DeviceIndex = 0; DeviceIndex < Count; DeviceIndex++)
 		{
 			const JoystickDevice& Device = m_JoystickController.GetDevice(DeviceIndex);
 
@@ -349,10 +349,10 @@ void JoystickDialog::UpdateSelected()
 				m_JoystickDeviceID[Joystick] = Device.GetID();
 
 				int Selected = m_AnalogInput[Joystick].GetCurSel();
-				m_JoystickControl[Joystick] = m_AnalogInput[Joystick].GetItemData(Selected);
+				m_JoystickControl[Joystick] = (int)m_AnalogInput[Joystick].GetItemData(Selected);
 
 				Selected = m_ButtonInput[Joystick].GetCurSel();
-				m_JoystickButton[Joystick] = m_ButtonInput[Joystick].GetItemData(Selected);
+				m_JoystickButton[Joystick] = (int)m_ButtonInput[Joystick].GetItemData(Selected);
 
 				m_MousestickType[Joystick] = MousestickType::Analogue;
 				m_JoystickMouseButton[Joystick] = 0;
@@ -366,7 +366,7 @@ void JoystickDialog::UpdateSelected()
 				m_JoystickControl[Joystick] = 0;
 
 				int Selected = m_ButtonInput[Joystick].GetCurSel();
-				m_JoystickMouseButton[Joystick] = m_ButtonInput[Joystick].GetItemData(Selected);
+				m_JoystickMouseButton[Joystick] = (int)m_ButtonInput[Joystick].GetItemData(Selected);
 
 				m_JoystickButton[Joystick] = 0;
 

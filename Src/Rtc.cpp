@@ -76,12 +76,12 @@ Boston, MA  02110-1301, USA.
 // | 17 | 11 |       Printer server number                *CO. PS nnn          |
 // | 18 | 12 |       Printer server network               *CO. PS nnn.sss      |
 // | 19 | 13 | b0-b3 Default filing system ROM            *CO. File nn         |
-// |    |    | b4-b7 Default lanugage ROM                 *CO. Lang nn         |
+// |    |    | b4-b7 Default language ROM                 *CO. Lang nn         |
 // | 20 | 14 |       ROMs 0-7 unplugged/inserted          *Insert n/*Unplug n  |
 // | 21 | 15 |       ROMs 8-F unplugged/inserted          *Insert n/*Unplug n  |
 // | 22 | 16 | b0-b2 EDIT screen mode                                          |
 // |    |    | b3    EDIT TAB to columns/words                                 |
-// |    |    | b4    EDIT overwrite/instert                                    |
+// |    |    | b4    EDIT overwrite/insert                                     |
 // |    |    | b5    EDIT display/returns                                      |
 // |    |    | b6-b7 Not used                                                  |
 // | 23 | 17 |       Telecoms software                                         |
@@ -90,11 +90,11 @@ Boston, MA  02110-1301, USA.
 // |    |    | b4    Default TV interlace                 *CO. TV xx,n         |
 // |    |    | b5-b7 Default TV position 0-3, -4 to -1    *CO. TV nn,x         |
 // | 25 | 19 | b0-b2 Default floppy speed                 *CO. FDrive n        |
-// |    |    | b3    Shift Caps on startup                *CO. ShCaps          |
-// |    |    | b4    No CAPS lock on startup              *CO. NoCaps          |
-// |    |    | b5    CAPS lock on startup                 *CO. Caps            |
-// |    |    | b6    ADFS load dir on startup             *CO. NoDir/Dir       |
-// |    |    | b7    ADFS floppy/hard drive on startup    *CO. Floppy/Hard     |
+// |    |    | b3    Shift Caps on start up               *CO. ShCaps          |
+// |    |    | b4    No CAPS lock on start up             *CO. NoCaps          |
+// |    |    | b5    CAPS lock on start up                *CO. Caps            |
+// |    |    | b6    ADFS load dir on start up            *CO. NoDir/Dir       |
+// |    |    | b7    ADFS floppy/hard drive on start up   *CO. Floppy/Hard     |
 // | 26 | 1A |       Keyboard repeat delay                *CO. Delay nnn       |
 // | 27 | 1B |       Keyboard repeat rate                 *CO. Repeat nnn      |
 // | 28 | 1C |       Printer ignore character             *CO. Ignore nnn      |
@@ -113,7 +113,7 @@ Boston, MA  02110-1301, USA.
 // |    |    | b2    ANFS uses &0Bxx-&0Cxx or &0Exx-&0Fxx *-Net-Opt 6,n        |
 // |    |    | b3-b5 Unused                                                    |
 // |    |    | b6    ANFS protected                       *-Net-Opt 8,n        |
-// |    |    | b7    Display version number on startup                         |
+// |    |    | b7    Display version number on start up                        |
 // | 32 | 20 |       Unused                                                    |
 // | 33 | 21 |       Unused                                                    |
 // | 34 | 22 |       34-43 Reserved for Acorn future expansion                 |

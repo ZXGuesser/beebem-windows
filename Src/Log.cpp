@@ -49,6 +49,7 @@ void OpenLog(const char* FileName)
 		strcpy(PathName, mainWin->GetUserDataPath());
 		AppendPath(PathName, "BeebEm.log");
 	}
+
 	if (IsRelativePath(FileName))
 	{
 		strcpy(PathName, mainWin->GetUserDataPath());
@@ -57,6 +58,10 @@ void OpenLog(const char* FileName)
 	else if (strlen(FileName) < MAX_PATH)
 	{
 		strcpy(PathName, FileName);
+	}
+	else
+	{
+		return;
 	}
 
 	LogFile = fopen(PathName, "wt");

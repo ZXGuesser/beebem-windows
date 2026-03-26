@@ -2413,6 +2413,12 @@ Disc8271Result LoadSimpleDiscImage(const char *FileName, int DriveNum, int HeadN
 			DiscStatus[DriveNum].Tracks[Head][Track].TrackIsReadable = true;
 			SectorType *SecPtr = DiscStatus[DriveNum].Tracks[Head][Track].Sectors = (SectorType*)calloc(10, sizeof(SectorType));
 
+			if (SecPtr == nullptr)
+			{
+				Result = Disc8271Result::Failed;
+				goto Exit;
+			}
+
 			for (unsigned char Sector = 0; Sector < 10; Sector++)
 			{
 				SecPtr[Sector].IDField.LogicalTrack = Track;
@@ -2423,9 +2429,22 @@ Disc8271Result LoadSimpleDiscImage(const char *FileName, int DriveNum, int HeadN
 				SecPtr[Sector].Error = RESULT_REG_SUCCESS;
 				SecPtr[Sector].RealSectorSize = 256;
 				SecPtr[Sector].Data = (unsigned char *)calloc(1,256);
+
+				if (SecPtr[Sector].Data == nullptr)
+				{
+					Result = Disc8271Result::Failed;
+					goto Exit;
+				}
+
 				Input.read((char*)SecPtr[Sector].Data, 256);
 			}
 		}
+	}
+
+Exit:
+	if (Result != Disc8271Result::Success)
+	{
+		FreeDiscImage(DriveNum);
 	}
 
 	return Result;
@@ -2445,6 +2464,8 @@ Disc8271Result LoadSimpleDSDiscImage(const char *FileName, int DriveNum, int Tra
 		return Disc8271Result::Failed;
 	}
 
+	Disc8271Result Result = Disc8271Result::Success;
+
 	DiscStatus[DriveNum].NumHeads = 2; // 2 = 2 * TRACKS_PER_DRIVE DSD image
 
 	FreeDiscImage(DriveNum);
@@ -2461,6 +2482,12 @@ Disc8271Result LoadSimpleDSDiscImage(const char *FileName, int DriveNum, int Tra
 			DiscStatus[DriveNum].Tracks[Head][Track].TrackIsReadable = true;
 			SectorType *SecPtr = DiscStatus[DriveNum].Tracks[Head][Track].Sectors = (SectorType *)calloc(10,sizeof(SectorType));
 
+			if (SecPtr == nullptr)
+			{
+				Result = Disc8271Result::Failed;
+				goto Exit;
+			}
+
 			for (unsigned char Sector = 0; Sector < 10; Sector++)
 			{
 				SecPtr[Sector].IDField.LogicalTrack = Track;
@@ -2471,12 +2498,25 @@ Disc8271Result LoadSimpleDSDiscImage(const char *FileName, int DriveNum, int Tra
 				SecPtr[Sector].Error = RESULT_REG_SUCCESS;
 				SecPtr[Sector].RealSectorSize = 256;
 				SecPtr[Sector].Data = (unsigned char *)calloc(1,256);
+
+				if (SecPtr[Sector].Data == nullptr)
+				{
+					Result = Disc8271Result::Failed;
+					goto Exit;
+				}
+
 				Input.read((char*)SecPtr[Sector].Data, 256);
 			}
 		}
 	}
 
-	return Disc8271Result::Success;
+Exit:
+	if (Result != Disc8271Result::Success)
+	{
+		FreeDiscImage(DriveNum);
+	}
+
+	return Result;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -2577,6 +2617,12 @@ Disc8271Result LoadFSDDiscImage(const char *FileName, int DriveNum)
 				unsigned char TrackIsReadable = (unsigned char)Input.get(); // Is track readable?
 				DiscStatus[DriveNum].Tracks[Head][Track].NSectors = SectorsPerTrack; // Can be different than 10
 				SectorType *SecPtr = (SectorType*)calloc(SectorsPerTrack, sizeof(SectorType));
+
+				if (SecPtr == nullptr)
+				{
+					throw std::bad_alloc();
+				}
+
 				DiscStatus[DriveNum].Tracks[Head][Track].Sectors = SecPtr;
 				DiscStatus[DriveNum].Tracks[Head][Track].TrackIsReadable = TrackIsReadable == 255;
 
@@ -2607,6 +2653,12 @@ Disc8271Result LoadFSDDiscImage(const char *FileName, int DriveNum)
 						unsigned char SectorError = (unsigned char)Input.get(); // Error code when sector was read
 						SecPtr[Sector].Error = SectorError;
 						SecPtr[Sector].Data = (unsigned char *)calloc(1, RealSectorSize);
+
+						if (SecPtr[Sector].Data == nullptr)
+						{
+							throw std::bad_alloc();
+						}
+
 						Input.read((char*)SecPtr[Sector].Data, RealSectorSize);
 					}
 				}

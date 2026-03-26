@@ -2313,6 +2313,12 @@ void BeebWin::CaptureBitmap(int SourceX,
 	                                      nullptr,
 	                                      0);
 
+	if (CaptureDIB == nullptr)
+	{
+		Report(MessageType::Error, "Failed to create bitmap");
+		return;
+	}
+
 	HGDIOBJ prevObj = SelectObject(CaptureDC, CaptureDIB);
 
 	if (prevObj == nullptr)

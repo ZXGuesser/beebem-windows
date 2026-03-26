@@ -297,7 +297,7 @@ UEFResult UEFTapeImage::LoadData(const char *FileName)
 	char UEFId[10];
 	int BytesRead = gzread(InputFile, UEFId, 10);
 
-	if (BytesRead < 10 || strcmp(UEFId, "UEF File!") != 0)
+	if (BytesRead < 10 || UEFId[9] != '\0' || strcmp(UEFId, "UEF File!") != 0)
 	{
 		Close();
 

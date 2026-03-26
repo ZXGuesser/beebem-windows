@@ -29,6 +29,8 @@ DirectSoundStreamer::DirectSoundStreamer() :
 	m_pDirectSound(nullptr),
 	m_pDirectSoundBuffer(nullptr),
 	m_begin(0),
+	m_rate(0),
+	m_size(0),
 	m_physical(0),
 	m_bytespersample(0),
 	m_channels(0)

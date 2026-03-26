@@ -148,7 +148,7 @@ uint64_t UEFRead64(FILE *pFile)
 			throw UEFStateResult::ReadFailed;
 		}
 
-		Result |= Value << Shift;
+		Result |= (uint64_t)Value << Shift;
 	}
 
 	return Result;
@@ -576,7 +576,8 @@ bool IsUEFSaveState(const char* FileName)
 		char buf[14];
 		size_t BytesRead = fread(buf, 1, sizeof(buf), file);
 
-		if (BytesRead == sizeof(buf) && strcmp(buf, "UEF File!") == 0 &&
+		if (BytesRead == sizeof(buf) &&
+		    buf[9] == '\0' && strcmp(buf, "UEF File!") == 0 &&
 		    buf[12] == 0x6c && buf[13] == 0x04)
 		{
 			IsSaveState = true;

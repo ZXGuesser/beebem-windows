@@ -77,6 +77,12 @@ ARMul_NewState (void)
     unsigned i, j;
 
     state = (ARMul_State *) malloc (sizeof (ARMul_State));
+
+    if (state == nullptr)
+    {
+        return nullptr;
+    }
+
     memset (state, 0, sizeof (ARMul_State));
 
     state->Emulate = RUN;

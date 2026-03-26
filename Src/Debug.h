@@ -70,17 +70,17 @@ struct Label
 
 struct Breakpoint
 {
-	int start;
-	int end;
+	int start = -1;
+	int end = -1;
 	std::string name;
 };
 
 struct Watch
 {
-	int start;
-	char type;
-	int value;
-	bool host;
+	int start = -1;
+	char type = 'w';
+	int value = -1;
+	bool host = true;
 	std::string name;
 };
 
@@ -93,8 +93,8 @@ struct InstInfo
 
 struct AddrInfo
 {
-	int start;
-	int end;
+	int start = -1;
+	int end = -1;
 	std::string desc;
 };
 

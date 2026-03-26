@@ -144,7 +144,20 @@ CSWResult CSWOpen(const char *FileName)
 
 	csw_bufflen = 8 * 1024 * 1024;
 	csw_buff = (unsigned char *)malloc(csw_bufflen);
+
+	if (csw_buff == nullptr)
+	{
+		return CSWResult::ReadFailed;
+	}
+
 	unsigned char *sourcebuff = (unsigned char *)malloc(sourcesize);
+
+	if (sourcebuff == nullptr)
+	{
+		free(csw_buff);
+
+		return CSWResult::ReadFailed;
+	}
 
 	size_t BytesRead = fread(sourcebuff, 1, sourcesize, csw_file);
 

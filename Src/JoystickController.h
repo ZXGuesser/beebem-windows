@@ -164,8 +164,8 @@ class JoystickController
 
 		void EnumerateDevices();
 
-		int GetDeviceCount() const;
-		const JoystickDevice& GetDevice(int Index) const;
+		size_t GetDeviceCount() const;
+		const JoystickDevice& GetDevice(size_t Index) const;
 		int FindDevice(JoystickDeviceType Type,
 		               const std::string& ID);
 

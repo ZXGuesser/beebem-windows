@@ -1187,10 +1187,10 @@ void BeebWin::CreateBitmap()
 		                           0 };
 	}
 
-	// Red Leds - left is dark, right is lit.
+	// Red LEDs - left is dark, right is lit.
 	m_BitmapInfo.Colors[LED_COL_BASE]     = { 0, 0,  80, 0 }; // blue, green, red, reserved
 	m_BitmapInfo.Colors[LED_COL_BASE + 1] = { 0, 0, 255, 0 };
-	// Green Leds - left is dark, right is lit.
+	// Green LEDs - left is dark, right is lit.
 	m_BitmapInfo.Colors[LED_COL_BASE + 2] = { 0,  80, 0, 0 };
 	m_BitmapInfo.Colors[LED_COL_BASE + 3] = { 0, 255, 0, 0 };
 
@@ -6286,7 +6286,6 @@ void BeebWin::SelectUserDataPath()
 void BeebWin::HandleKeyboardTimer()
 {
 	int row,col;
-	char delay[10];
 
 	m_KeyboardTimerElapsed = true;
 
@@ -6325,26 +6324,24 @@ void BeebWin::HandleKeyboardTimer()
 
 				switch (m_KbdCmd[m_KbdCmdPos])
 				{
-				case '\\': m_KbdCmdKey = VK_OEM_5; break;
-				case 'n': m_KbdCmdKey = VK_RETURN; break;
-				case 's': m_KbdCmdKey = VK_SHIFT; break;
-				case 'S': m_KbdCmdKey = VK_SHIFT; m_KbdCmdPress = false; break;
-				case 'c': m_KbdCmdKey = VK_CONTROL; break;
-				case 'C': m_KbdCmdKey = VK_CONTROL; m_KbdCmdPress = false; break;
-				case 'd':
-					m_KbdCmdKey = 0;
-					m_KbdCmdPos++;
-					delay[0] = m_KbdCmd[m_KbdCmdPos];
-					m_KbdCmdPos++;
-					delay[1] = m_KbdCmd[m_KbdCmdPos];
-					m_KbdCmdPos++;
-					delay[2] = m_KbdCmd[m_KbdCmdPos];
-					m_KbdCmdPos++;
-					delay[3] = m_KbdCmd[m_KbdCmdPos];
-					delay[4] = 0;
-					m_KbdCmdDelay = atoi(delay);
-					break;
-				default: m_KbdCmdKey = 0; break;
+					case '\\': m_KbdCmdKey = VK_OEM_5; break;
+					case 'n': m_KbdCmdKey = VK_RETURN; break;
+					case 's': m_KbdCmdKey = VK_SHIFT; break;
+					case 'S': m_KbdCmdKey = VK_SHIFT; m_KbdCmdPress = false; break;
+					case 'c': m_KbdCmdKey = VK_CONTROL; break;
+					case 'C': m_KbdCmdKey = VK_CONTROL; m_KbdCmdPress = false; break;
+					case 'd': {
+						char delay[10];
+						m_KbdCmdKey = 0;
+						delay[0] = m_KbdCmd[++m_KbdCmdPos];
+						delay[1] = m_KbdCmd[++m_KbdCmdPos];
+						delay[2] = m_KbdCmd[++m_KbdCmdPos];
+						delay[3] = m_KbdCmd[++m_KbdCmdPos];
+						delay[4] = 0;
+						m_KbdCmdDelay = atoi(delay);
+						break;
+					}
+					default: m_KbdCmdKey = 0; break;
 				}
 				break;
 

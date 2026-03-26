@@ -195,7 +195,7 @@ class TMS5220
 
 		void Poll(int Cycles);
 
-		void ProcessSamples(short int *buffer, int size);
+		void ProcessSamples(short* buffer, int size);
 
 	private:
 		int16_t LatticeFilter();
@@ -623,7 +623,7 @@ int16_t TMS5220::LatticeFilter()
 
 // Fill the buffer with a specific number of samples
 
-void TMS5220::ProcessSamples(int16_t *buffer, int size)
+void TMS5220::ProcessSamples(short* buffer, int size)
 {
 	int buf_count = 0;
 	int i, interp_period;
@@ -770,7 +770,7 @@ tryagain:
 			// Generate silent samples here
 
 			// This is NOT correct, the current_energy is forced to zero when we
-			// just passed a zero energy frame because thats what the tables hold
+			// just passed a zero energy frame because that's what the tables hold
 			// for that value. However, this code does no harm. Will be removed later.
 			m_excitation_data = 0;
 		}

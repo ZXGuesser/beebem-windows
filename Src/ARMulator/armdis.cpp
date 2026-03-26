@@ -197,14 +197,14 @@ const Opcodes armOpcodes[] = {
   {0x00000000, 0x00000000, "[ ??? ]"}
 };
 
-char* addStr(char *dest, const char *src){
+static char* addStr(char *dest, const char *src){
   while (*src){
     *dest++ = *src++;
   }
   return dest;
 }
 
-char* addHex(char *dest, int siz, u32 val){
+static char* addHex(char *dest, int siz, u32 val){
   if (siz==0){
     siz = 28;
     while ( (((val>>siz)&15)==0) && (siz>=4) )

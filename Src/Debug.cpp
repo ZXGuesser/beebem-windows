@@ -1111,7 +1111,7 @@ static bool DebugIsIOAddress(unsigned long Address, bool Host)
 
 static int DebugFindLabel(const char* pszLabel, bool Host)
 {
-	for (size_t i = 0; i < Labels[(int)Host].size(); ++i)
+	for (int i = 0; i < (int)Labels[(int)Host].size(); ++i)
 	{
 		if (StrCaseCmp(pszLabel, Labels[(int)Host][i].name.c_str()) == 0)
 		{
@@ -3855,9 +3855,6 @@ static bool DebugCmdWatch(const char* args)
 	const char* pszLabel = nullptr;
 
 	Watch w;
-	w.start = -1;
-	w.host = true;
-	w.type = 'w';
 
 	if (StrCaseCmp(Args[Index].c_str(), "p") == 0) // Parasite
 	{
@@ -3966,7 +3963,6 @@ static bool DebugCmdToggleBreak(const char* args)
 
 	const char* pszLabel = nullptr;
 	Breakpoint bp;
-	bp.start = bp.end = -1;
 
 	std::size_t SeparatorPos = Args[0].find('-');
 

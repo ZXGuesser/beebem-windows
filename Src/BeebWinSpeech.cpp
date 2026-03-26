@@ -196,16 +196,20 @@ static int GetMenuItemPosition(HMENU hMenu, const char *pszMenuItem)
 		Info.cch += 1;
 
 		char *str = (char*)malloc(Info.cch);
-		Info.dwTypeData = str;
 
-		GetMenuItemInfo(hMenu, i, TRUE, &Info);
-
-		if (strcmp(str, pszMenuItem) == 0)
+		if (str != nullptr)
 		{
-			Index = i; // Found it
-		}
+			Info.dwTypeData = str;
 
-		free(str);
+			GetMenuItemInfo(hMenu, i, TRUE, &Info);
+
+			if (strcmp(str, pszMenuItem) == 0)
+			{
+				Index = i; // Found it
+			}
+
+			free(str);
+		}
 	}
 
 	return Index;
