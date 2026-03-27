@@ -13,6 +13,7 @@ Contributors: Chris Needham
 * Added an InitialRAMValue Preferences setting that lets you control
   how RAM is initialised on reset.
 * Fixed the zip file distribution to include the Master ET ROMs.
+* Fixed the Quick Save to store the last 10 savestates.
 * Debugger improvements:
   - Fixed the "watch" debugger command as it was not possible to remove
     a watch if the maximum number of watches was reached.

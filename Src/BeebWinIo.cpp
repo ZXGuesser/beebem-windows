@@ -1207,7 +1207,7 @@ void BeebWin::QuickSave()
 		}
 		else
 		{
-			sprintf(FileName, "quicksave%d.uefstate", i);
+			sprintf(FileName, "quicksave%d.uefstate", i + 1);
 
 			strcpy(FileName2, m_UserDataPath);
 			AppendPath(FileName2, "BeebState");
