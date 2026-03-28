@@ -1104,9 +1104,8 @@ bool EconetReset()
 	if (EconetListenPort != DEFAULT_AUN_PORT)
 	{
 		// Bind additional BroadcastListenSocket for reception of AUN broadcasts.
-		const char Broadcast = 1;
 
-		if (setsockopt(BroadcastListenSocket, SOL_SOCKET, SO_REUSEADDR, &Broadcast, sizeof(Broadcast)) == -1)
+		if (!EnableBroadcast(BroadcastListenSocket))
 		{
 			EconetError("Econet: Failed to set socket for shared reception of broadcasts (error %d)", GetLastSocketError());
 			goto Fail;
