@@ -574,11 +574,11 @@ static EconetHost* FindNetworkConfig(unsigned char Station, unsigned char Networ
 
 // Add or replace a station in stations list.
 
-void AddStation(unsigned char Station,
-                unsigned char Network,
-                unsigned long IPAddress,
-                unsigned short Port,
-                BroadcastSource Broadcasts = BroadcastSource::Unknown)
+static void AddStation(unsigned char Station,
+                       unsigned char Network,
+                       unsigned long IPAddress,
+                       unsigned short Port,
+                       BroadcastSource Broadcasts = BroadcastSource::Unknown)
 {
 	EconetHost* pHost = FindNetworkConfig(Station, Network);
 
