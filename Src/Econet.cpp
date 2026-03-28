@@ -999,10 +999,9 @@ bool EconetReset()
 
 	// Stops multiple instances binding to the same port (which shouldn't be
 	// possible but happens anyway where we bind to a wildcard address)
-	const char exclusive = '1';
-	if (setsockopt(Socket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, &exclusive, sizeof(exclusive)) == -1)
+	if (!SetExclusiveAddrUse(Socket))
 	{
-		EconetError("Econet: Failed to set exclusive socket lock", GetLastSocketError());
+		EconetError("Econet: Failed to set exclusive socket lock: %d", GetLastSocketError());
 		goto Fail;
 	}
 	*/
