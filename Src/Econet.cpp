@@ -1246,7 +1246,7 @@ static bool ReadEconetConfigFile()
 
 				unsigned char Network = (unsigned char)ParseNumber("Network", Tokens[Index], 1, 127);
 				unsigned char Station = (unsigned char)ParseNumber("Station", Tokens[Index + 1], 1, 254);
-				unsigned long IPAddress = ParseIPAddress("IP adddress", Tokens[Index + 2]);
+				unsigned long IPAddress = ParseIPAddress("IP address", Tokens[Index + 2]);
 				unsigned short Port = (unsigned short)ParseNumber("Port", Tokens[Index + 3], 0, 65535);
 
 				AddStation(Station, Network, IPAddress, Port);
@@ -1842,7 +1842,7 @@ bool EconetPollReal()
 					ADLC.TxFifoTxLast = 0;
 
 					#ifdef DEBUG_ECONET
-					DebugTrace("EconetPoll: TxUnderun!\n");
+					DebugTrace("EconetPoll: TxUnderrun!\n");
 					#endif
 				}
 				else
