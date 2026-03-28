@@ -28,6 +28,7 @@ int GetLastSocketError();
 bool SetSocketBlocking(SOCKET Socket, bool Blocking);
 bool WouldBlock(int Error);
 bool EnableBroadcast(SOCKET Socket);
+bool SetReuseAddr(SOCKET Socket);
 bool SetExclusiveAddrUse(SOCKET Socket);
 unsigned long ParseIPAddress(const char* Name, const std::string& Value);
 int ParseIPAddress(int Family, const char* pszName, void* pAddr);

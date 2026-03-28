@@ -116,6 +116,15 @@ bool EnableBroadcast(SOCKET Socket)
 
 /****************************************************************************/
 
+bool SetReuseAddr(SOCKET Socket)
+{
+	const char Reuse = 1;
+
+	return setsockopt(Socket, SOL_SOCKET, SO_REUSEADDR, &Reuse, sizeof(Reuse)) == 0;
+}
+
+/****************************************************************************/
+
 bool SetExclusiveAddrUse(SOCKET Socket)
 {
 	const char Exclusive = 1;
