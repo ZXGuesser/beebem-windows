@@ -1816,7 +1816,7 @@ bool EconetPollReal()
 		{
 			if (ADLC.TxFifoPtr > 0) // There is data in the transmit FIFO.
 			{
-				#ifdef DEBUG_ECONET
+				#ifdef DEBUG_ECONET_ADLC_FIFO
 				DebugTrace("EconetPoll: Write to FIFO: %02X %c\n",
 				           ADLC.TxFifo[ADLC.TxFifoPtr - 1],
 				           isprint(ADLC.TxFifo[ADLC.TxFifoPtr - 1]) ? ADLC.TxFifo[ADLC.TxFifoPtr - 1] : '.');
@@ -1866,7 +1866,7 @@ bool EconetPollReal()
 				// There's something waiting to be given to the processor.
 				if (ADLC.RxFifoPtr < 3) // space in FIFO
 				{
-					#ifdef DEBUG_ECONET
+					#ifdef DEBUG_ECONET_ADLC_FIFO
 					DebugTrace("EconetPoll: Send received byte to the Beeb: %02X %c\n",
 					           BeebRx.Buffer[BeebRx.Pointer],
 					           isprint(BeebRx.Buffer[BeebRx.Pointer]) ? BeebRx.Buffer[BeebRx.Pointer] : '.');
