@@ -2007,7 +2007,7 @@ bool EconetPollReal()
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Failed to send Gateway keepalive (%s port %u)\n",
 			           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
-			           (unsigned int)htons(RecvAddr.sin_port));
+			           (unsigned int)ntohs(RecvAddr.sin_port));
 			#endif
 		}
 
@@ -2711,14 +2711,14 @@ static void EconetSendPacket()
 			// else a broadcast - we will send this extended AUN packet to the gateway after sending the original packet as a UDP broadcast
 		}
 
-		if (!(RecvAddr.sin_addr.s_addr == EconetListenIP && htons(RecvAddr.sin_port) == EconetListenPort)) // never send to ourself
+		if (!(RecvAddr.sin_addr.s_addr == EconetListenIP && ntohs(RecvAddr.sin_port) == EconetListenPort)) // never send to ourself
 		{
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Send packet to station %d.%d (%s port %u)\n",
 			           (int)EconetTx.DestNet,
 			           (int)EconetTx.DestStn,
 			           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
-			           (unsigned int)htons(RecvAddr.sin_port));
+			           (unsigned int)ntohs(RecvAddr.sin_port));
 
 			DebugDumpBytes("Econet: Ethernet data:", (const unsigned char*)p, SendLen);
 			#endif
@@ -2729,7 +2729,7 @@ static void EconetSendPacket()
 				EconetError("Econet: Failed to send packet to station %d (%s port %u)",
 				            (int)EconetTx.DestStn,
 				            IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
-				            (unsigned int)htons(RecvAddr.sin_port));
+				            (unsigned int)ntohs(RecvAddr.sin_port));
 			}
 		}
 
@@ -2748,7 +2748,7 @@ static void EconetSendPacket()
 			{
 				EconetError("Econet: Failed to send broadcast to gateway (%s port %u)",
 				            IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
-				            (unsigned int)htons(RecvAddr.sin_port));
+				            (unsigned int)ntohs(RecvAddr.sin_port));
 			}
 		}
 	}
@@ -2823,7 +2823,7 @@ GetNewPacket:
 			}
 
 			if (RecvAddr.sin_addr.s_addr == EconetListenIP &&
-			    htons(RecvAddr.sin_port) == EconetListenPort)
+			    ntohs(RecvAddr.sin_port) == EconetListenPort)
 			{
 				BytesReceived = 0; // We sent this broadcast packet - ignore
 			}
@@ -2836,7 +2836,7 @@ GetNewPacket:
 				DebugTrace("EconetPoll: Packet received: %d bytes from %s port %u\n",
 				           BytesReceived,
 				           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
-				           htons(RecvAddr.sin_port));
+				           ntohs(RecvAddr.sin_port));
 
 				DebugDumpBytes("EconetPoll: Packet data:",
 				               EconetRx.raw,
@@ -2852,7 +2852,7 @@ GetNewPacket:
 				{
 					EconetHost& Station = Stations[i];
 
-					if (htons(RecvAddr.sin_port) == Station.port &&
+					if (ntohs(RecvAddr.sin_port) == Station.port &&
 					    RecvAddr.sin_addr.s_addr == Station.inet_addr)
 					{
 						Found = true;
@@ -2887,7 +2887,7 @@ GetNewPacket:
 						if (RecvAddr.sin_addr.s_addr == Network.inet_addr)
 						{
 							// A single address using sequential ports.
-							int Station = htons(RecvAddr.sin_port) - Network.port;
+							int Station = ntohs(RecvAddr.sin_port) - Network.port;
 
 							// Check whether result is in range.
 							if (Station > 0 && Station < 255)
@@ -2899,7 +2899,7 @@ GetNewPacket:
 							// else must be a different net on the same host
 						}
 						else if ((RecvAddr.sin_addr.s_addr & 0x00FFFFFF) == Network.inet_addr &&
-						         htons(RecvAddr.sin_port) == DEFAULT_AUN_PORT)
+						         ntohs(RecvAddr.sin_port) == DEFAULT_AUN_PORT)
 						{
 							// True AUN addressing.
 							BeebRx.EconetHeader.SrcNet = Network.network;
@@ -2932,7 +2932,7 @@ GetNewPacket:
 				{
 					// Search to see if source is extended AUN gateway.
 					if (RecvAddr.sin_addr.s_addr == Gateway.inet_addr &&
-					    htons(RecvAddr.sin_port) == Gateway.port)
+					    ntohs(RecvAddr.sin_port) == Gateway.port)
 					{
 						// PiEconetBridge gateways use an extended AUN which contains
 						// the Econet addresses at the start of the packet.
@@ -3029,7 +3029,7 @@ GetNewPacket:
 							if (Gateway.port == 0)
 							{
 								Gateway.inet_addr = RecvAddr.sin_addr.s_addr;
-								Gateway.port = htons(RecvAddr.sin_port);
+								Gateway.port = ntohs(RecvAddr.sin_port);
 
 								#ifdef DEBUG_ECONET
 								DebugTrace("Econet: Learned about gateway at %s:%d. Bridge sees us as station %d.%d\n",
@@ -3043,14 +3043,14 @@ GetNewPacket:
 								time(&GatewayTimeout);
 							}
 							else if (Gateway.inet_addr != RecvAddr.sin_addr.s_addr ||
-							         Gateway.port != htons(RecvAddr.sin_port))
+							         Gateway.port != ntohs(RecvAddr.sin_port))
 							{
 								// This response was from a different gateway
 								// to the one we already have configured!
 								#ifdef DEBUG_ECONET
 								DebugTrace("Econet: Ignored gateway response from %s:%d",
 								           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
-								           htons(RecvAddr.sin_port));
+								           ntohs(RecvAddr.sin_port));
 								#endif
 							}
 						}
@@ -3062,14 +3062,14 @@ GetNewPacket:
 					    EconetRx.AUNHeader.Type == AUNType::BeebEm &&
 					    AutoConfigure)
 					{
-						if ((EconetRx.AUNHeader.CtrlByte | 128) == 0x9f) // BeebEm Ping
+						if ((EconetRx.AUNHeader.CtrlByte | 128) == 0x9f) // BeebEm ping
 						{
-							// This is a BeebEm Ping used for host discovery.
+							// This is a BeebEm ping used for host discovery.
 							BeebRx.EconetHeader.SrcStn = EconetRx.Buffer[0];
 							BeebRx.EconetHeader.SrcNet = EconetRx.Buffer[1];
 
 							#ifdef DEBUG_ECONET
-							DebugTrace("Econet: Received BeebEm Ping from %d.%d\n",
+							DebugTrace("Econet: Received BeebEm ping from station %d.%d\n",
 							           (int)BeebRx.EconetHeader.SrcNet,
 							           (int)BeebRx.EconetHeader.SrcStn);
 							#endif
@@ -3104,7 +3104,7 @@ GetNewPacket:
 									AddStation(BeebRx.EconetHeader.SrcStn,
 									           BeebRx.EconetHeader.SrcNet,
 									           RecvAddr.sin_addr.s_addr,
-									           htons(RecvAddr.sin_port),
+									           ntohs(RecvAddr.sin_port),
 									           BroadcastSource::Local); // Must be in the broadcast domain to have received this ping.
 								}
 							}
@@ -3137,11 +3137,11 @@ GetNewPacket:
 						if (EconetRx.AUNHeader.Port == BEEBEM_ECONET_PORT &&
 						    EconetRx.AUNHeader.CtrlByte == 0x9f && AutoConfigure)
 						{
-							// This is a BeebEm Ping used for host discovery
+							// This is a BeebEm ping used for host discovery
 							// from an address we think we know already.
 
 							#ifdef DEBUG_ECONET
-							DebugTrace("Econet: Received BeebEm Ping from %d.%d\n",
+							DebugTrace("Econet: Received BeebEm ping from station %d.%d\n",
 							           (int)EconetRx.Buffer[1],
 							           (int)EconetRx.Buffer[0]);
 							#endif
