@@ -1421,7 +1421,7 @@ bool SpeechInit()
 
 	while (std::getline(RomCfg, Line))
 	{
-		trim(Line);
+		Trim(Line);
 
 		// Skip blank lines and comments
 		if (Line.empty() || Line[0] == '#')
