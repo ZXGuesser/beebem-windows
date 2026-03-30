@@ -352,6 +352,26 @@ struct EthernetPacket
 	unsigned char DestNet;
 };
 
+struct AnnouncePacket
+{
+	AUNHeaderType AUNHeader;
+	EconetHeaderType EconetHeader;
+	unsigned char Buffer[4];
+};
+
+struct GatewayDiscoveryPacket
+{
+	AUNHeaderType AUNHeader;
+	unsigned char Buffer[8];
+};
+
+struct GatewayKeepAlivePacket
+{
+	AUNHeaderType AUNHeader;
+	EconetHeaderType EconetHeader;
+	unsigned char Buffer[8];
+};
+
 struct ExtendedAUNPacket
 {
 	EconetHeaderType EconetHeader;
@@ -1138,13 +1158,17 @@ bool EconetReset()
 		RecvAddr.sin_addr.s_addr = INADDR_BROADCAST;
 		RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
 
-		EconetTemp.AUNHeader.Type = AUNType::Broadcast; // the gateway is listening for an AUN broadcast
-		EconetTemp.AUNHeader.CtrlByte = 0x10; // control &90 locate gateway
-		EconetTemp.AUNHeader.Port = 0x9c; // Pi Econet Bridge port
-		EconetTemp.AUNHeader.Pad = 0;
-		EconetTemp.AUNHeader.Handle = 0;
-		ZeroMemory(EconetTemp.Buffer, 8);
-		EconetTemp.Buffer[0] = BEEBEM_ECONET_PORT; // where response is sent
+		GatewayDiscoveryPacket Packet;
+		ZeroMemory(&Packet, sizeof(Packet));
+		Packet.AUNHeader.Type = AUNType::Broadcast; // The gateway is listening for an AUN broadcast
+		Packet.AUNHeader.Port = 0x9C; // Pi Econet Bridge port
+		Packet.AUNHeader.CtrlByte = 0x10; // &90 locate gateway
+		Packet.Buffer[0] = BEEBEM_ECONET_PORT; // Where response is sent
+
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: Sending gateway discovery packet (%s port %d)\n",
+		           IpAddressStr(INADDR_BROADCAST).c_str(), DEFAULT_AUN_PORT);
+		#endif
 
 		// This is crude, but sometimes the gateway request broadcast
 		// can get lost so spam them out.
@@ -1152,7 +1176,7 @@ bool EconetReset()
 
 		for (int i = 0; i < 3; i++)
 		{
-			if (sendto(Socket, (char *)&EconetTemp, sizeof(EconetTemp.AUNHeader) + 8, 0,
+			if (sendto(Socket, (const char *)&Packet, sizeof(Packet), 0,
 			           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 			{
 				Error = true;
@@ -1979,29 +2003,23 @@ bool EconetPollReal()
 	{
 		sockaddr_in RecvAddr;
 		RecvAddr.sin_family = AF_INET;
-
-		// Construct an extended AUN packet on EconetTemp.
-		ExtendedAUNPacket *KeepalivePacket = (ExtendedAUNPacket*)&EconetTemp;
-		KeepalivePacket->EconetHeader.DestStn = 255;
-		KeepalivePacket->EconetHeader.DestNet = 255;
-		KeepalivePacket->EconetHeader.SrcStn = 0; // source (left blank)
-		KeepalivePacket->EconetHeader.SrcNet = 0;
-		KeepalivePacket->AUNHeader.Type = AUNType::Broadcast;
-		KeepalivePacket->AUNHeader.Port = 0x9c; // bridge port
-		KeepalivePacket->AUNHeader.CtrlByte = (0xd0 & 0x7f); // reuse trunk keepalive
-		KeepalivePacket->AUNHeader.Pad = 0;
-		KeepalivePacket->AUNHeader.Handle = 0;
-		ZeroMemory(KeepalivePacket->Buffer, 8); // a broadcast has 8 data bytes
-		int KeepaliveLen = 20; // total size to send is 4 + 8 + 8
-
-		#ifdef DEBUG_TRACE
-		DebugTrace("Econet: Sending gateway keepalive\n");
-		#endif
-
 		RecvAddr.sin_addr.s_addr = Gateway.inet_addr;
 		RecvAddr.sin_port = htons(Gateway.port);
 
-		if (sendto(Socket, (const char*)KeepalivePacket, KeepaliveLen, 0,
+		GatewayKeepAlivePacket Packet;
+		ZeroMemory(&Packet, sizeof(Packet));
+		Packet.AUNHeader.Type = AUNType::Broadcast;
+		Packet.AUNHeader.Port = 0x9C; // Pi Econet Bridge
+		Packet.AUNHeader.CtrlByte = 0xD0 & 0x7F; // Reuse trunk keepalive
+		Packet.EconetHeader.DestStn = 255;
+		Packet.EconetHeader.DestNet = 255;
+		// SrcStn and SrcNet in the Econet header are both left blank (zero).
+
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: Sending gateway keepalive\n");
+		#endif
+
+		if (sendto(Socket, (const char*)&Packet, sizeof(Packet), 0,
 		           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 		{
 			#ifdef DEBUG_ECONET
@@ -2027,16 +2045,21 @@ bool EconetPollReal()
 		RecvAddr.sin_addr.s_addr = INADDR_BROADCAST;
 		RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
 
-		EconetTemp.AUNHeader.Type = AUNType::BeebEm;
-		EconetTemp.AUNHeader.CtrlByte = 0x1f; // control &9f a discovery Ping
-		EconetTemp.AUNHeader.Port = BEEBEM_ECONET_PORT; // BeebEm reply port
-		EconetTemp.AUNHeader.Pad = 0;
-		EconetTemp.AUNHeader.Handle = AnnounceHandle++; // sequence number
-		ZeroMemory(EconetTemp.Buffer, 8);
-		EconetTemp.Buffer[0] = EconetStationID;
-		EconetTemp.Buffer[1] = EconetNetworkID;
+		AnnouncePacket Packet;
+		ZeroMemory(&Packet, sizeof(Packet));
+		Packet.AUNHeader.Type = AUNType::BeebEm;
+		Packet.AUNHeader.Port = BEEBEM_ECONET_PORT; // BeebEm reply port
+		Packet.AUNHeader.CtrlByte = 0x1F; // &9F discovery ping
+		Packet.AUNHeader.Handle = AnnounceHandle++; // Sequence number
+		Packet.EconetHeader.DestStn = EconetStationID;
+		Packet.EconetHeader.DestNet = EconetNetworkID;
 
-		if (sendto(Socket, (char *)&EconetTemp, sizeof(EconetTemp.AUNHeader) + 8, 0,
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: Sending broadcast announce packet (%s port %d)\n",
+		           IpAddressStr(INADDR_BROADCAST).c_str(), DEFAULT_AUN_PORT);
+		#endif
+
+		if (sendto(Socket, (const char *)&Packet, sizeof(Packet), 0,
 		           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 		{
 			EconetError("Econet: Failed to send BeebEm ping");
