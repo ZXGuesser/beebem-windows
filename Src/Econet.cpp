@@ -750,10 +750,10 @@ static void AllocateNewAddress()
 
 					if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 					{
-						EconetListenPort = Station.port;
 						EconetListenIP = Station.inet_addr;
-						EconetStationID = Station.station;
+						EconetListenPort = Station.port;
 						EconetNetworkID = Station.network;
+						EconetStationID = Station.station;
 					}
 					else
 					{
@@ -769,7 +769,7 @@ static void AllocateNewAddress()
 	{
 		// Still can't find one - try to find our AUNNet.
 		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: couldn't get host from configured addresses - trying automatic\n");
+		DebugTrace("Econet: Couldn't get host from configured addresses - trying automatic\n");
 		#endif
 
 		if (PreferredStationID == 0)
@@ -879,7 +879,7 @@ static void AllocateNewAddress()
 					EconetNetworkID = PreferredNetworkID;
 
 					#ifdef DEBUG_ECONET
-					DebugTrace("Econet: automatically assigned random station %d.%d on %s:%d\n",
+					DebugTrace("Econet: Automatically assigned random station %d.%d on %s:%d\n",
 					           EconetNetworkID,
 					           EconetStationID,
 					           IpAddressStr(EconetListenIP).c_str(),
@@ -1040,19 +1040,21 @@ bool EconetReset()
 
 		if (pNetworkConfig != nullptr)
 		{
-			EconetListenPort = pNetworkConfig->port;
-			EconetListenIP = pNetworkConfig->inet_addr;
-			EconetStationID = pNetworkConfig->station;
-			EconetNetworkID = pNetworkConfig->network;
-
 			// The sockaddr_in structure specifies the address family,
 			// IP address, and port for the socket that is being bound.
 			sockaddr_in service;
 			service.sin_family = AF_INET;
-			service.sin_addr.s_addr = EconetListenIP;
-			service.sin_port = htons(EconetListenPort);
+			service.sin_addr.s_addr = pNetworkConfig->inet_addr;
+			service.sin_port = htons(pNetworkConfig->port);
 
-			if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) != 0)
+			if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
+			{
+				EconetListenIP = pNetworkConfig->inet_addr;
+				EconetListenPort = pNetworkConfig->port;
+				EconetStationID = pNetworkConfig->station;
+				EconetNetworkID = pNetworkConfig->network;
+			}
+			else
 			{
 				EconetError("Econet: Failed to bind to address %s:%d",
 				            IpAddressStr(EconetListenIP).c_str(),
@@ -1060,9 +1062,6 @@ bool EconetReset()
 
 				// Clear this so we don't try to allocate it again.
 				PreferredStationID = 0;
-
-				EconetStationID = 0;
-				EconetNetworkID = 0;
 
 				// Try to allocate a different station number instead.
 				AllocateNewAddress();
