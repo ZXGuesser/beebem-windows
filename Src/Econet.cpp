@@ -1130,7 +1130,7 @@ bool EconetReset()
 	{
 		// Bind additional BroadcastListenSocket for reception of AUN broadcasts.
 
-		if (!EnableBroadcast(BroadcastListenSocket))
+		if (!SetReuseAddr(BroadcastListenSocket))
 		{
 			EconetError("Econet: Failed to set socket for shared reception of broadcasts (error %d)", GetLastSocketError());
 			goto Fail;
