@@ -459,7 +459,9 @@ int WhatNetPort = -1; // invalid value when not expecting a WhatNet response
 
 //---------------------------------------------------------------------------
 
-static bool ReadNetwork();
+static void EconetResetState();
+static bool ReadEconetConfigFile();
+static bool ReadAUNConfigFile();
 static bool EconetPollReal();
 static void EconetSendPacket();
 static bool EconetReceivePacket();
@@ -978,8 +980,15 @@ bool EconetReset()
 		return true;
 	}
 
+	EconetResetState();
+
 	// Read in Econet.cfg and AUNMap. Done here so can refresh it on Break.
-	if (!ReadNetwork())
+	if (!ReadEconetConfigFile())
+	{
+		goto Fail;
+	}
+
+	if (!ReadAUNConfigFile())
 	{
 		goto Fail;
 	}
@@ -1464,7 +1473,7 @@ static bool ReadAUNConfigFile()
 
 //---------------------------------------------------------------------------
 
-static bool ReadNetwork()
+static void EconetResetState()
 {
 	EconetFlagFillTimeout = DEFAULT_FLAG_FILL_TIMEOUT;
 	EconetScoutAckTimeout = DEFAULT_SCOUT_ACK_TIMEOUT;
@@ -1481,13 +1490,6 @@ static bool ReadNetwork()
 	// Clear the gateway address.
 	Gateway.inet_addr = 0;
 	Gateway.port = 0;
-
-	if (!ReadEconetConfigFile())
-	{
-		return false;
-	}
-
-	return ReadAUNConfigFile();
 }
 
 //---------------------------------------------------------------------------
