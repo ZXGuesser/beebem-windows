@@ -355,8 +355,7 @@ struct EthernetPacket
 struct AnnouncePacket
 {
 	AUNHeaderType AUNHeader;
-	EconetHeaderType EconetHeader;
-	unsigned char Buffer[4];
+	unsigned char Buffer[8];
 };
 
 struct GatewayDiscoveryPacket
@@ -367,8 +366,8 @@ struct GatewayDiscoveryPacket
 
 struct GatewayKeepAlivePacket
 {
-	AUNHeaderType AUNHeader;
 	EconetHeaderType EconetHeader;
+	AUNHeaderType AUNHeader;
 	unsigned char Buffer[8];
 };
 
@@ -2006,12 +2005,13 @@ bool EconetPollReal()
 
 		GatewayKeepAlivePacket Packet;
 		ZeroMemory(&Packet, sizeof(Packet));
-		Packet.AUNHeader.Type = AUNType::Broadcast;
-		Packet.AUNHeader.Port = 0x9C; // Pi Econet Bridge
-		Packet.AUNHeader.CtrlByte = 0xD0 & 0x7F; // Reuse trunk keepalive
 		Packet.EconetHeader.DestStn = 255;
 		Packet.EconetHeader.DestNet = 255;
 		// SrcStn and SrcNet in the Econet header are both left blank (zero).
+		Packet.AUNHeader.Type = AUNType::Broadcast;
+		Packet.AUNHeader.Port = 0x9C; // Pi Econet Bridge
+		Packet.AUNHeader.CtrlByte = 0xD0 & 0x7F; // Reuse trunk keepalive
+		
 
 		#ifdef DEBUG_ECONET
 		DebugTrace("Econet: Sending gateway keepalive\n");
@@ -2049,8 +2049,8 @@ bool EconetPollReal()
 		Packet.AUNHeader.Port = BEEBEM_ECONET_PORT; // BeebEm reply port
 		Packet.AUNHeader.CtrlByte = 0x1F; // &9F discovery ping
 		Packet.AUNHeader.Handle = AnnounceHandle++; // Sequence number
-		Packet.EconetHeader.DestStn = EconetStationID;
-		Packet.EconetHeader.DestNet = EconetNetworkID;
+		Packet.Buffer[0] = EconetStationID;
+		Packet.Buffer[1] = EconetNetworkID;
 
 		#ifdef DEBUG_ECONET
 		DebugTrace("Econet: Sending broadcast announce packet (%s port %d)\n",
