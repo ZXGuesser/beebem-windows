@@ -1236,6 +1236,23 @@ void BeebWin::LoadTapePreferences(int Version)
 		}
 	}
 
+	// Check the tape clock speed is one of the allowed values.
+	bool Found = false;
+
+	for (int i = 0; i < TAPE_CLOCK_SPEED_COUNT; i++)
+	{
+		if (TapeState.ClockSpeed == TapeClockSpeeds[i])
+		{
+			Found = true;
+			break;
+		}
+	}
+
+	if (!Found)
+	{
+		TapeState.ClockSpeed = TapeClockSpeeds[0];
+	}
+
 	m_Preferences.GetBoolValue(CFG_UNLOCK_TAPE, TapeState.Unlock, false);
 }
 

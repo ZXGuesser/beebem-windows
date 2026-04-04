@@ -123,6 +123,9 @@ struct TapeStateType
 
 extern TapeStateType TapeState;
 
+constexpr int TAPE_CLOCK_SPEED_COUNT = 4;
+extern const int TapeClockSpeeds[TAPE_CLOCK_SPEED_COUNT];
+
 void SetTapeSpeed(int Speed);
 void SetUnlockTape(bool Unlock);
 void SetTapePosition(int Time);

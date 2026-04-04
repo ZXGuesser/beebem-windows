@@ -10,10 +10,12 @@ Contributors: Chris Needham
   DirectInput. These are selected from a new dialog box, replacing
   the Options -> Joystick menu options.
 * Fixed the BBSn and BBRn 65C02 instructions in the Tube coprocessor.
-* Added an InitialRAMValue Preferences setting that lets you control
+* Added an InitialRAMValue preferences setting that lets you control
   how RAM is initialised on reset.
 * Fixed the zip file distribution to include the Master ET ROMs.
 * Fixed the Quick Save to store the last 10 savestates.
+* Fixed the Tape Speed menu options to preserve state on reset and
+  when saved to the preferences file.
 * Debugger improvements:
   - Fixed the "watch" debugger command as it was not possible to remove
     a watch if the maximum number of watches was reached.

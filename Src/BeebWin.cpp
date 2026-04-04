@@ -3530,10 +3530,10 @@ void BeebWin::SetTapeSpeedMenu()
 {
 	static const struct { UINT ID; int ClockSpeed; } MenuItems[] =
 	{
-		{ IDM_TAPE_FAST,   750 },
-		{ IDM_TAPE_MFAST,  1600 },
-		{ IDM_TAPE_MSLOW,  3200 },
-		{ IDM_TAPE_NORMAL, 5600 }
+		{ IDM_TAPE_NORMAL, TapeClockSpeeds[0] },
+		{ IDM_TAPE_MSLOW,  TapeClockSpeeds[1] },
+		{ IDM_TAPE_MFAST,  TapeClockSpeeds[2] },
+		{ IDM_TAPE_FAST,   TapeClockSpeeds[3] }
 	};
 
 	UINT SelectedMenuItemID = 0;
@@ -3547,7 +3547,7 @@ void BeebWin::SetTapeSpeedMenu()
 		}
 	}
 
-	CheckMenuRadioItem(IDM_TAPE_FAST, IDM_TAPE_NORMAL, SelectedMenuItemID);
+	CheckMenuRadioItem(IDM_TAPE_NORMAL, IDM_TAPE_FAST, SelectedMenuItemID);
 }
 
 /****************************************************************************/
@@ -4814,23 +4814,23 @@ void BeebWin::HandleCommand(UINT MenuID)
 		break;
 	}
 
-	case IDM_TAPE_FAST:
-		SetTapeSpeed(750);
-		SetTapeSpeedMenu();
-		break;
-
-	case IDM_TAPE_MFAST:
-		SetTapeSpeed(1600);
+	case IDM_TAPE_NORMAL:
+		SetTapeSpeed(TapeClockSpeeds[0]);
 		SetTapeSpeedMenu();
 		break;
 
 	case IDM_TAPE_MSLOW:
-		SetTapeSpeed(3200);
+		SetTapeSpeed(TapeClockSpeeds[1]);
 		SetTapeSpeedMenu();
 		break;
 
-	case IDM_TAPE_NORMAL:
-		SetTapeSpeed(5600);
+	case IDM_TAPE_MFAST:
+		SetTapeSpeed(TapeClockSpeeds[2]);
+		SetTapeSpeedMenu();
+		break;
+
+	case IDM_TAPE_FAST:
+		SetTapeSpeed(TapeClockSpeeds[3]);
 		SetTapeSpeedMenu();
 		break;
 

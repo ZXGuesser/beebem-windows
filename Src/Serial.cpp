@@ -69,6 +69,8 @@ static bool CSWFileOpen = false;
 
 TapeStateType TapeState;
 
+const int TapeClockSpeeds[TAPE_CLOCK_SPEED_COUNT] = { 5600, 3200, 1600, 750 };
+
 struct WordSelectBits
 {
 	unsigned char DataBits;
@@ -938,7 +940,7 @@ void SerialReset()
 
 	TapeState.Recording = false;
 	TapeState.Playing = true;
-	TapeState.ClockSpeed = 5600;
+	// TapeState.ClockSpeed = 5600;
 }
 
 /*--------------------------------------------------------------------------*/

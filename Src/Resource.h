@@ -342,10 +342,10 @@
 #define IDM_SHOW_DISCLEDS               40135
 #define IDM_8271                        40136
 #define IDM_FDC_DLL                     40137
-#define IDM_TAPE_FAST                   40138
-#define IDM_TAPE_MFAST                  40139
-#define IDM_TAPE_MSLOW                  40140
-#define IDM_TAPE_NORMAL                 40141
+#define IDM_TAPE_NORMAL                 40138
+#define IDM_TAPE_MSLOW                  40139
+#define IDM_TAPE_MFAST                  40140
+#define IDM_TAPE_FAST                   40141
 #define IDM_MUSIC5000                   40142
 #define IDM_TELETEXTHALFMODE            40143
 #define IDM_BASIC_HARDWARE_ONLY         40144
