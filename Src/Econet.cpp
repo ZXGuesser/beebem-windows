@@ -36,6 +36,7 @@ Boston, MA  02110-1301, USA.
 #include <windows.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <iphlpapi.h>
 
 #include <stdio.h>
 
@@ -44,6 +45,7 @@ Boston, MA  02110-1301, USA.
 #include <vector>
 #include <ctime>
 #include <algorithm>
+#include <memory>
 
 #include "Econet.h"
 #include "6502core.h"
@@ -198,7 +200,6 @@ unsigned char PreferredStationID = 0;
 unsigned char PreferredNetworkID = 0;
 
 static unsigned short EconetListenPort = 0; // Default listen port
-static unsigned long EconetListenIP = 0; // IP address
 
 static SOCKET Socket = INVALID_SOCKET; // Also used to flag line up and clock running
 static SOCKET BroadcastListenSocket = INVALID_SOCKET;
@@ -415,6 +416,9 @@ struct NetStn
 	unsigned char network;
 	unsigned char station;
 };
+
+static std::vector<unsigned long> LocalIpAddresses; // The addresses of our network adapters
+static std::vector<unsigned long> BroadcastAddresses; // The broadcast address of the local networks
 
 static std::vector<EconetHost> Stations; // Individual stations we know about
 static std::vector<EconetNet> Networks; // AUN networks we know about
@@ -662,55 +666,59 @@ static void EconetCloseSockets()
 
 //---------------------------------------------------------------------------
 
-static bool GetLocalIpAddresses(std::vector<unsigned long>& IpAddresses)
+// populate vectors of the IP addresses of network interfaces on this host,
+// and the broadcast addresses of the local networks
+
+static bool GetLocalNetworkAddresses(std::vector<unsigned long>& IpAddresses, std::vector<unsigned long>& BroadcastIpAddresses)
 {
 	IpAddresses.clear();
+	BroadcastIpAddresses.clear();
 
-	// Get localhost IP address.
-
-	char LocalHostName[256];
-
-	if (gethostname(LocalHostName, sizeof(LocalHostName)) == SOCKET_ERROR)
+	PMIB_IPADDRTABLE pIPAddrTable;
+	DWORD size = 0;
+	
+	pIPAddrTable = (MIB_IPADDRTABLE *) malloc(sizeof(PMIB_IPADDRTABLE));
+	if (pIPAddrTable)
 	{
-		EconetError("Econet: Failed to get local host name");
+		if (GetIpAddrTable(pIPAddrTable, &size, 0) == ERROR_INSUFFICIENT_BUFFER)
+		{
+			free(pIPAddrTable);
+			pIPAddrTable = (MIB_IPADDRTABLE *) malloc(size);
+		}
+		if (pIPAddrTable == NULL) {
+			EconetError("Econet: Failed to allocate memory for IP address table");
+			return false;
+		}
+	}
+	if (GetIpAddrTable( pIPAddrTable, &size, 0 ) != NO_ERROR)
+	{
+		EconetError("Econet: Failed to get IP address table data");
 		return false;
 	}
-
-	struct addrinfo Hints;
-	ZeroMemory(&Hints, sizeof(Hints));
-	Hints.ai_family = AF_INET;
-	Hints.ai_socktype = SOCK_DGRAM;
-	Hints.ai_protocol = IPPROTO_UDP;
-
-	struct addrinfo* pAddrInfo = nullptr;
-
-	char ServiceName[20];
-	sprintf(ServiceName, "%d", DEFAULT_AUN_PORT);
-
-	int Result = getaddrinfo(LocalHostName,
-	                         ServiceName,
-	                         &Hints,
-	                         &pAddrInfo);
-
-	if (Result != 0)
-	{
-		EconetError("Econet: Failed to resolve local IP address");
-		return false;
-	}
-
+	
 	// Check address for each network interface/card.
-	for (struct addrinfo* p = pAddrInfo; p != nullptr; p = p->ai_next)
+	for (int i=0; i < (int) pIPAddrTable->dwNumEntries; i++)
 	{
-		struct sockaddr_in* pAddr = (struct sockaddr_in *)p->ai_addr;
-
 		#ifdef DEBUG_ECONET
-		DebugTrace("Local IP address: %s\n", IpAddressStr(pAddr->sin_addr.s_addr).c_str());
+		DebugTrace("IP address: %s Netmask: %s\n", IpAddressStr(pIPAddrTable->table[i].dwAddr).c_str(), IpAddressStr(pIPAddrTable->table[i].dwMask).c_str());
 		#endif
-
-		IpAddresses.emplace_back(pAddr->sin_addr.s_addr);
+		
+		IpAddresses.emplace_back(pIPAddrTable->table[i].dwAddr);
+		
+		// use net mask to create broadcast address for this network
+		unsigned long BroadcastAddress = (pIPAddrTable->table[i].dwAddr & pIPAddrTable->table[i].dwMask) | (INADDR_BROADCAST & ~(pIPAddrTable->table[i].dwMask));
+		#ifdef DEBUG_ECONET
+		DebugTrace("Broadcast address: %s\n", IpAddressStr(BroadcastAddress).c_str());
+		#endif
+		
+		if (std::find(BroadcastIpAddresses.begin(), BroadcastIpAddresses.end(), BroadcastAddress) == BroadcastIpAddresses.end())
+		{
+			// add to vector if unique
+			BroadcastIpAddresses.emplace_back(BroadcastAddress);
+		}
 	}
-
-	freeaddrinfo(pAddrInfo);
+	
+	free(pIPAddrTable);
 
 	return true;
 }
@@ -721,9 +729,6 @@ static bool GetLocalIpAddresses(std::vector<unsigned long>& IpAddresses)
 
 static void AllocateNewAddress()
 {
-	std::vector<unsigned long> LocalIpAddresses;
-	GetLocalIpAddresses(LocalIpAddresses);
-
 	unsigned long LocalHostAddr;
 	ParseIPAddress(AF_INET, "127.0.0.1", &LocalHostAddr);
 
@@ -746,12 +751,11 @@ static void AllocateNewAddress()
 				{
 					sockaddr_in service;
 					service.sin_family = AF_INET;
-					service.sin_addr.s_addr = Station.inet_addr;
+					service.sin_addr.s_addr = INADDR_ANY;
 					service.sin_port = htons(Station.port);
 
 					if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 					{
-						EconetListenIP = Station.inet_addr;
 						EconetListenPort = Station.port;
 						EconetNetworkID = Station.network;
 						EconetStationID = Station.station;
@@ -787,12 +791,11 @@ static void AllocateNewAddress()
 					{
 						sockaddr_in service;
 						service.sin_family = AF_INET;
-						service.sin_addr.s_addr = IpAddress;
+						service.sin_addr.s_addr = INADDR_ANY;
 						service.sin_port = htons(DEFAULT_AUN_PORT);
 
 						if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 						{
-							EconetListenIP = IpAddress;
 							EconetListenPort = DEFAULT_AUN_PORT;
 							EconetStationID = IpAddress >> 24;
 							EconetNetworkID = Network.network;
@@ -874,7 +877,6 @@ static void AllocateNewAddress()
 
 				if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 				{
-					EconetListenIP = INADDR_ANY;
 					EconetListenPort = Port;
 					EconetStationID = StationID;
 					EconetNetworkID = PreferredNetworkID;
@@ -883,7 +885,7 @@ static void AllocateNewAddress()
 					DebugTrace("Econet: Automatically assigned random station %d.%d on %s:%d\n",
 					           EconetNetworkID,
 					           EconetStationID,
-					           IpAddressStr(EconetListenIP).c_str(),
+					           IpAddressStr(INADDR_ANY).c_str(),
 					           EconetListenPort);
 					#endif
 
@@ -1024,6 +1026,8 @@ bool EconetReset()
 		EconetError("Econet: Failed to set exclusive socket lock: %d", GetLastSocketError());
 		goto Fail;
 	}
+	
+	GetLocalNetworkAddresses(LocalIpAddresses, BroadcastAddresses);
 
 	unsigned char LastEconetStationID = EconetStationID;
 
@@ -1052,12 +1056,11 @@ bool EconetReset()
 			// IP address, and port for the socket that is being bound.
 			sockaddr_in service;
 			service.sin_family = AF_INET;
-			service.sin_addr.s_addr = pNetworkConfig->inet_addr;
+			service.sin_addr.s_addr = INADDR_ANY;
 			service.sin_port = htons(pNetworkConfig->port);
 
 			if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 			{
-				EconetListenIP = pNetworkConfig->inet_addr;
 				EconetListenPort = pNetworkConfig->port;
 				EconetStationID = pNetworkConfig->station;
 				EconetNetworkID = pNetworkConfig->network;
@@ -1065,7 +1068,7 @@ bool EconetReset()
 			else
 			{
 				EconetError("Econet: Failed to bind to address %s:%d",
-				            IpAddressStr(EconetListenIP).c_str(),
+				            IpAddressStr(INADDR_ANY).c_str(),
 				            EconetListenPort);
 
 				// Clear this so we don't try to allocate it again.
@@ -1159,7 +1162,6 @@ bool EconetReset()
 		// Pi Econet Bridge gateways on the network.
 		sockaddr_in RecvAddr;
 		RecvAddr.sin_family = AF_INET;
-		RecvAddr.sin_addr.s_addr = INADDR_BROADCAST;
 		RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
 
 		GatewayDiscoveryPacket Packet;
@@ -1168,28 +1170,21 @@ bool EconetReset()
 		Packet.AUNHeader.Port = 0x9C; // Pi Econet Bridge port
 		Packet.AUNHeader.CtrlByte = 0x10; // &90 locate gateway
 		Packet.Buffer[0] = BEEBEM_ECONET_PORT; // Where response is sent
-
-		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: Sending gateway discovery packet (%s port %d)\n",
-		           IpAddressStr(INADDR_BROADCAST).c_str(), DEFAULT_AUN_PORT);
-		#endif
-
-		// This is crude, but sometimes the gateway request broadcast
-		// can get lost so spam them out.
-		bool Error = false;
-
-		for (int i = 0; i < 3; i++)
+		
+		// send a copy of broadcast to each network interface
+		for (unsigned int i=0; i<BroadcastAddresses.size(); i++)
 		{
+			RecvAddr.sin_addr.s_addr = BroadcastAddresses[i];
+			#ifdef DEBUG_ECONET
+			DebugTrace("Econet: Sending gateway discovery packet (%s port %d)\n",
+					   IpAddressStr(BroadcastAddresses[i]).c_str(), DEFAULT_AUN_PORT);
+			#endif
+			
 			if (sendto(Socket, (const char *)&Packet, sizeof(Packet), 0,
-			           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+					   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 			{
-				Error = true;
+				EconetError("Econet: Failed to send bridge discovery broadcast");
 			}
-		}
-
-		if (Error)
-		{
-			EconetError("Econet: Failed to send bridge discovery broadcast");
 		}
 	}
 
@@ -2040,7 +2035,6 @@ bool EconetPollReal()
 		// AUN code.
 		sockaddr_in RecvAddr;
 		RecvAddr.sin_family = AF_INET;
-		RecvAddr.sin_addr.s_addr = INADDR_BROADCAST;
 		RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
 
 		AnnouncePacket Packet;
@@ -2052,15 +2046,20 @@ bool EconetPollReal()
 		Packet.Buffer[0] = EconetStationID;
 		Packet.Buffer[1] = EconetNetworkID;
 
-		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: Sending broadcast announce packet (%s port %d)\n",
-		           IpAddressStr(INADDR_BROADCAST).c_str(), DEFAULT_AUN_PORT);
-		#endif
-
-		if (sendto(Socket, (const char *)&Packet, sizeof(Packet), 0,
-		           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+		// send a copy of broadcast to each network interface
+		for (unsigned int i=0; i<BroadcastAddresses.size(); i++)
 		{
-			EconetError("Econet: Failed to send BeebEm ping");
+			RecvAddr.sin_addr.s_addr = BroadcastAddresses[i];
+			#ifdef DEBUG_ECONET
+			DebugTrace("Econet: Sending broadcast announce packet (%s port %d)\n",
+					   IpAddressStr(BroadcastAddresses[i]).c_str(), DEFAULT_AUN_PORT);
+			#endif
+
+			if (sendto(Socket, (const char *)&Packet, sizeof(Packet), 0,
+					   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+			{
+				EconetError("Econet: Failed to send BeebEm ping");
+			}
 		}
 
 		// Set timeout again.
@@ -2433,7 +2432,7 @@ static void EconetSendPacket()
 		// Set address to the local broadcast address and port to the default AUN port
 		// to do an AUN broadcast. Some BeebEm instances might not see this so we will
 		// send unicast copies to those that need them later.
-		RecvAddr.sin_addr.s_addr = INADDR_BROADCAST; // ((EconetListenIP & 0x00FFFFFF) | 0xFF000000);
+		RecvAddr.sin_addr.s_addr = INADDR_BROADCAST;
 		RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
 		SendMe = true;
 	}
@@ -2732,25 +2731,49 @@ static void EconetSendPacket()
 			// else a broadcast - we will send this extended AUN packet to the gateway after sending the original packet as a UDP broadcast
 		}
 
-		if (!(RecvAddr.sin_addr.s_addr == EconetListenIP && ntohs(RecvAddr.sin_port) == EconetListenPort)) // never send to ourself
+		if (RecvAddr.sin_addr.s_addr == INADDR_BROADCAST)
+		{
+			// trying to send to the broadcast address - send a copy to every interface
+			for (unsigned int i=0; i<BroadcastAddresses.size(); i++)
+			{
+				RecvAddr.sin_addr.s_addr = BroadcastAddresses[i];
+				#ifdef DEBUG_ECONET
+				DebugTrace("Econet: Send packet to station %d.%d (%s port %u)\n",
+					   (int)EconetTx.DestNet,
+					   (int)EconetTx.DestStn,
+					   IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
+					   (unsigned int)ntohs(RecvAddr.sin_port));
+				#endif
+				
+				if (sendto(Socket, p, SendLen, 0,
+					   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+				{
+					EconetError("Econet: Failed to send packet to station %d (%s port %u)",
+								(int)EconetTx.DestStn,
+								IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
+								(unsigned int)ntohs(RecvAddr.sin_port));
+				}
+			}
+		}
+		else if (!(std::find(LocalIpAddresses.begin(), LocalIpAddresses.end(), RecvAddr.sin_addr.s_addr) != LocalIpAddresses.end() && ntohs(RecvAddr.sin_port) == EconetListenPort)) // never send to ourself
 		{
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Send packet to station %d.%d (%s port %u)\n",
-			           (int)EconetTx.DestNet,
-			           (int)EconetTx.DestStn,
-			           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
-			           (unsigned int)ntohs(RecvAddr.sin_port));
+					   (int)EconetTx.DestNet,
+					   (int)EconetTx.DestStn,
+					   IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
+					   (unsigned int)ntohs(RecvAddr.sin_port));
 
 			DebugDumpBytes("Econet: Ethernet data:", (const unsigned char*)p, SendLen);
 			#endif
-
+			
 			if (sendto(Socket, p, SendLen, 0,
-			           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+					   (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
 			{
 				EconetError("Econet: Failed to send packet to station %d (%s port %u)",
-				            (int)EconetTx.DestStn,
-				            IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
-				            (unsigned int)ntohs(RecvAddr.sin_port));
+							(int)EconetTx.DestStn,
+							IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
+							(unsigned int)ntohs(RecvAddr.sin_port));
 			}
 		}
 
@@ -2836,17 +2859,29 @@ GetNewPacket:
 			                             (SOCKADDR *)&RecvAddr,
 			                             &RecvAddrSize);
 
-			if (SocketToRead == BroadcastListenSocket &&
-			    EconetRx.AUNHeader.Type != AUNType::Broadcast &&
-			    EconetRx.AUNHeader.Type != AUNType::BeebEm)
+			if (SocketToRead == BroadcastListenSocket)
 			{
-				BytesReceived = 0; // Non-broadcast/beebem packet seen on broadcast socket - ignore
-			}
-
-			if (RecvAddr.sin_addr.s_addr == EconetListenIP &&
-			    ntohs(RecvAddr.sin_port) == EconetListenPort)
-			{
-				BytesReceived = 0; // We sent this broadcast packet - ignore
+				// received a packet on broadcast listen socket
+				if (EconetRx.AUNHeader.Type != AUNType::Broadcast &&
+				    EconetRx.AUNHeader.Type != AUNType::BeebEm)
+				{
+					BytesReceived = 0; // Non-broadcast/beebem packet seen on broadcast socket - ignore
+				}
+				
+				// check source against our local IP addresses
+				if (std::find(LocalIpAddresses.begin(), LocalIpAddresses.end(), RecvAddr.sin_addr.s_addr) != LocalIpAddresses.end())
+				{
+					if (RecvAddr.sin_addr.s_addr != htonl(INADDR_LOOPBACK))
+					{
+						// packet is from this host but not on the loopback address
+						BytesReceived = 0; // ignore it so that we don't get multiple copies of every broadcast from this host
+					}
+					else if (ntohs(RecvAddr.sin_port) == EconetListenPort)
+					{
+						// packet was sent from our AUN port
+						BytesReceived = 0; // We sent this packet out, ignore it
+					}
+				}
 			}
 
 			EconetRx.BytesInBuffer = BytesReceived;
