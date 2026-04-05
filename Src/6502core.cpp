@@ -3326,9 +3326,7 @@ static void PollHardware(unsigned int nCycles)
 	Music5000Poll(nCycles);
 	SoundPoll();
 
-	#if ENABLE_SPEECH
 	SpeechPoll(nCycles);
-	#endif
 
 	TeletextPoll();
 

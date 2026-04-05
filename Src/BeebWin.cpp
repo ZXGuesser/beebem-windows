@@ -767,8 +767,6 @@ void BeebWin::ResetBeebSystem(Model NewModelType, bool LoadRoms)
 		SoundInit();
 	}
 
-	#if ENABLE_SPEECH
-
 	SpeechStop();
 
 	if (NewModelType == Model::Master128 || NewModelType == Model::MasterET)
@@ -796,8 +794,6 @@ void BeebWin::ResetBeebSystem(Model NewModelType, bool LoadRoms)
 
 		CheckMenuItem(IDM_SPEECH, SpeechEnabled);
 	}
-
-	#endif
 
 	SwitchOnSound();
 	Music5000Reset();
@@ -1031,15 +1027,11 @@ void BeebWin::Break()
 			Music5000Init();
 	}
 
-	#if ENABLE_SPEECH
-
 	if (SpeechEnabled)
 	{
 		SpeechStop();
 		SpeechStart();
 	}
-
-	#endif
 
 	// Reset IntegraB RTC on Break
 	if (MachineType == Model::IntegraB)
@@ -1470,12 +1462,7 @@ void BeebWin::InitMenu(void)
 	UpdateSoundStreamerMenu();
 	SetSoundMenu();
 
-	#if ENABLE_SPEECH
 	CheckMenuItem(IDM_SPEECH, SpeechEnabled);
-	#else
-	RemoveMenu(m_hMenu, IDM_SPEECH, MF_BYCOMMAND);
-	#endif
-
 	CheckMenuItem(IDM_SOUNDCHIP, SoundChipEnabled);
 	UpdateSFXMenu();
 	CheckMenuItem(IDM_TAPESOUND, TapeSoundEnabled);
@@ -1615,15 +1602,11 @@ void BeebWin::SetSoundStreamer(SoundStreamerType StreamerType)
 		Music5000Init();
 	}
 
-	#if ENABLE_SPEECH
-
 	if (SpeechEnabled)
 	{
 		SpeechStop();
 		SpeechStart();
 	}
-
-	#endif
 
 	UpdateSoundStreamerMenu();
 }
@@ -1653,15 +1636,11 @@ void BeebWin::SetSoundSampleRate(unsigned int SampleRate)
 			SoundInit();
 		}
 
-		#if ENABLE_SPEECH
-
 		if (SpeechEnabled)
 		{
 			SpeechStop();
 			SpeechStart();
 		}
-
-		#endif
 	}
 }
 
@@ -1726,8 +1705,6 @@ void BeebWin::UpdateSoundVolumeMenu()
 
 /****************************************************************************/
 
-#if ENABLE_SPEECH
-
 void BeebWin::EnableSpeech(bool Enable)
 {
 	if (Enable)
@@ -1749,8 +1726,6 @@ void BeebWin::EnableSpeech(bool Enable)
 
 	CheckMenuItem(IDM_SPEECH, SpeechEnabled);
 }
-
-#endif
 
 /****************************************************************************/
 
@@ -4999,13 +4974,9 @@ void BeebWin::HandleCommand(UINT MenuID)
 		UpdateVideoCaptureMenu();
 		break;
 
-	#if ENABLE_SPEECH
-
 	case IDM_SPEECH:
 		EnableSpeech(!SpeechEnabled);
 		break;
-
-	#endif
 
 	case IDM_TELETEXT:
 		TeletextAdapterEnabled = !TeletextAdapterEnabled;

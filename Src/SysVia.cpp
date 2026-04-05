@@ -313,8 +313,6 @@ static void IC32Write(unsigned char Value)
 		Sound_RegWrite(SlowDataBusWriteValue);
 	}
 
-	#if ENABLE_SPEECH
-
 	if (MachineType != Model::Master128 && MachineType != Model::MasterET)
 	{
 		if ((PrevIC32State & IC32_SPEECH_WRITE) && !(IC32State & IC32_SPEECH_WRITE))
@@ -327,8 +325,6 @@ static void IC32Write(unsigned char Value)
 			SpeechReadEnable();
 		}
 	}
-
-	#endif
 
 	if (!(IC32State & IC32_KEYBOARD_WRITE) && (PrevIC32State & IC32_KEYBOARD_WRITE))
 	{
@@ -396,14 +392,10 @@ static unsigned char SlowDataBusRead()
 			if (KbdOP()) result |= 128;
 		}
 
-		#if ENABLE_SPEECH
-
 		if ((IC32State & IC32_SPEECH_READ) == 0)
 		{
 			result = SpeechRead();
 		}
-
-		#endif
 
 		if ((IC32State & IC32_SPEECH_WRITE) == 0)
 		{
@@ -628,11 +620,10 @@ unsigned char SysVIARead(int Address)
 				Value |= 0x10;
 			}
 
-			#if ENABLE_SPEECH
-
 			if (!SpeechStarted)
 			{
-				Value |= 0xc0; // Speech system non existant
+				// Speech system not present.
+				Value |= 0xC0;
 			}
 			else
 			{
@@ -654,12 +645,6 @@ unsigned char SysVIARead(int Address)
 					Value &= ~0x80;
 				}
 			}
-
-			#else
-
-			Value |= 0xc0; // Speech system non existant
-
-			#endif
 
 			// Clear bit 4 of IFR from AtoD Conversion
 			SysVIAState.ifr &= ~IFR_CB1;

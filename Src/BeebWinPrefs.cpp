@@ -392,12 +392,6 @@ void BeebWin::LoadHardwarePreferences(int Version)
 	m_Preferences.GetDWORDValue(CFG_INITIAL_RAM_VALUE, Value, 0);
 	InitialRAMValue = (unsigned char)Value;
 
-	#if ENABLE_SPEECH
-
-	m_Preferences.GetBoolValue(CFG_SPEECH_ENABLED, SpeechEnabled, false);
-
-	#endif
-
 	m_Preferences.GetBoolValue(CFG_ECONET_ENABLED, EconetEnabled, false);
 
 	if (!m_Preferences.GetBinaryValue(CFG_KEYBOARD_LINKS, &KeyboardLinks, sizeof(KeyboardLinks)))
@@ -879,6 +873,7 @@ void BeebWin::LoadSoundPreferences(int Version)
 
 	m_Preferences.GetBoolValue(CFG_SOUND_ENABLED, SoundDefault, true);
 	m_Preferences.GetBoolValue(CFG_SOUND_CHIP_ENABLED, SoundChipEnabled, true);
+	m_Preferences.GetBoolValue(CFG_SPEECH_ENABLED, SpeechEnabled, false);
 	m_Preferences.GetBoolValue(CFG_SOUND_EXPONENTIAL_VOLUME, SoundExponentialVolume, true);
 	m_Preferences.GetBoolValue(CFG_RELAY_SOUND_ENABLED, RelaySoundEnabled, false);
 	m_Preferences.GetBoolValue(CFG_TAPE_SOUND_ENABLED, TapeSoundEnabled, false);
@@ -1800,12 +1795,6 @@ void BeebWin::SavePreferences(bool saveAll)
 		m_Preferences.SetBoolValue(CFG_BASIC_HARDWARE_ONLY, BasicHardwareOnly);
 		m_Preferences.EraseValue(CFG_BASIC_HARDWARE_ONLY_OLD);
 
-		#if ENABLE_SPEECH
-		m_Preferences.SetBoolValue(CFG_SPEECH_ENABLED, SpeechEnabled);
-		#else
-		m_Preferences.SetBoolValue(CFG_SPEECH_ENABLED, false);
-		#endif
-
 		m_Preferences.SetBoolValue(CFG_ECONET_ENABLED, EconetEnabled); // Rob
 		m_Preferences.SetBinaryValue(CFG_KEYBOARD_LINKS, &KeyboardLinks, sizeof(KeyboardLinks));
 
@@ -1853,6 +1842,7 @@ void BeebWin::SavePreferences(bool saveAll)
 		m_Preferences.SetBoolValue(CFG_SOUND_EXPONENTIAL_VOLUME, SoundExponentialVolume);
 		m_Preferences.SetBoolValue(CFG_SOUND_ENABLED, SoundDefault);
 		m_Preferences.SetBoolValue(CFG_SOUND_CHIP_ENABLED, SoundChipEnabled);
+		m_Preferences.SetBoolValue(CFG_SPEECH_ENABLED, SpeechEnabled);
 		m_Preferences.SetBoolValue(CFG_RELAY_SOUND_ENABLED, RelaySoundEnabled);
 		m_Preferences.SetBoolValue(CFG_TAPE_SOUND_ENABLED, TapeSoundEnabled);
 		m_Preferences.SetBoolValue(CFG_DISC_SOUND_ENABLED, DiscDriveSoundEnabled);

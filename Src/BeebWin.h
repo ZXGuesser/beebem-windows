@@ -446,9 +446,8 @@ public:
 	void UpdateSFXMenu();
 	void UpdateSoundVolumeMenu();
 
-	#if ENABLE_SPEECH
+	// Speech
 	void EnableSpeech(bool Enable);
-	#endif
 
 	// Menu
 	void ShowMenu(bool Show);

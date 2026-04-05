@@ -21,8 +21,6 @@ Boston, MA  02110-1301, USA.
 #ifndef SPEECH_HEADER
 #define SPEECH_HEADER
 
-#if ENABLE_SPEECH
-
 bool SpeechInit();
 void SpeechStart();
 void SpeechStop();
@@ -31,12 +29,10 @@ void SpeechReadEnable();
 unsigned char SpeechRead();
 bool SpeechReady();
 bool SpeechInterrupt();
-void SpeechUpdate(unsigned char *buff, int length);
+void SpeechUpdate(unsigned char* pBuffer, int Length);
 void SpeechPoll(int Cycles);
 
 extern bool SpeechEnabled;
 extern bool SpeechStarted;
-
-#endif
 
 #endif

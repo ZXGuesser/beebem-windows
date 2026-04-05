@@ -168,8 +168,6 @@ static void WriteToSoundBuffer(BYTE *pSoundData)
 
 void PlayUpTil(double DestTime)
 {
-	#if ENABLE_SPEECH
-
 	int SpeechPtr = 0;
 
 	if (SpeechStarted)
@@ -180,8 +178,6 @@ void PlayUpTil(double DestTime)
 			len = MAXBUFSIZE;
 		SpeechUpdate(SpeechBuf, len);
 	}
-
-	#endif
 
 	while (DestTime > OurTime)
 	{
@@ -366,15 +362,11 @@ void PlayUpTil(double DestTime)
 
 			tmptotal /= 4;
 
-			#if ENABLE_SPEECH
-
 			// Mix in speech sound
 			if (SpeechStarted)
 			{
 				tmptotal += (SpeechBuf[SpeechPtr++] - 128) * 2;
 			}
-
-			#endif
 
 			// Mix in sound samples here
 			for (int i = 0; i < NUM_SOUND_SAMPLES; ++i)
