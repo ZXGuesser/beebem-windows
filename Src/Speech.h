@@ -32,6 +32,9 @@ bool SpeechInterrupt();
 void SpeechUpdate(unsigned char* pBuffer, int Length);
 void SpeechPoll(int Cycles);
 
+void LoadSpeechUEF(FILE *SUEF);
+void SaveSpeechUEF(FILE *SUEF);
+
 extern bool SpeechEnabled;
 extern bool SpeechStarted;
 

@@ -230,6 +230,7 @@ Boston, MA  02110-1301, USA.
 // differences.
 
 #include <fstream>
+#include <stdio.h>
 
 #include "Speech.h"
 #include "6502core.h"
@@ -240,6 +241,7 @@ Boston, MA  02110-1301, USA.
 #include "Main.h"
 #include "Sound.h"
 #include "StringUtils.h"
+#include "UefState.h"
 
 // Coefficient definitions.
 constexpr int MAX_K = 10;
@@ -374,6 +376,9 @@ class TMS5220
 		void Poll(int Cycles);
 
 		void ProcessSamples(short* buffer, int size);
+
+		void LoadState(FILE *SUEF);
+		void SaveState(FILE *SUEF);
 
 	private:
 		int16_t LatticeFilter();
@@ -534,6 +539,9 @@ class TMS5220StreamState
 
 	public:
 		void Update(unsigned char *buff, int length);
+
+		void LoadState(FILE *SUEF);
+		void SaveState(FILE *SUEF);
 
 	public:
 		TMS5220 chip;
@@ -1758,6 +1766,136 @@ uint8_t TMS5220::ReadPhrom(int count)
 
 /*----------------------------------------------------------------------------*/
 
+void TMS5220::LoadState(FILE *SUEF)
+{
+	UEFReadBuf(m_fifo, sizeof(m_fifo), SUEF);
+	m_fifo_head = UEFRead8(SUEF);
+	m_fifo_tail = UEFRead8(SUEF);
+	m_fifo_count = UEFRead8(SUEF);
+	m_fifo_bits_taken = UEFRead8(SUEF);
+
+	m_previous_TALK_STATUS = UEFReadBool(SUEF);
+	m_SPEN = UEFReadBool(SUEF);
+	m_DDIS = UEFReadBool(SUEF);
+	m_TALK = UEFReadBool(SUEF);
+	m_TALKD = UEFReadBool(SUEF);
+	m_buffer_low = UEFReadBool(SUEF);
+	m_buffer_empty = UEFReadBool(SUEF);
+	m_irq_pin = UEFReadBool(SUEF);
+	m_ready_pin = UEFReadBool(SUEF);
+
+	m_OLDE = UEFReadBool(SUEF);
+	m_OLDP = UEFReadBool(SUEF);
+
+	m_new_frame_energy_idx = UEFRead8(SUEF);
+	m_new_frame_pitch_idx = UEFRead8(SUEF);
+	UEFReadBuf(m_new_frame_k_idx, sizeof(m_new_frame_k_idx), SUEF);
+
+	m_current_energy = (int16_t)UEFRead16(SUEF);
+	m_current_pitch = (int16_t)UEFRead16(SUEF);
+	UEFReadBuf(m_current_k, sizeof(m_current_k), SUEF);
+
+	m_previous_energy = UEFRead16(SUEF);
+
+	m_subcycle = UEFRead8(SUEF);
+	m_subc_reload = UEFRead8(SUEF);
+	m_PC = UEFRead8(SUEF);
+
+	m_IP = UEFRead8(SUEF);
+	m_inhibit = UEFReadBool(SUEF);
+	m_uv_zpar = UEFRead8(SUEF);
+	m_pitch_zero = UEFReadBool(SUEF);
+	m_pitch_count = UEFRead16(SUEF);
+
+	UEFReadBuf(m_u, sizeof(m_u), SUEF);
+	UEFReadBuf(m_x, sizeof(m_x), SUEF);
+
+	m_RNG = UEFRead16(SUEF);
+	m_excitation_data = (int16_t)UEFRead16(SUEF);
+
+	m_schedule_dummy_read = UEFReadBool(SUEF);
+	m_data_register = UEFRead8(SUEF);
+	m_RDB_flag = UEFReadBool(SUEF);
+
+	m_digital_select = UEFReadBool(SUEF);
+	m_io_ready = UEFReadBool(SUEF);
+	m_ready_count = UEFRead32(SUEF);
+
+	// PHROM state.
+	m_speechROMlen = UEFRead32(SUEF);
+	m_speechROMaddr = UEFRead32(SUEF);
+	m_load_pointer = UEFRead32(SUEF);
+	m_ROM_bits_count = UEFRead8(SUEF);
+	UEFReadBuf(speechrom_data, sizeof(speechrom_data), SUEF);
+}
+
+/*----------------------------------------------------------------------------*/
+
+void TMS5220::SaveState(FILE *SUEF)
+{
+	UEFWriteBuf(m_fifo, sizeof(m_fifo), SUEF);
+	UEFWrite8(m_fifo_head, SUEF);
+	UEFWrite8(m_fifo_tail, SUEF);
+	UEFWrite8(m_fifo_count, SUEF);
+	UEFWrite8(m_fifo_bits_taken, SUEF);
+
+	UEFWriteBool(m_previous_TALK_STATUS, SUEF);
+	UEFWriteBool(m_SPEN, SUEF);
+	UEFWriteBool(m_DDIS, SUEF);
+	UEFWriteBool(m_TALK, SUEF);
+	UEFWriteBool(m_TALKD, SUEF);
+	UEFWriteBool(m_buffer_low, SUEF);
+	UEFWriteBool(m_buffer_empty, SUEF);
+	UEFWriteBool(m_irq_pin, SUEF);
+	UEFWriteBool(m_ready_pin, SUEF);
+
+	UEFWriteBool(m_OLDE, SUEF);
+	UEFWriteBool(m_OLDP, SUEF);
+
+	UEFWrite8(m_new_frame_energy_idx, SUEF);
+	UEFWrite8(m_new_frame_pitch_idx, SUEF);
+	UEFWriteBuf(m_new_frame_k_idx, sizeof(m_new_frame_k_idx), SUEF);
+
+	UEFWrite16(m_current_energy, SUEF);
+	UEFWrite16(m_current_pitch, SUEF);
+	UEFWriteBuf(m_current_k, sizeof(m_current_k), SUEF);
+
+	UEFWrite16(m_previous_energy, SUEF);
+
+	UEFWrite8(m_subcycle, SUEF);
+	UEFWrite8(m_subc_reload, SUEF);
+	UEFWrite8(m_PC, SUEF);
+
+	UEFWrite8(m_IP, SUEF);
+	UEFWriteBool(m_inhibit, SUEF);
+	UEFWrite8(m_uv_zpar, SUEF);
+	UEFWriteBool(m_pitch_zero, SUEF);
+	UEFWrite16(m_pitch_count, SUEF);
+
+	UEFWriteBuf(m_u, sizeof(m_u), SUEF);
+	UEFWriteBuf(m_x, sizeof(m_x), SUEF);
+
+	UEFWrite16(m_RNG, SUEF);
+	UEFWrite16(m_excitation_data, SUEF);
+
+	UEFWriteBool(m_schedule_dummy_read, SUEF);
+	UEFWrite8(m_data_register, SUEF);
+	UEFWriteBool(m_RDB_flag, SUEF);
+
+	UEFWriteBool(m_digital_select, SUEF);
+	UEFWriteBool(m_io_ready, SUEF);
+	UEFWrite32(m_ready_count, SUEF);
+
+	// PHROM state.
+	UEFWrite32(m_speechROMlen, SUEF);
+	UEFWrite32(m_speechROMaddr, SUEF);
+	UEFWrite32(m_load_pointer, SUEF);
+	UEFWrite8(m_ROM_bits_count, SUEF);
+	UEFWriteBuf(speechrom_data, sizeof(speechrom_data), SUEF);
+}
+
+/*----------------------------------------------------------------------------*/
+
 // clock rate = 80 * output sample rate,
 // usually 640000 for 8000 Hz sample rate or
 // usually 800000 for 10000 Hz sample rate.
@@ -1855,6 +1993,30 @@ void TMS5220StreamState::Update(unsigned char* pBuffer, int Length)
 	// Remember the last samples.
 	m_last_sample = prev;
 	m_curr_sample = curr;
+}
+
+/*----------------------------------------------------------------------------*/
+
+void TMS5220StreamState::LoadState(FILE *SUEF)
+{
+	chip.LoadState(SUEF);
+
+	m_last_sample = UEFRead32(SUEF);
+	m_curr_sample = UEFRead32(SUEF);
+	m_source_step = UEFRead32(SUEF);
+	m_source_pos = UEFRead32(SUEF);
+}
+
+/*----------------------------------------------------------------------------*/
+
+void TMS5220StreamState::SaveState(FILE *SUEF)
+{
+	chip.SaveState(SUEF);
+
+	UEFWrite32(m_last_sample, SUEF);
+	UEFWrite32(m_curr_sample, SUEF);
+	UEFWrite32(m_source_step, SUEF);
+	UEFWrite32(m_source_pos, SUEF);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -2075,6 +2237,26 @@ void SpeechPoll(int Cycles)
 	if (SpeechStarted)
 	{
 		tms5220->chip.Poll(Cycles);
+	}
+}
+
+/*--------------------------------------------------------------------------*/
+
+void LoadSpeechUEF(FILE *SUEF)
+{
+	if (SpeechStarted)
+	{
+		tms5220->LoadState(SUEF);
+	}
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SaveSpeechUEF(FILE *SUEF)
+{
+	if (SpeechStarted)
+	{
+		tms5220->SaveState(SUEF);
 	}
 }
 

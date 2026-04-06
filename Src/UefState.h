@@ -42,6 +42,7 @@ void UEFWrite64(uint64_t Value, FILE *pFile);
 void UEFWrite32(unsigned int Value, FILE *pFile);
 void UEFWrite16(unsigned int Value, FILE *pFile);
 void UEFWrite8(unsigned int Value, FILE *pFile);
+void UEFWriteBool(bool Value, FILE *pFile);
 void UEFWriteBuf(const void* pData, size_t Size, FILE *pFile);
 void UEFWriteString(const char* String, FILE *pFile);
 

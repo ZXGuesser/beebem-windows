@@ -38,6 +38,7 @@ Boston, MA  02110-1301, USA.
 #include "Music5000.h"
 #include "Serial.h"
 #include "Sound.h"
+#include "Speech.h"
 #include "SprowCoPro.h"
 #include "SysVia.h"
 #include "Tube.h"
@@ -112,6 +113,18 @@ void UEFWriteBuf(const void* pData, size_t Size, FILE *pFile)
 void UEFWrite8(unsigned int Value, FILE *pFile)
 {
 	int Result = fputc(Value & 0xFF, pFile);
+
+	if (Result == EOF)
+	{
+		throw UEFStateResult::WriteFailed;
+	}
+}
+
+/*-------------------------------------------------------------------------*/
+
+void UEFWriteBool(bool Value, FILE *pFile)
+{
+	int Result = fputc(Value ? 1 : 0, pFile);
 
 	if (Result == EOF)
 	{
@@ -363,6 +376,11 @@ UEFStateResult SaveUEFState(const char *FileName)
 			SaveState(SaveMusic5000UEF, 0x0477, UEFState);
 		}
 
+		if (SpeechEnabled)
+		{
+			SaveState(SaveSpeechUEF, 0x047D, UEFState);
+		}
+
 		fclose(UEFState);
 
 		return UEFStateResult::Success;
@@ -488,7 +506,7 @@ UEFStateResult LoadUEFState(const char *FileName)
 					break;
 
 				case 0x046F:
-					Load1770UEF(UEFState,Version);
+					Load1770UEF(UEFState, Version);
 					break;
 
 				case 0x0470:
@@ -541,6 +559,10 @@ UEFStateResult LoadUEFState(const char *FileName)
 
 				case 0x047C:
 					LoadPALRomEUF(UEFState, Length);
+					break;
+
+				case 0x047D:
+					LoadSpeechUEF(UEFState);
 					break;
 
 				default:
