@@ -2460,9 +2460,9 @@ static void EconetSendPacket()
 
 	if (IsBroadcastStation(BeebTx.EconetHeader.DestStn))
 	{
-		// Set address to the local broadcast address and port to the default AUN port
-		// to do an AUN broadcast. Some BeebEm instances might not see this so we will
-		// send unicast copies to those that need them later.
+		// Set address to the local broadcast address and port to the default
+		// AUN port to do an AUN broadcast. Some BeebEm instances might not
+		// see this so we will send unicast copies to those that need them later.
 		RecvAddr.sin_addr.s_addr = INADDR_BROADCAST;
 		RecvAddr.sin_port = htons(DEFAULT_AUN_PORT);
 		SendMe = true;
@@ -2568,7 +2568,7 @@ static void EconetSendPacket()
 
 	unsigned int j = 0;
 	// OK. Lets do AUN ...
-	// The beeb has given us a packet .. what is it?
+	// The Beeb has given us a packet .. what is it?
 	SendMe = false;
 
 	EconetTx.DestNet = BeebTx.EconetHeader.DestNet;
@@ -2593,7 +2593,8 @@ static void EconetSendPacket()
 				}
 			}
 
-			if (BeebTx.Pointer != sizeof(EconetHeaderType) + j || memcmp(BeebTx.Buffer, BeebTxCopy, sizeof(EconetHeaderType) + j) != 0) // nope
+			if (BeebTx.Pointer != sizeof(EconetHeaderType) + j ||
+			    memcmp(BeebTx.Buffer, BeebTxCopy, sizeof(EconetHeaderType) + j) != 0) // nope
 			{
 				for (unsigned int k = 4; k < BeebTx.Pointer; k++, j++) {
 					EconetTx.Buffer[j] = BeebTx.Buffer[k];
@@ -2759,7 +2760,8 @@ static void EconetSendPacket()
 				SendLen += 4;
 				p = (char *)tmp; // Transmit this buffer instead of EconetTx.
 			}
-			// else a broadcast - we will send this extended AUN packet to the gateway after sending the original packet as a UDP broadcast
+			// else a broadcast - we will send this extended AUN packet to the
+			// gateway after sending the original packet as a UDP broadcast.
 		}
 
 		if (RecvAddr.sin_addr.s_addr == INADDR_BROADCAST)
@@ -2787,31 +2789,39 @@ static void EconetSendPacket()
 				}
 			}
 		}
-		else if (!(std::find(LocalIpAddresses.begin(), LocalIpAddresses.end(), RecvAddr.sin_addr.s_addr) != LocalIpAddresses.end() && ntohs(RecvAddr.sin_port) == EconetListenPort)) // never send to ourself
+		else
 		{
-			#ifdef DEBUG_ECONET
-			DebugTrace("Econet: Send packet to station %d.%d (%s port %u)\n",
-			           (int)EconetTx.DestNet,
-			           (int)EconetTx.DestStn,
-			           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
-			           (unsigned int)ntohs(RecvAddr.sin_port));
+			const auto& it = std::find(LocalIpAddresses.begin(),
+			                           LocalIpAddresses.end(),
+			                           RecvAddr.sin_addr.s_addr);
 
-			DebugDumpBytes("Econet: Ethernet data:", (const unsigned char*)p, SendLen);
-			#endif
-
-			if (sendto(Socket, p, SendLen, 0,
-			           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+			// Never send to ourself.
+			if (!(it != LocalIpAddresses.end() && ntohs(RecvAddr.sin_port) == EconetListenPort))
 			{
-				EconetError("Econet: Failed to send packet to station %d (%s port %u)",
-				            (int)EconetTx.DestStn,
-				            IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
-				            (unsigned int)ntohs(RecvAddr.sin_port));
+				#ifdef DEBUG_ECONET
+				DebugTrace("Econet: Send packet to station %d.%d (%s port %u)\n",
+				           (int)EconetTx.DestNet,
+				           (int)EconetTx.DestStn,
+				           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
+				           (unsigned int)ntohs(RecvAddr.sin_port));
+
+				DebugDumpBytes("Econet: Ethernet data:", (const unsigned char*)p, SendLen);
+				#endif
+
+				if (sendto(Socket, p, SendLen, 0,
+				           (SOCKADDR *)&RecvAddr, sizeof(RecvAddr)) == SOCKET_ERROR)
+				{
+					EconetError("Econet: Failed to send packet to station %d (%s port %u)",
+					            (int)EconetTx.DestStn,
+					            IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
+					            (unsigned int)ntohs(RecvAddr.sin_port));
+				}
 			}
 		}
 
 		if (IsBroadcastStation(EconetTx.DestStn) && Gateway.port != 0)
 		{
-			// we want to send a copy of the broadcast to the gateway
+			// We want to send a copy of the broadcast to the gateway.
 			RecvAddr.sin_addr.s_addr = Gateway.inet_addr;
 			RecvAddr.sin_port = htons(Gateway.port);
 
@@ -2897,21 +2907,29 @@ GetNewPacket:
 				if (EconetRx.AUNHeader.Type != AUNType::Broadcast &&
 				    EconetRx.AUNHeader.Type != AUNType::BeebEm)
 				{
-					BytesReceived = 0; // Non-broadcast/beebem packet seen on broadcast socket - ignore
+					// Non-broadcast/BeebEm packet seen on broadcast socket - ignore.
+					BytesReceived = 0;
 				}
 
-				// check source against our local IP addresses
-				if (std::find(LocalIpAddresses.begin(), LocalIpAddresses.end(), RecvAddr.sin_addr.s_addr) != LocalIpAddresses.end())
+				// Check source against our local IP addresses.
+				const auto& it = std::find(LocalIpAddresses.begin(),
+				                           LocalIpAddresses.end(),
+				                           RecvAddr.sin_addr.s_addr);
+
+				if (it != LocalIpAddresses.end())
 				{
 					if (RecvAddr.sin_addr.s_addr != htonl(INADDR_LOOPBACK))
 					{
-						// packet is from this host but not on the loopback address
-						BytesReceived = 0; // ignore it so that we don't get multiple copies of every broadcast from this host
+						// Packet is from this host but not on the loopback address.
+						// Ignore it so that we don't get multiple copies of every
+						// broadcast from this host.
+						BytesReceived = 0;
 					}
 					else if (ntohs(RecvAddr.sin_port) == EconetListenPort)
 					{
-						// packet was sent from our AUN port
-						BytesReceived = 0; // We sent this packet out, ignore it
+						// Packet was sent from our AUN port.
+						// We sent this packet out, ignore it.
+						BytesReceived = 0;
 					}
 				}
 			}
@@ -3064,7 +3082,8 @@ GetNewPacket:
 							{
 								EconetHost& Station = Stations[i];
 
-								if (Station.network == BeebRx.EconetHeader.SrcNet && Station.station == BeebRx.EconetHeader.SrcStn)
+								if (Station.network == BeebRx.EconetHeader.SrcNet &&
+								    Station.station == BeebRx.EconetHeader.SrcStn)
 								{
 									if (Station.broadcasts == BroadcastSource::Local)
 									{
@@ -3184,7 +3203,8 @@ GetNewPacket:
 							}
 							else
 							{
-								EconetHost* ptr = FindNetworkConfig(BeebRx.EconetHeader.SrcStn, BeebRx.EconetHeader.SrcNet);
+								EconetHost* ptr = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
+								                                    BeebRx.EconetHeader.SrcNet);
 
 								if (ptr == nullptr || time(NULL) >= ptr->timeout)
 								{
@@ -3257,7 +3277,8 @@ GetNewPacket:
 							         EconetRx.Buffer[1] != BeebRx.EconetHeader.SrcNet)
 							{
 								// Station number of this host has changed for some reason.
-								EconetHost* pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn, BeebRx.EconetHeader.SrcNet);
+								EconetHost* pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
+								                                         BeebRx.EconetHeader.SrcNet);
 
 								if (pStation != nullptr)
 								{
@@ -3276,7 +3297,8 @@ GetNewPacket:
 							}
 							else
 							{
-								EconetHost* pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn, BeebRx.EconetHeader.SrcNet);
+								EconetHost* pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
+								                                         BeebRx.EconetHeader.SrcNet);
 
 								if (pStation != nullptr)
 								{
@@ -3363,7 +3385,8 @@ GetNewPacket:
 								BeebRx.EconetHeader.DestStn = EconetStationID; // must be for us.
 								BeebRx.EconetHeader.DestNet = 0;
 
-								if (EconetRx.AUNHeader.Port == 0 && EconetRx.AUNHeader.CtrlByte == (0x82 & 0x7f))
+								if (EconetRx.AUNHeader.Port == 0 &&
+								    EconetRx.AUNHeader.CtrlByte == (0x82 & 0x7f))
 								{
 									const int Offset = sizeof(LongEconetPacket);
 									const int Length = 8;
@@ -3381,7 +3404,8 @@ GetNewPacket:
 								}
 								else
 								{
-									if (EconetRx.AUNHeader.Port == WhatNetPort && EconetRx.AUNHeader.CtrlByte == 0x80)
+									if (EconetRx.AUNHeader.Port == WhatNetPort &&
+									    EconetRx.AUNHeader.CtrlByte == 0x80)
 									{
 										#ifdef DEBUG_ECONET
 										DebugTrace("Econet: Got WhatNet reply\n");
@@ -3493,7 +3517,8 @@ GetNewPacket:
 						break;
 					}
 
-					if ((BeebRx.EconetHeader.DestStn == EconetStationID || IsBroadcastStation(BeebRx.EconetHeader.DestStn)) &&
+					if ((BeebRx.EconetHeader.DestStn == EconetStationID ||
+					     IsBroadcastStation(BeebRx.EconetHeader.DestStn)) &&
 					    BeebRx.BytesInBuffer > 0)
 					{
 						// Peer sent us packet - no longer in flag fill.
