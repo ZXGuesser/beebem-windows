@@ -2796,7 +2796,7 @@ static void EconetSendPacket()
 			                           RecvAddr.sin_addr.s_addr);
 
 			// Never send to ourself.
-			if (!(it != LocalIpAddresses.end() && ntohs(RecvAddr.sin_port) == EconetListenPort))
+			if (it == LocalIpAddresses.end() || ntohs(RecvAddr.sin_port) != EconetListenPort)
 			{
 				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: Send packet to station %d.%d (%s port %u)\n",
