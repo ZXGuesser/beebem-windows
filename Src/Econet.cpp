@@ -1026,7 +1026,8 @@ bool EconetReset()
 
 	if (Socket == INVALID_SOCKET)
 	{
-		EconetError("Econet: Failed to open listening socket (error %d)", GetLastSocketError());
+		EconetError("Econet: Failed to open listening socket (error %d)",
+		            GetLastSocketError());
 		goto Fail;
 	}
 
@@ -1035,7 +1036,8 @@ bool EconetReset()
 
 	if (BroadcastListenSocket == INVALID_SOCKET)
 	{
-		EconetError("Econet: Failed to open broadcast listener socket (error %d)", GetLastSocketError());
+		EconetError("Econet: Failed to open broadcast listener socket (error %d)",
+		            GetLastSocketError());
 		goto Fail;
 	}
 
@@ -1043,7 +1045,8 @@ bool EconetReset()
 	// possible but happens anyway where we bind to a wildcard address)
 	if (!SetExclusiveAddrUse(Socket))
 	{
-		EconetError("Econet: Failed to set exclusive socket lock: %d", GetLastSocketError());
+		EconetError("Econet: Failed to set exclusive socket lock (error %d)",
+		            GetLastSocketError());
 		goto Fail;
 	}
 
@@ -1144,7 +1147,8 @@ bool EconetReset()
 	// This call is what allows broadcast packets to be sent.
 	if (!EnableBroadcast(Socket))
 	{
-		EconetError("Econet: Failed to set socket for broadcasts (error %d)", GetLastSocketError());
+		EconetError("Econet: Failed to set socket for broadcasts (error %d)",
+		            GetLastSocketError());
 		goto Fail;
 	}
 
@@ -1154,7 +1158,8 @@ bool EconetReset()
 
 		if (!SetReuseAddr(BroadcastListenSocket))
 		{
-			EconetError("Econet: Failed to set socket for shared reception of broadcasts (error %d)", GetLastSocketError());
+			EconetError("Econet: Failed to set socket for shared reception of broadcasts (error %d)",
+			            GetLastSocketError());
 			goto Fail;
 		}
 
@@ -1312,7 +1317,8 @@ static bool ReadEconetConfigFile()
 				}
 				else
 				{
-					EconetError("Multiple gateway entries found in Econet config file:\n  %s (Line %d)", EconetCfgPath, LineCounter);
+					EconetError("Multiple gateway entries found in Econet config file:\n  %s (Line %d)",
+					            EconetCfgPath, LineCounter);
 					Success = false;
 					break;
 				}
@@ -1400,13 +1406,15 @@ static bool ReadEconetConfigFile()
 				}
 				else
 				{
-					EconetError("Unknown entry in Econet config file: %s\n  %s (Line %d)", Key.c_str(), EconetCfgPath, LineCounter);
+					EconetError("Unknown entry in Econet config file: %s\n  %s (Line %d)",
+					            Key.c_str(), EconetCfgPath, LineCounter);
 				}
 			}
 		}
 		catch (const std::exception& e)
 		{
-			EconetError("Invalid value in Econet config file\n%s\n%s (Line %d)", e.what(), EconetCfgPath, LineCounter);
+			EconetError("Invalid value in Econet config file\n%s\n%s (Line %d)",
+			            e.what(), EconetCfgPath, LineCounter);
 			Success = false;
 			break;
 		}
@@ -1476,7 +1484,8 @@ static bool ReadAUNConfigFile()
 			}
 			catch (const std::exception& e)
 			{
-				EconetError("Invalid value in AUNMap file\n%s\n%s (Line %d)", e.what(), AUNMapPath, LineCounter);
+				EconetError("Invalid value in AUNMap file\n%s\n%s (Line %d)",
+				            e.what(), AUNMapPath, LineCounter);
 				Success = false;
 				break;
 			}
