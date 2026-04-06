@@ -34,7 +34,6 @@ const char* const CFG_MACHINE_TYPE                 = "MachineType";
 const char* const CFG_BASIC_HARDWARE_ONLY          = "BasicHardwareOnly";
 const char* const CFG_BASIC_HARDWARE_ONLY_OLD      = "Basic Hardware"; // For BeebEm v4.19 and earlier.
 const char* const CFG_INITIAL_RAM_VALUE            = "InitialRAMValue";
-const char* const CFG_SPEECH_ENABLED               = "SpeechEnabled";
 const char* const CFG_ECONET_ENABLED               = "EconetEnabled";
 const char* const CFG_KEYBOARD_LINKS               = "KeyboardLinks";
 
@@ -79,6 +78,7 @@ const char* const CFG_SOUND_VOLUME                 = "SoundVolume";
 const char* const CFG_SOUND_EXPONENTIAL_VOLUME     = "ExponentialVolume";
 const char* const CFG_SOUND_ENABLED                = "SoundEnabled";
 const char* const CFG_SOUND_CHIP_ENABLED           = "SoundChipEnabled";
+const char* const CFG_SPEECH_ENABLED               = "SpeechEnabled";
 const char* const CFG_RELAY_SOUND_ENABLED          = "RelaySoundEnabled";
 const char* const CFG_TAPE_SOUND_ENABLED           = "TapeSoundEnabled";
 const char* const CFG_DISC_SOUND_ENABLED           = "DiscDriveSoundEnabled";
