@@ -1171,10 +1171,11 @@ bool EconetReset()
 		Packet.AUNHeader.CtrlByte = 0x10; // &90 locate gateway
 		Packet.Buffer[0] = BEEBEM_ECONET_PORT; // Where response is sent
 
-		// send a copy of broadcast to each network interface
-		for (unsigned int i=0; i<BroadcastAddresses.size(); i++)
+		// Send a copy of broadcast to each network interface.
+		for (size_t i = 0; i < BroadcastAddresses.size(); i++)
 		{
 			RecvAddr.sin_addr.s_addr = BroadcastAddresses[i];
+
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Sending gateway discovery packet (%s port %d)\n",
 			           IpAddressStr(BroadcastAddresses[i]).c_str(), DEFAULT_AUN_PORT);
@@ -2046,8 +2047,8 @@ bool EconetPollReal()
 		Packet.Buffer[0] = EconetStationID;
 		Packet.Buffer[1] = EconetNetworkID;
 
-		// send a copy of broadcast to each network interface
-		for (unsigned int i=0; i<BroadcastAddresses.size(); i++)
+		// Send a copy of broadcast to each network interface.
+		for (size_t i = 0; i < BroadcastAddresses.size(); i++)
 		{
 			RecvAddr.sin_addr.s_addr = BroadcastAddresses[i];
 
@@ -2734,8 +2735,8 @@ static void EconetSendPacket()
 
 		if (RecvAddr.sin_addr.s_addr == INADDR_BROADCAST)
 		{
-			// trying to send to the broadcast address - send a copy to every interface
-			for (unsigned int i=0; i<BroadcastAddresses.size(); i++)
+			// Trying to send to the broadcast address - send a copy to every interface.
+			for (size_t i = 0; i < BroadcastAddresses.size(); i++)
 			{
 				RecvAddr.sin_addr.s_addr = BroadcastAddresses[i];
 
