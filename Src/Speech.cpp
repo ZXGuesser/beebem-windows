@@ -1754,7 +1754,7 @@ uint8_t TMS5220::ReadPhrom(int count)
 			}
 		}
 
-		m_ROM_bits_count = 8 - pos;
+		m_ROM_bits_count = (uint8_t)(8 - pos);
 	}
 	else
 	{
