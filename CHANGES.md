@@ -1,7 +1,7 @@
 BeebEm Change History
 =====================
 
-Unreleased Changes
+Version 4.23 (6 April 2026)
 ------------
 
 Contributors: Chris Needham
