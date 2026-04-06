@@ -109,27 +109,30 @@ bool WouldBlock(int Error)
 
 bool EnableBroadcast(SOCKET Socket)
 {
-	const char Broadcast = 1;
+	const BOOL Broadcast = 1;
 
-	return setsockopt(Socket, SOL_SOCKET, SO_BROADCAST, &Broadcast, sizeof(Broadcast)) == 0;
+	return setsockopt(Socket, SOL_SOCKET, SO_BROADCAST,
+	                  (const char*)&Broadcast, sizeof(Broadcast)) == 0;
 }
 
 /****************************************************************************/
 
 bool SetReuseAddr(SOCKET Socket)
 {
-	const char Reuse = 1;
+	const BOOL Reuse = 1;
 
-	return setsockopt(Socket, SOL_SOCKET, SO_REUSEADDR, &Reuse, sizeof(Reuse)) == 0;
+	return setsockopt(Socket, SOL_SOCKET, SO_REUSEADDR,
+	                  (const char*)&Reuse, sizeof(Reuse)) == 0;
 }
 
 /****************************************************************************/
 
 bool SetExclusiveAddrUse(SOCKET Socket)
 {
-	const char Exclusive = 1;
+	const BOOL Exclusive = 1;
 
-	return setsockopt(Socket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, &Exclusive, sizeof(Exclusive)) == 0;
+	return setsockopt(Socket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE,
+	                  (const char*)&Exclusive, sizeof(Exclusive)) == 0;
 }
 
 /****************************************************************************/
