@@ -666,61 +666,81 @@ static void EconetCloseSockets()
 
 //---------------------------------------------------------------------------
 
-// populate vectors of the IP addresses of network interfaces on this host,
-// and the broadcast addresses of the local networks
+// Populate vectors of the IP addresses of network interfaces on this host,
+// and the broadcast addresses of the local networks.
 
-static bool GetLocalNetworkAddresses(std::vector<unsigned long>& IpAddresses, std::vector<unsigned long>& BroadcastIpAddresses)
+static bool GetLocalNetworkAddresses(std::vector<unsigned long>& IpAddresses,
+                                     std::vector<unsigned long>& BroadcastIpAddresses)
 {
 	IpAddresses.clear();
 	BroadcastIpAddresses.clear();
 
-	PMIB_IPADDRTABLE pIPAddrTable;
-	DWORD size = 0;
+	bool Success = true;
+	MIB_IPADDRTABLE* pIpAddrTable = nullptr;
 
-	pIPAddrTable = (MIB_IPADDRTABLE *) malloc(sizeof(PMIB_IPADDRTABLE));
-	if (pIPAddrTable)
+	DWORD Size = 0;
+	DWORD Result = GetIpAddrTable(nullptr, &Size, 0);
+
+	if (Result == ERROR_INSUFFICIENT_BUFFER)
 	{
-		if (GetIpAddrTable(pIPAddrTable, &size, 0) == ERROR_INSUFFICIENT_BUFFER)
+		pIpAddrTable = (MIB_IPADDRTABLE*)malloc(Size);
+
+		if (pIpAddrTable == nullptr)
 		{
-			free(pIPAddrTable);
-			pIPAddrTable = (MIB_IPADDRTABLE *) malloc(size);
-		}
-		if (pIPAddrTable == NULL) {
 			EconetError("Econet: Failed to allocate memory for IP address table");
-			return false;
+
+			Success = false;
+			goto Exit;
 		}
 	}
-	if (GetIpAddrTable( pIPAddrTable, &size, 0 ) != NO_ERROR)
+
+	Result = GetIpAddrTable(pIpAddrTable, &Size, 0);
+
+	if (Result != NO_ERROR)
 	{
 		EconetError("Econet: Failed to get IP address table data");
-		return false;
+
+		Success = false;
+		goto Exit;
 	}
 
 	// Check address for each network interface/card.
-	for (int i=0; i < (int) pIPAddrTable->dwNumEntries; i++)
+	for (DWORD i = 0; i < pIpAddrTable->dwNumEntries; i++)
 	{
 		#ifdef DEBUG_ECONET
-		DebugTrace("IP address: %s Netmask: %s\n", IpAddressStr(pIPAddrTable->table[i].dwAddr).c_str(), IpAddressStr(pIPAddrTable->table[i].dwMask).c_str());
+		DebugTrace("IP address: %s Netmask: %s\n",
+		           IpAddressStr(pIpAddrTable->table[i].dwAddr).c_str(),
+		           IpAddressStr(pIpAddrTable->table[i].dwMask).c_str());
 		#endif
 
-		IpAddresses.emplace_back(pIPAddrTable->table[i].dwAddr);
+		IpAddresses.emplace_back(pIpAddrTable->table[i].dwAddr);
 
-		// use net mask to create broadcast address for this network
-		unsigned long BroadcastAddress = (pIPAddrTable->table[i].dwAddr & pIPAddrTable->table[i].dwMask) | (INADDR_BROADCAST & ~(pIPAddrTable->table[i].dwMask));
+		// Use net mask to create broadcast address for this network.
+		unsigned long BroadcastAddress = (pIpAddrTable->table[i].dwAddr & pIpAddrTable->table[i].dwMask) |
+		                                 (INADDR_BROADCAST & ~pIpAddrTable->table[i].dwMask);
+
 		#ifdef DEBUG_ECONET
 		DebugTrace("Broadcast address: %s\n", IpAddressStr(BroadcastAddress).c_str());
 		#endif
 
-		if (std::find(BroadcastIpAddresses.begin(), BroadcastIpAddresses.end(), BroadcastAddress) == BroadcastIpAddresses.end())
+		// Add to vector if unique.
+		const auto& it = std::find(BroadcastIpAddresses.begin(),
+		                           BroadcastIpAddresses.end(),
+		                           BroadcastAddress);
+
+		if (it == BroadcastIpAddresses.end())
 		{
-			// add to vector if unique
 			BroadcastIpAddresses.emplace_back(BroadcastAddress);
 		}
 	}
 
-	free(pIPAddrTable);
+Exit:
+	if (pIpAddrTable != nullptr)
+	{
+		free(pIpAddrTable);
+	}
 
-	return true;
+	return Success;
 }
 
 //---------------------------------------------------------------------------
