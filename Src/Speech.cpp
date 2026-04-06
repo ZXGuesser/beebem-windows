@@ -1345,7 +1345,7 @@ void TMS5220::ProcessCommand(unsigned char cmd)
 				LoadPhromAddress(cmd & 0x0F);
 
 				#ifdef DEBUG_SPEECH
-				DebugTrace("%04X TMS5220: load address cmd with data = 0x%02x, new address = 0x%05x\n", PrePC, data, m_speechROMaddr);
+				DebugTrace("%04X TMS5220: load address cmd with data = 0x%02x, new address = 0x%05x\n", PrePC, cmd & 0x0F, m_speechROMaddr);
 				#endif
 
 				m_schedule_dummy_read = true;
