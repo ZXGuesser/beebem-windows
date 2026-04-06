@@ -37,12 +37,55 @@
     </header>
 
     <main>
-      <h1>Speech Generator</h1>
+      <h1>Speech System</h1>
 
       <p>
-        Due to code licensing issues the TMS5220 Speech Generator emulation is
-        not included in this version of BeebEm. The Speech Generator emulation
-        is included in BeebEm version 4.03, available on the BeebEm website.
+        The BBC Micro Speech System is a speech synthesizer based on the
+        TMS5220 Speech Processor and TMS6100 Voice Synthesis Memory ICs
+        (known as Phrase ROMs, or PHROMs).
+      </p>
+
+      <p>
+        BeebEm emulates the TMS5220 with support for up to 16 PHROMs.
+        These are configured in <span class="file">Phroms.cfg</span>.
+      </p>
+
+      <p>
+        To enable the Speech System, enable the <span class="ui">Sound
+        &rarr; Speech On/Off</span> menu option, then press
+        <kbd>Break</kbd> for the change to take effect.
+      </p>
+
+      <p>
+        To test the Speech System, the following BASIC command should say
+        the word "Acorn".
+      </p>
+
+      <blockquote>
+        SOUND -1,160,0,0
+      </blockquote>
+
+      <p>
+        Various games make use of the Speech System, including
+        <a href="https://www.bbcmicro.co.uk/game.php?id=241">Deathstar (Superior
+        Software)</a>,
+        <a href="https://www.bbcmicro.co.uk/game.php?id=67">Overdrive (Superior
+        Software)</a>,
+        <a href="https://www.bbcmicro.co.uk/game.php?id=1964">AstroBlaster
+        (Retro Software)</a>, and
+        <a href="https://www.bbcmicro.co.uk/game.php?id=1367">Trek (Acorn
+        User)</a>,
+        as well as education software such as
+        <a href="https://flaxcottage.com/Educational/Default.asp">Hooked On
+        Numbers (Acornsoft)</a>, and
+        <a href="https://flaxcottage.com/Educational/Default.asp">Happy Letters
+        (Bourne Educational Software)</a>.
+      </p>
+
+      <p>
+        Refer to the
+        <a href="http://chrisacorns.computinghistory.org.uk/docs/Acorn/Manuals/Acorn_SpeechSystemUG.pdf">
+        Speech System User Guide</a> for details on how to use the system.
       </p>
     </main>
 

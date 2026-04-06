@@ -9,6 +9,8 @@ Contributors: Chris Needham
 * Added support for modern game controllers, using XInput and
   DirectInput. These are selected from a new dialog box, replacing
   the Options -> Joystick menu options.
+* Added support for the Acorn Speech System. This uses code from
+  MAME 0.172, which is GPL2 licensed.
 * Fixed the BBSn and BBRn 65C02 instructions in the Tube coprocessor.
 * Added an InitialRAMValue preferences setting that lets you control
   how RAM is initialised on reset.
