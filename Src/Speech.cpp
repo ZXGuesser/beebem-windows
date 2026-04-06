@@ -370,15 +370,15 @@ class TMS5220
 		void ReadEnable();
 		unsigned char ReadStatus();
 		void WriteData(unsigned char data);
-		bool ReadInt();
-		bool ReadReady();
+		bool ReadInt() const;
+		bool ReadReady() const;
 
 		void Poll(int Cycles);
 
 		void ProcessSamples(short* buffer, int size);
 
 		void LoadState(FILE *SUEF);
-		void SaveState(FILE *SUEF);
+		void SaveState(FILE *SUEF) const;
 
 	private:
 		int16_t LatticeFilter();
@@ -541,7 +541,7 @@ class TMS5220StreamState
 		void Update(unsigned char *buff, int length);
 
 		void LoadState(FILE *SUEF);
-		void SaveState(FILE *SUEF);
+		void SaveState(FILE *SUEF) const;
 
 	public:
 		TMS5220 chip;
@@ -567,7 +567,7 @@ bool SpeechStarted;
 static TMS5220StreamState* tms5220;
 static unsigned char speechrom_data[16 * 16384];
 
-#define DEBUG_SPEECH
+// #define DEBUG_SPEECH
 
 /*----------------------------------------------------------------------------*/
 
@@ -829,7 +829,7 @@ void TMS5220::WriteData(unsigned char data)
 // Returns the interrupt state of the TMS5220
 // (true: interrupt, false: no interrupt).
 
-bool TMS5220::ReadInt()
+bool TMS5220::ReadInt() const
 {
 	return m_irq_pin;
 }
@@ -839,7 +839,7 @@ bool TMS5220::ReadInt()
 // Returns the ready state of the TMS5220
 // (true: ready, false: not ready).
 
-bool TMS5220::ReadReady()
+bool TMS5220::ReadReady() const
 {
 	return ((m_fifo_count < FIFO_SIZE) || !m_DDIS) && m_io_ready;
 }
@@ -1831,7 +1831,7 @@ void TMS5220::LoadState(FILE *SUEF)
 
 /*----------------------------------------------------------------------------*/
 
-void TMS5220::SaveState(FILE *SUEF)
+void TMS5220::SaveState(FILE *SUEF) const
 {
 	UEFWriteBuf(m_fifo, sizeof(m_fifo), SUEF);
 	UEFWrite8(m_fifo_head, SUEF);
@@ -2009,7 +2009,7 @@ void TMS5220StreamState::LoadState(FILE *SUEF)
 
 /*----------------------------------------------------------------------------*/
 
-void TMS5220StreamState::SaveState(FILE *SUEF)
+void TMS5220StreamState::SaveState(FILE *SUEF) const
 {
 	chip.SaveState(SUEF);
 
