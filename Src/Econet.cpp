@@ -757,9 +757,6 @@ Exit:
 
 static void AllocateNewAddress()
 {
-	unsigned long LocalHostAddr;
-	ParseIPAddress(AF_INET, "127.0.0.1", &LocalHostAddr);
-
 	// See if configured addresses match local IPs.
 	for (size_t i = 0; i < Stations.size() && EconetStationID == 0; ++i)
 	{
@@ -770,8 +767,7 @@ static void AllocateNewAddress()
 		{
 			unsigned long IpAddress = LocalIpAddresses[j];
 
-			if (Station.inet_addr == LocalHostAddr ||
-			    Station.inet_addr == IpAddress)
+			if (Station.inet_addr == IpAddress)
 			{
 				if (PreferredStationID == 0 ||
 				    (Station.station == PreferredStationID &&
@@ -812,62 +808,76 @@ static void AllocateNewAddress()
 		{
 			// Only try AUNNet if we haven't previously assigned an address
 			// or if we were already using AUN.
-			// A valid AUNMap configuration will override -Ecostn argument
-			// or Master CMOS station setting.
 			for (size_t i = 0; i < Networks.size() && EconetStationID == 0; ++i)
 			{
+				// AUN nets will be tried in file order until a valid match is
+				// found.
 				const EconetNet& Network = Networks[i];
-
+				
 				for (size_t j = 0; j < LocalIpAddresses.size(); ++j)
 				{
 					unsigned long IpAddress = LocalIpAddresses[j];
-
-					if (Network.inet_addr == (IpAddress & 0x00FFFFFF))
+					
+					if (EconetListenIP == 0 || EconetListenIP == IpAddress)
 					{
-						sockaddr_in service;
-						service.sin_family = AF_INET;
-						service.sin_addr.s_addr = IpAddress;
-						service.sin_port = htons(DEFAULT_AUN_PORT);
-						// bind to port 32768 on only the configured address
+						// Bind only to the same address after a reset
+						if (PreferredStationID == 0 || 
+						    (PreferredStationID == IpAddress >> 24 &&
+						     PreferredNetworkID == Network.network))
+						{
+							// If -Ecostn is used it must match the net.stn
+							// pair for this network to use the AUNMap.
+							// When no net.stn is passed, this test will fail
+							// on a Master 128 if AUTOCONFIGURE is enabled, as
+							// it will set a station ID from CMOS.
+							if (Network.inet_addr == (IpAddress & 0x00FFFFFF))
+							{
+								sockaddr_in service;
+								service.sin_family = AF_INET;
+								service.sin_addr.s_addr = IpAddress;
+								service.sin_port = htons(DEFAULT_AUN_PORT);
+								// bind to port 32768 on only the configured address
 
-						if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
-						{
-							EconetListenIP = service.sin_addr.s_addr;
-							EconetListenPort = DEFAULT_AUN_PORT;
-							EconetStationID = IpAddress >> 24;
-							EconetNetworkID = Network.network;
-							
-							// Replace network specific broadcast addresses with
-							// fully wild address.
-							// As we are bound to a single IP it will go only to
-							// the correct network.
-							BroadcastAddresses.clear();
-							BroadcastAddresses.emplace_back(INADDR_BROADCAST);
-							
-							// We are participating in a real AUN network so:
-							// Disable beebem announce and gateway discovery.
-							AutoConfigure = false;
-							FindGateways = false;
-							
-							// Forget any stations we learned from Econet.cfg and
-							// only resolve true AUN stations.
-							Stations.clear();
-							
-							// forget any configured extended AUN gateway.
-							Gateway = { 0, 0 };
-							
-							#ifdef DEBUG_ECONET
-							DebugTrace("Econet: Automatically assigned station %d.%d using AUNMap\n",
-									   EconetNetworkID,
-									   EconetStationID);
-							#endif
-							
-							break;
-						}
-						else
-						{
-							// Reset station announcement sequence number.
-							AnnounceHandle = 0;
+								if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
+								{
+									EconetListenIP = service.sin_addr.s_addr;
+									EconetListenPort = DEFAULT_AUN_PORT;
+									EconetStationID = IpAddress >> 24;
+									EconetNetworkID = Network.network;
+									
+									// Replace network specific broadcast addresses with
+									// fully wild address.
+									// As we are bound to a single IP it will go only to
+									// the correct network.
+									BroadcastAddresses.clear();
+									BroadcastAddresses.emplace_back(INADDR_BROADCAST);
+									
+									// We are participating in a real AUN network so:
+									// Disable beebem announce and gateway discovery.
+									AutoConfigure = false;
+									FindGateways = false;
+									
+									// Forget any stations we learned from Econet.cfg and
+									// only resolve true AUN stations.
+									Stations.clear();
+									
+									// forget any configured extended AUN gateway.
+									Gateway = { 0, 0 };
+									
+									#ifdef DEBUG_ECONET
+									DebugTrace("Econet: Automatically assigned station %d.%d using AUNMap\n",
+											   EconetNetworkID,
+											   EconetStationID);
+									#endif
+									
+									break;
+								}
+								else
+								{
+									// Reset station announcement sequence number.
+									AnnounceHandle = 0;
+								}
+							}
 						}
 					}
 				}
@@ -2975,6 +2985,14 @@ GetNewPacket:
 						BytesReceived = 0;
 					}
 				}
+			}
+			
+			if (RecvAddr.sin_addr.s_addr == EconetListenIP &&
+			    ntohs(RecvAddr.sin_port) == EconetListenPort)
+			{
+				// Ignore packets that we sent coming back to our listen socket
+				// (this will occur when configured with a single AUN port)
+				BytesReceived = 0;
 			}
 
 			EconetRx.BytesInBuffer = BytesReceived;
