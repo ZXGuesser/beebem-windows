@@ -761,7 +761,7 @@ static void AllocateNewAddress()
 	ParseIPAddress(AF_INET, "127.0.0.1", &LocalHostAddr);
 
 	// See if configured addresses match local IPs.
-	for (size_t i = 0; i < Stations.size(); ++i)
+	for (size_t i = 0; i < Stations.size() && EconetStationID == 0; ++i)
 	{
 		const EconetHost& Station = Stations[i];
 
@@ -788,6 +788,8 @@ static void AllocateNewAddress()
 						EconetListenPort = Station.port;
 						EconetNetworkID = Station.network;
 						EconetStationID = Station.station;
+						
+						break;
 					}
 					else
 					{
@@ -812,7 +814,7 @@ static void AllocateNewAddress()
 			// or if we were already using AUN.
 			// A valid AUNMap configuration will override -Ecostn argument
 			// or Master CMOS station setting.
-			for (size_t i = 0; i < Networks.size(); ++i)
+			for (size_t i = 0; i < Networks.size() && EconetStationID == 0; ++i)
 			{
 				const EconetNet& Network = Networks[i];
 
@@ -859,6 +861,8 @@ static void AllocateNewAddress()
 									   EconetNetworkID,
 									   EconetStationID);
 							#endif
+							
+							break;
 						}
 						else
 						{
