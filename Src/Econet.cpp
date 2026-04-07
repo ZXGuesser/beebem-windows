@@ -1188,6 +1188,13 @@ bool EconetReset()
 
 	EconetStateChanged = true;
 
+	// If a gateway is configured, wake it up by sending a keepalive packet
+	// as soon as Econet is initialised.
+	if (Gateway.port != 0)
+	{
+		time(&GatewayTimeout);
+	}
+
 	if (FindGateways && Gateway.port == 0)
 	{
 		// Send a bridge discovery broadcast to learn of any
@@ -1318,9 +1325,6 @@ static bool ReadEconetConfigFile()
 					           IpAddressStr(Gateway.inet_addr).c_str(),
 					           Gateway.port);
 					#endif
-
-					// Wake up gateway as soon as Econet is initialised.
-					time(&GatewayTimeout);
 				}
 				else
 				{
@@ -2043,7 +2047,6 @@ bool EconetPollReal()
 		Packet.AUNHeader.Type = AUNType::Broadcast;
 		Packet.AUNHeader.Port = 0x9C; // Pi Econet Bridge
 		Packet.AUNHeader.CtrlByte = 0xD0 & 0x7F; // Reuse trunk keepalive
-
 
 		#ifdef DEBUG_ECONET
 		DebugTrace("Econet: Sending gateway keepalive\n");
