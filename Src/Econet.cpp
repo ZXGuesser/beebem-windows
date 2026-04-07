@@ -693,6 +693,13 @@ static bool GetLocalNetworkAddresses(std::vector<unsigned long>& IpAddresses,
 			goto Exit;
 		}
 	}
+	else
+	{
+		EconetError("Econet: Failed to determine size of IP address table");
+
+		Success = false;
+		goto Exit;
+	}
 
 	Result = GetIpAddrTable(pIpAddrTable, &Size, 0);
 
