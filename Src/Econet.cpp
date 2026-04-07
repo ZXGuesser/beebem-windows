@@ -200,6 +200,7 @@ unsigned char PreferredStationID = 0;
 unsigned char PreferredNetworkID = 0;
 
 static unsigned short EconetListenPort = 0; // Default listen port
+static unsigned long EconetListenIP = 0; // IP address
 
 static SOCKET Socket = INVALID_SOCKET; // Also used to flag line up and clock running
 static SOCKET BroadcastListenSocket = INVALID_SOCKET;
@@ -783,6 +784,7 @@ static void AllocateNewAddress()
 
 					if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 					{
+						EconetListenIP = service.sin_addr.s_addr;
 						EconetListenPort = Station.port;
 						EconetNetworkID = Station.network;
 						EconetStationID = Station.station;
@@ -804,8 +806,12 @@ static void AllocateNewAddress()
 		DebugTrace("Econet: Couldn't get host from configured addresses - trying automatic\n");
 		#endif
 
-		if (PreferredStationID == 0)
+		if (EconetListenPort == 0 || EconetListenPort == DEFAULT_AUN_PORT)
 		{
+			// Only try AUNNet if we haven't previously assigned an address
+			// or if we were already using AUN.
+			// A valid AUNMap configuration will override -Ecostn argument
+			// or Master CMOS station setting.
 			for (size_t i = 0; i < Networks.size(); ++i)
 			{
 				const EconetNet& Network = Networks[i];
@@ -818,19 +824,40 @@ static void AllocateNewAddress()
 					{
 						sockaddr_in service;
 						service.sin_family = AF_INET;
-						service.sin_addr.s_addr = INADDR_ANY;
+						service.sin_addr.s_addr = IpAddress;
 						service.sin_port = htons(DEFAULT_AUN_PORT);
+						// bind to port 32768 on only the configured address
 
 						if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 						{
+							EconetListenIP = service.sin_addr.s_addr;
 							EconetListenPort = DEFAULT_AUN_PORT;
 							EconetStationID = IpAddress >> 24;
 							EconetNetworkID = Network.network;
-
+							
+							// Replace network specific broadcast addresses with
+							// fully wild address.
+							// As we are bound to a single IP it will go only to
+							// the correct network.
+							BroadcastAddresses.clear();
+							BroadcastAddresses.emplace_back(INADDR_BROADCAST);
+							
+							// We are participating in a real AUN network so:
+							// Disable beebem announce and gateway discovery.
+							AutoConfigure = false;
+							FindGateways = false;
+							
+							// Forget any stations we learned from Econet.cfg and
+							// only resolve true AUN stations.
+							Stations.clear();
+							
+							// forget any configured extended AUN gateway.
+							Gateway = { 0, 0 };
+							
 							#ifdef DEBUG_ECONET
 							DebugTrace("Econet: Automatically assigned station %d.%d using AUNMap\n",
-							           EconetNetworkID,
-							           EconetStationID);
+									   EconetNetworkID,
+									   EconetStationID);
 							#endif
 						}
 						else
@@ -904,6 +931,7 @@ static void AllocateNewAddress()
 
 				if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 				{
+					EconetListenIP = service.sin_addr.s_addr;
 					EconetListenPort = Port;
 					EconetStationID = StationID;
 					EconetNetworkID = PreferredNetworkID;
@@ -912,7 +940,7 @@ static void AllocateNewAddress()
 					DebugTrace("Econet: Automatically assigned random station %d.%d on %s:%d\n",
 					           EconetNetworkID,
 					           EconetStationID,
-					           IpAddressStr(INADDR_ANY).c_str(),
+					           IpAddressStr(EconetListenIP).c_str(),
 					           EconetListenPort);
 					#endif
 
@@ -1091,6 +1119,7 @@ bool EconetReset()
 
 			if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 			{
+				EconetListenIP = service.sin_addr.s_addr;
 				EconetListenPort = pNetworkConfig->port;
 				EconetStationID = pNetworkConfig->station;
 				EconetNetworkID = pNetworkConfig->network;
@@ -1098,7 +1127,7 @@ bool EconetReset()
 			else
 			{
 				EconetError("Econet: Failed to bind to address %s:%d",
-				            IpAddressStr(INADDR_ANY).c_str(),
+				            IpAddressStr(EconetListenIP).c_str(),
 				            EconetListenPort);
 
 				// Clear this so we don't try to allocate it again.
