@@ -779,8 +779,9 @@ static void AllocateNewAddress()
 				{
 					sockaddr_in service;
 					service.sin_family = AF_INET;
-					service.sin_addr.s_addr = INADDR_ANY;
+					service.sin_addr.s_addr = IpAddress;
 					service.sin_port = htons(Station.port);
+					// Bind to configured port on only the configured address
 
 					if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 					{
@@ -794,6 +795,13 @@ static void AllocateNewAddress()
 								   EconetNetworkID,
 								   EconetStationID);
 						#endif
+						
+						// Replace network specific broadcast addresses with
+						// fully wild address.
+						// As we are bound to a single IP it will go only to
+						// the correct network.
+						BroadcastAddresses.clear();
+						BroadcastAddresses.emplace_back(INADDR_BROADCAST);
 						
 						break;
 					}
@@ -851,7 +859,7 @@ static void AllocateNewAddress()
 								service.sin_family = AF_INET;
 								service.sin_addr.s_addr = IpAddress;
 								service.sin_port = htons(DEFAULT_AUN_PORT);
-								// bind to port 32768 on only the configured address
+								// Bind to port 32768 on only the configured address
 
 								if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 								{
@@ -952,11 +960,12 @@ static void AllocateNewAddress()
 			{
 				const unsigned short Port = 10000 + (PreferredNetworkID << 8) + StationID;
 
-				// bind to all available adapters
 				sockaddr_in service;
 				service.sin_family = AF_INET;
 				service.sin_addr.s_addr = INADDR_ANY;
 				service.sin_port = htons(Port);
+				// Bind to configured port on all interfaces
+				// Separate broadcasts must be sent to each network
 
 				if (bind(Socket, (SOCKADDR*)&service, sizeof(service)) == 0)
 				{
