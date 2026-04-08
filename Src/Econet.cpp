@@ -2883,6 +2883,45 @@ static void EconetSendPacket()
 
 //--------------------------------------------------------------------------------------------
 
+static bool IgnoreReceivedBroadcastPacket(const sockaddr_in& RecvAddr,
+                                          const char* pRxBuffer)
+{
+	const AUNHeaderType* pAUNHeader = (const AUNHeaderType*)pRxBuffer;
+
+	if (pAUNHeader->Type != AUNType::Broadcast &&
+	    pAUNHeader->Type != AUNType::BeebEm)
+	{
+		// Non-broadcast/BeebEm packet seen on broadcast socket - ignore.
+		return true;
+	}
+
+	// Check source against our local IP addresses.
+	const auto& it = std::find(LocalIpAddresses.begin(),
+	                           LocalIpAddresses.end(),
+	                           RecvAddr.sin_addr.s_addr);
+
+	if (it != LocalIpAddresses.end())
+	{
+		if (RecvAddr.sin_addr.s_addr != htonl(INADDR_LOOPBACK))
+		{
+			// Packet is from this host but not on the loopback address.
+			// Ignore it so that we don't get multiple copies of every
+			// broadcast from this host.
+			return true;
+		}
+		else if (ntohs(RecvAddr.sin_port) == EconetListenPort)
+		{
+			// Packet was sent from our AUN port.
+			// We sent this packet out, ignore it.
+			return true;
+		}
+	}
+
+	return false;
+}
+
+//--------------------------------------------------------------------------------------------
+
 static bool EconetReceivePacket()
 {
 	if (AUNState == FourWayStage::Idle ||
@@ -2931,34 +2970,10 @@ GetNewPacket:
 
 			if (SocketToRead == BroadcastListenSocket)
 			{
-				// received a packet on broadcast listen socket
-				if (EconetRx.AUNHeader.Type != AUNType::Broadcast &&
-				    EconetRx.AUNHeader.Type != AUNType::BeebEm)
+				// Received a packet on broadcast listen socket.
+				if (IgnoreReceivedBroadcastPacket(RecvAddr, (const char*)&EconetRx))
 				{
-					// Non-broadcast/BeebEm packet seen on broadcast socket - ignore.
 					BytesReceived = 0;
-				}
-
-				// Check source against our local IP addresses.
-				const auto& it = std::find(LocalIpAddresses.begin(),
-				                           LocalIpAddresses.end(),
-				                           RecvAddr.sin_addr.s_addr);
-
-				if (it != LocalIpAddresses.end())
-				{
-					if (RecvAddr.sin_addr.s_addr != htonl(INADDR_LOOPBACK))
-					{
-						// Packet is from this host but not on the loopback address.
-						// Ignore it so that we don't get multiple copies of every
-						// broadcast from this host.
-						BytesReceived = 0;
-					}
-					else if (ntohs(RecvAddr.sin_port) == EconetListenPort)
-					{
-						// Packet was sent from our AUN port.
-						// We sent this packet out, ignore it.
-						BytesReceived = 0;
-					}
 				}
 			}
 			
