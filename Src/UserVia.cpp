@@ -88,7 +88,9 @@ static void UpdateIFRTopBit()
 }
 
 /*--------------------------------------------------------------------------*/
-/* Address is in the range 0-f - with the fe60 stripped out */
+
+// Address is in the range 0-f - with the fe60 stripped out
+
 void UserVIAWrite(int Address, unsigned char Value)
 {
 	// DebugTrace("UserVIAWrite: Address=0x%02x Value=0x%02x\n", Address, Value);
@@ -102,7 +104,7 @@ void UserVIAWrite(int Address, unsigned char Value)
 
 	switch (Address)
 	{
-		case 0:
+		case VIA_REG_ORB:
 			UserVIAState.orb = Value;
 
 			if ((UserVIAState.ifr & IFR_CB2) && ((UserVIAState.pcr & 0x20) == 0))
@@ -122,7 +124,7 @@ void UserVIAWrite(int Address, unsigned char Value)
 			}
 			break;
 
-		case 1:
+		case VIA_REG_ORA:
 			UserVIAState.ora = Value;
 
 			UserVIAState.ifr &= ~(IFR_CA2 | IFR_CA1);
@@ -134,7 +136,7 @@ void UserVIAWrite(int Address, unsigned char Value)
 			}
 			break;
 
-		case 2:
+		case VIA_REG_DDRB:
 			UserVIAState.ddrb = Value;
 
 			if (UserPortRTCEnabled)
@@ -146,18 +148,18 @@ void UserVIAWrite(int Address, unsigned char Value)
 			}
 			break;
 
-		case 3:
+		case VIA_REG_DDRA:
 			UserVIAState.ddra = Value;
 			break;
 
-		case 4:
-		case 6:
+		case VIA_REG_T1CL:
+		case VIA_REG_T1LL:
 			// DebugTrace("UserVia Reg4 Timer1 lo Counter Write val=0x%02x at %d\n", Value, TotalCycles);
 			UserVIAState.timer1l &= 0xff00;
 			UserVIAState.timer1l |= Value & 0xff;
 			break;
 
-		case 5:
+		case VIA_REG_T1CH:
 			// DebugTrace("UserVia Reg5 Timer1 hi Counter Write val=0x%02x at %d\n", Value, TotalCycles);
 			UserVIAState.timer1l &= 0xff;
 			UserVIAState.timer1l |= Value << 8;
@@ -176,7 +178,7 @@ void UserVIAWrite(int Address, unsigned char Value)
 			UserVIAState.timer1hasshot = false; // Added by K.Lowe 24/08/03
 			break;
 
-		case 7:
+		case VIA_REG_T1LH:
 			// DebugTrace("UserVia Reg7 Timer1 hi latch Write val=0x%02x at %d\n", Value, TotalCycles);
 			UserVIAState.timer1l &= 0xff;
 			UserVIAState.timer1l |= Value << 8;
@@ -185,13 +187,13 @@ void UserVIAWrite(int Address, unsigned char Value)
 			UpdateIFRTopBit();
 			break;
 
-		case 8:
+		case VIA_REG_T2CL:
 			// DebugTrace("UserVia Reg8 Timer2 lo Counter Write val=0x%02x at %d\n", Value, TotalCycles);
 			UserVIAState.timer2l &= 0xff00;
 			UserVIAState.timer2l |= Value;
 			break;
 
-		case 9:
+		case VIA_REG_T2CH:
 			// DebugTrace("UserVia Reg9 Timer2 hi Counter Write val=0x%02x at %d\n", Value, TotalCycles);
 			UserVIAState.timer2l &= 0xff;
 			UserVIAState.timer2l |= Value << 8;
@@ -208,26 +210,26 @@ void UserVIAWrite(int Address, unsigned char Value)
 			UserVIAState.timer2hasshot = false; // Added by K.Lowe 24/08/03
 			break;
 
-		case 10:
+		case VIA_REG_SR:
 			UserVIAState.sr = Value;
 			UpdateSRState(true);
 			break;
 
-		case 11:
+		case VIA_REG_ACR:
 			UserVIAState.acr = Value;
 			UpdateSRState(false);
 			break;
 
-		case 12:
+		case VIA_REG_PCR:
 			UserVIAState.pcr = Value;
 			break;
 
-		case 13:
+		case VIA_REG_IFR:
 			UserVIAState.ifr &= ~Value;
 			UpdateIFRTopBit();
 			break;
 
-		case 14:
+		case VIA_REG_IER:
 			// DebugTrace("User VIA Write ier Value=0x%02x\n", Value);
 			if (Value & 0x80)
 			{
@@ -242,7 +244,7 @@ void UserVIAWrite(int Address, unsigned char Value)
 			UpdateIFRTopBit();
 			break;
 
-		case 15:
+		case VIA_REG_ORA_NO_HANDSHAKE:
 			UserVIAState.ora = Value;
 			break;
 	}
@@ -262,7 +264,7 @@ unsigned char UserVIARead(int Address)
 
 	switch (Address)
 	{
-		case 0: /* IRB read */
+		case VIA_REG_IRB:
 			Value = (UserVIAState.orb & UserVIAState.ddrb) | (UserVIAState.irb & ~UserVIAState.ddrb);
 
 			if (UserPortRTCEnabled)
@@ -311,15 +313,15 @@ unsigned char UserVIARead(int Address)
 			}
 			break;
 
-		case 2:
+		case VIA_REG_DDRB:
 			Value = UserVIAState.ddrb;
 			break;
 
-		case 3:
+		case VIA_REG_DDRA:
 			Value = UserVIAState.ddra;
 			break;
 
-		case 4: /* Timer 1 lo counter */
+		case VIA_REG_T1CL: // Timer 1 low order counter
 			if (UserVIAState.timer1c < 0)
 			{
 				Value = 0xff;
@@ -333,20 +335,20 @@ unsigned char UserVIARead(int Address)
 			UpdateIFRTopBit();
 			break;
 
-		case 5: /* Timer 1 hi counter */
+		case VIA_REG_T1CH: // Timer 1 high order counter
 			Value = (UserVIAState.timer1c >> 9) & 0xff;
 			break;
 
-		case 6: /* Timer 1 lo latch */
+		case VIA_REG_T1LL: // Timer 1 low order latches
 			Value = UserVIAState.timer1l & 0xff;
 			break;
 
-		case 7: /* Timer 1 hi latch */
+		case VIA_REG_T1LH: // Timer 1 high order latches
 			Value = (UserVIAState.timer1l >> 8) & 0xff;
 			break;
 
-		case 8: /* Timer 2 lo counter */
-			if (UserVIAState.timer2c < 0) /* Adjust for dividing -ve count by 2 */
+		case VIA_REG_T2CL: // Timer 2 low order counter
+			if (UserVIAState.timer2c < 0) // Adjust for dividing -ve count by 2
 			{
 				Value = ((UserVIAState.timer2c - 1) / 2) & 0xff;
 			}
@@ -359,38 +361,38 @@ unsigned char UserVIARead(int Address)
 			UpdateIFRTopBit();
 			break;
 
-		case 9: /* Timer 2 hi counter */
+		case VIA_REG_T2CH: // Timer 2 high order counter
 			Value = (UserVIAState.timer2c >> 9) & 0xff;
 			break;
 
-		case 10:
+		case VIA_REG_SR:
 			Value = UserVIAState.sr;
 			UpdateSRState(true);
 			break;
 
-		case 11:
+		case VIA_REG_ACR:
 			Value = UserVIAState.acr;
 			break;
 
-		case 12:
+		case VIA_REG_PCR:
 			Value = UserVIAState.pcr;
 			break;
 
-		case 13:
+		case VIA_REG_IFR:
 			UpdateIFRTopBit();
 			Value = UserVIAState.ifr;
 			break;
 
-		case 14:
+		case VIA_REG_IER:
 			Value = UserVIAState.ier | IER_SET_CLEAR;
 			break;
 
-		case 1:
+		case VIA_REG_IRA:
 			UserVIAState.ifr &= ~(IFR_CA2 | IFR_CA1);
 			UpdateIFRTopBit();
 			// Fall through...
 
-		case 15:
+		case VIA_REG_IRA_NO_HANDSHAKE:
 			Value = 255;
 			break;
 	}

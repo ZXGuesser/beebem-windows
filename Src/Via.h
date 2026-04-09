@@ -51,6 +51,27 @@ struct VIAState
 	int SRMode;
 };
 
+// 6522 registers
+constexpr int VIA_REG_ORB  = 0;
+constexpr int VIA_REG_IRB  = 0;
+constexpr int VIA_REG_ORA  = 1;
+constexpr int VIA_REG_IRA  = 1;
+constexpr int VIA_REG_DDRB = 2;
+constexpr int VIA_REG_DDRA = 3;
+constexpr int VIA_REG_T1CL = 4;
+constexpr int VIA_REG_T1CH = 5;
+constexpr int VIA_REG_T1LL = 6;
+constexpr int VIA_REG_T1LH = 7;
+constexpr int VIA_REG_T2CL = 8;
+constexpr int VIA_REG_T2CH = 9;
+constexpr int VIA_REG_SR   = 10;
+constexpr int VIA_REG_ACR  = 11;
+constexpr int VIA_REG_PCR  = 12;
+constexpr int VIA_REG_IFR  = 13;
+constexpr int VIA_REG_IER  = 14;
+constexpr int VIA_REG_ORA_NO_HANDSHAKE = 15;
+constexpr int VIA_REG_IRA_NO_HANDSHAKE = 15;
+
 // 6522 Interrupt Flags Register
 constexpr unsigned char IFR_CA2      = 0x01;
 constexpr unsigned char IFR_CA1      = 0x02;

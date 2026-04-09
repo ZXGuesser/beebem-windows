@@ -427,7 +427,7 @@ void SysVIAWrite(int Address, unsigned char Value)
 
 	switch (Address)
 	{
-		case 0: // ORB
+		case VIA_REG_ORB:
 			SysVIAState.orb = Value;
 
 			if (MachineType == Model::Master128 || MachineType == Model::MasterET)
@@ -458,7 +458,7 @@ void SysVIAWrite(int Address, unsigned char Value)
 			UpdateIFRTopBit();
 			break;
 
-		case 1: // ORA
+		case VIA_REG_ORA:
 			SysVIAState.ora = Value;
 
 			SysVIAState.ifr &= ~(IFR_CA2 | IFR_CA1);
@@ -467,21 +467,21 @@ void SysVIAWrite(int Address, unsigned char Value)
 			SlowDataBusWrite(Value);
 			break;
 
-		case 2:
+		case VIA_REG_DDRB:
 			SysVIAState.ddrb = Value;
 			break;
 
-		case 3:
+		case VIA_REG_DDRA:
 			SysVIAState.ddra = Value;
 			break;
 
-		case 4:
-		case 6:
+		case VIA_REG_T1CL: // Timer 1 low order latches
+		case VIA_REG_T1LL:
 			SysVIAState.timer1l &= 0xff00;
 			SysVIAState.timer1l |= Value;
 			break;
 
-		case 5:
+		case VIA_REG_T1CH: // Timer 1 high order counter
 			SysVIAState.timer1l &= 0xff;
 			SysVIAState.timer1l |= Value << 8;
 			SysVIAState.timer1c = SysVIAState.timer1l * 2 + 1;
@@ -499,7 +499,7 @@ void SysVIAWrite(int Address, unsigned char Value)
 			SysVIAState.timer1hasshot = false;
 			break;
 
-		case 7:
+		case VIA_REG_T1LH: // Timer 1 high order latches
 			SysVIAState.timer1l &= 0xff;
 			SysVIAState.timer1l |= Value << 8;
 
@@ -507,12 +507,12 @@ void SysVIAWrite(int Address, unsigned char Value)
 			UpdateIFRTopBit();
 			break;
 
-		case 8:
+		case VIA_REG_T2CL: // Timer 2 low order latches
 			SysVIAState.timer2l &= 0xff00;
 			SysVIAState.timer2l |= Value;
 			break;
 
-		case 9:
+		case VIA_REG_T2CH: // Timer 2 high order counter
 			SysVIAState.timer2l &= 0xff;
 			SysVIAState.timer2l |= Value << 8;
 			SysVIAState.timer2c = SysVIAState.timer2l * 2 + 1;
@@ -528,17 +528,17 @@ void SysVIAWrite(int Address, unsigned char Value)
 			SysVIAState.timer2hasshot = false;
 			break;
 
-		case 10:
+		case VIA_REG_SR:
 			SysVIAState.sr = Value;
 			UpdateSRState(true);
 			break;
 
-		case 11:
+		case VIA_REG_ACR:
 			SysVIAState.acr = Value;
 			UpdateSRState(false);
 			break;
 
-		case 12:
+		case VIA_REG_PCR:
 			SysVIAState.pcr = Value;
 
 			if ((Value & PCR_CA2_CONTROL) == PCR_CA2_OUTPUT_HIGH)
@@ -566,12 +566,12 @@ void SysVIAWrite(int Address, unsigned char Value)
 			}
 			break;
 
-		case 13:
+		case VIA_REG_IFR:
 			SysVIAState.ifr &= ~Value;
 			UpdateIFRTopBit();
 			break;
 
-		case 14:
+		case VIA_REG_IER:
 			// DebugTrace("Write ier Value=0x%02x\n", Value);
 
 			if (Value & 0x80)
@@ -587,7 +587,7 @@ void SysVIAWrite(int Address, unsigned char Value)
 			UpdateIFRTopBit();
 			break;
 
-		case 15:
+		case VIA_REG_ORA_NO_HANDSHAKE:
 			SysVIAState.ora = Value;
 
 			SlowDataBusWrite(Value);
@@ -607,7 +607,7 @@ unsigned char SysVIARead(int Address)
 
 	switch (Address)
 	{
-		case 0: // IRB read
+		case VIA_REG_IRB:
 			Value = SysVIAState.orb & SysVIAState.ddrb;
 
 			if (!SysVIAButton[1])
@@ -651,15 +651,15 @@ unsigned char SysVIARead(int Address)
 			UpdateIFRTopBit();
 			break;
 
-		case 2:
+		case VIA_REG_DDRB:
 			Value = SysVIAState.ddrb;
 			break;
 
-		case 3:
+		case VIA_REG_DDRA:
 			Value = SysVIAState.ddra;
 			break;
 
-		case 4: // Timer 1 lo counter
+		case VIA_REG_T1CL: // Timer 1 low order counter
 			if (SysVIAState.timer1c < 0)
 			{
 				Value = 0xff;
@@ -673,19 +673,19 @@ unsigned char SysVIARead(int Address)
 			UpdateIFRTopBit();
 			break;
 
-		case 5: // Timer 1 hi counter
+		case VIA_REG_T1CH: // Timer 1 high order counter
 			Value = (SysVIAState.timer1c >> 9) & 0xff; // K.Lowe
 			break;
 
-		case 6: // Timer 1 lo latch
+		case VIA_REG_T1LL: // Timer 1 low order latches
 			Value = SysVIAState.timer1l & 0xff;
 			break;
 
-		case 7: // Timer 1 hi latch
+		case VIA_REG_T1LH: // Timer 1 high order latches
 			Value = (SysVIAState.timer1l >> 8) & 0xff; // K.Lowe
 			break;
 
-		case 8: // Timer 2 lo counter
+		case VIA_REG_T2CL: // Timer 2 low order counter
 			if (SysVIAState.timer2c < 0) // Adjust for dividing -ve count by 2
 			{
 				Value = ((SysVIAState.timer2c - 1) / 2) & 0xff;
@@ -699,24 +699,24 @@ unsigned char SysVIARead(int Address)
 			UpdateIFRTopBit();
 			break;
 
-		case 9: // Timer 2 hi counter
+		case VIA_REG_T2CH: // Timer 2 high order counter
 			Value = (SysVIAState.timer2c >> 9) & 0xff; // K.Lowe
 			break;
 
-		case 10:
+		case VIA_REG_SR:
 			Value = SysVIAState.sr;
 			UpdateSRState(true);
 			break;
 
-		case 11:
+		case VIA_REG_ACR:
 			Value = SysVIAState.acr;
 			break;
 
-		case 12:
+		case VIA_REG_PCR:
 			Value = SysVIAState.pcr;
 			break;
 
-		case 13:
+		case VIA_REG_IFR:
 			UpdateIFRTopBit();
 
 			#ifdef DEBUG_KEYBOARD
@@ -726,16 +726,16 @@ unsigned char SysVIARead(int Address)
 			Value = SysVIAState.ifr;
 			break;
 
-		case 14:
+		case VIA_REG_IER:
 			Value = SysVIAState.ier | IER_SET_CLEAR;
 			break;
 
-		case 1:
+		case VIA_REG_IRA:
 			SysVIAState.ifr &= ~(IFR_CA2 | IFR_CA1);
 			UpdateIFRTopBit();
 			// Fall through...
 
-		case 15:
+		case VIA_REG_IRA_NO_HANDSHAKE:
 			Value = SlowDataBusRead();
 			break;
 	}
@@ -834,6 +834,7 @@ void SysVIAPoll(unsigned int Cycles)
 
 	SysVIAState.timer1c -= Cycles;
 
+	// Decrement timer 2 if it's in "timed interrupt" mode.
 	if (!(SysVIAState.acr & ACR_TIMER2_CONTROL))
 	{
 		SysVIAState.timer2c -= Cycles;
