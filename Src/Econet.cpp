@@ -1321,7 +1321,9 @@ static bool ReadEconetConfigFile()
 			{
 				size_t Index = Tokens.size() - 4;
 
-				unsigned char Network = (unsigned char)ParseNumber("Network", Tokens[Index], 1, 127);
+				unsigned char Network = (unsigned char)ParseNumber("Network", Tokens[Index], 0, 127);
+				if (Network == 0)
+					Network = DEFAULT_PREFERRED_NET;
 				unsigned char Station = (unsigned char)ParseNumber("Station", Tokens[Index + 1], 1, 254);
 				unsigned long IPAddress = ParseIPAddress("IP address", Tokens[Index + 2]);
 				unsigned short Port = (unsigned short)ParseNumber("Port", Tokens[Index + 3], 0, 65535);
