@@ -48,6 +48,7 @@ void BeebKeyDown(int Row, int Column);
 void BeebReleaseAllKeys();
 
 void SysVIATriggerCA1Int(int Value);
+void SysVIASetPB6Low();
 
 void SysVIAPulseCB1();
 

@@ -241,6 +241,7 @@ Boston, MA  02110-1301, USA.
 #include "Main.h"
 #include "Sound.h"
 #include "StringUtils.h"
+#include "SysVia.h"
 #include "UefState.h"
 
 // Coefficient definitions.
@@ -387,6 +388,7 @@ class TMS5220
 		void ParseFrame();
 		void UpdateReadyState();
 		void UpdateFifoStatusAndInts();
+		void SetInterruptState(bool state);
 
 		// PHROM methods.
 		void LoadPhromAddress(int data);
@@ -605,7 +607,7 @@ void TMS5220::Reset()
 	m_TALK = false;
 	m_TALKD = false;
 	m_previous_TALK_STATUS = false;
-	m_irq_pin = false;
+	SetInterruptState(false);
 	m_ready_pin = false;
 
 	m_buffer_empty = true;
@@ -739,7 +741,7 @@ unsigned char TMS5220::ReadStatus()
 		// Read status
 
 		// Clear the interrupt pin on status read.
-		m_irq_pin = false;
+		SetInterruptState(false);
 
 		#ifdef DEBUG_SPEECH
 		DebugTrace("%04X TMS5220: Read Status: TS=%d BL=%d BE=%d\n", PrePC, m_SPEN || m_TALKD, m_buffer_low, m_buffer_empty);
@@ -1610,7 +1612,7 @@ void TMS5220::UpdateFifoStatusAndInts()
 			DebugTrace("%04X TMS5220: Buffer low set\n", PrePC);
 			#endif
 
-			m_irq_pin = true;
+			SetInterruptState(true);
 		}
 
 		m_buffer_low = true;
@@ -1632,7 +1634,7 @@ void TMS5220::UpdateFifoStatusAndInts()
 		// if /BE was inactive and is now active, set int.
 		if (!m_buffer_empty)
 		{
-			m_irq_pin = true;
+			SetInterruptState(true);
 		}
 
 		m_buffer_empty = true;
@@ -1655,11 +1657,23 @@ void TMS5220::UpdateFifoStatusAndInts()
 	// also, in this case, regardless if DDIS was set, unset it.
 	if (m_previous_TALK_STATUS && (!m_SPEN && !m_TALKD))
 	{
-		m_irq_pin = true;
+		SetInterruptState(true);
 		m_DDIS = false;
 	}
 
 	m_previous_TALK_STATUS = m_SPEN || m_TALKD;
+}
+
+/*--------------------------------------------------------------------------*/
+
+void TMS5220::SetInterruptState(bool state)
+{
+	if (state != m_irq_pin && state)
+	{
+		SysVIASetPB6Low();
+	}
+
+	m_irq_pin = state;
 }
 
 /*----------------------------------------------------------------------------*/

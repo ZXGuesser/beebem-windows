@@ -372,6 +372,7 @@ unsigned char UserVIARead(int Address)
 
 		case VIA_REG_ACR:
 			Value = UserVIAState.acr;
+			// TODO: PB6 pulse counting mode is not implemented.
 			break;
 
 		case VIA_REG_PCR:

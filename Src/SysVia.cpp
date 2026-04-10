@@ -49,6 +49,7 @@ Boston, MA  02110-1301, USA.
 // #define DEBUG_IC32
 // #define DEBUG_KEYBOARD
 // #define DEBUG_SLOW_DATA_BUS
+#define DEBUG_TIMER2
 
 // Shift register stuff
 // static unsigned char SRCount;
@@ -536,6 +537,17 @@ void SysVIAWrite(int Address, unsigned char Value)
 		case VIA_REG_ACR:
 			SysVIAState.acr = Value;
 			UpdateSRState(false);
+
+			#ifdef DEBUG_TIMER2
+			if ((Value & ACR_TIMER2_CONTROL) != 0)
+			{
+				DebugTrace("SysVIA: Timer 2 set to PB6 pulse counting mode\n");
+			}
+			else
+			{
+				DebugTrace("SysVIA: Timer 2 set to timer interrupt mode\n");
+			}
+			#endif
 			break;
 
 		case VIA_REG_PCR:
@@ -764,6 +776,34 @@ void SysVIATriggerCA1Int(int Value)
 	{
 		SysVIAState.ifr |= IFR_CA1;
 		UpdateIFRTopBit();
+	}
+}
+
+/*--------------------------------------------------------------------------*/
+
+void SysVIASetPB6Low()
+{
+	// If timer 2 is in PB6 pulse counting mode, decrement the counter
+	// and cause an interrupt when it decrements below zero.
+	if ((SysVIAState.acr & ACR_TIMER2_CONTROL) != 0)
+	{
+		// Decrement by 2 because in timer mode it counts in 2MHz cycles.
+		SysVIAState.timer2c -= 2;
+
+		if (SysVIAState.timer2c < 0)
+		{
+			if (!SysVIAState.timer2hasshot)
+			{
+				#ifdef DEBUG_TIMER2
+				DebugTrace("SysVia timer2 PB6 int at %d\n", TotalCycles);
+				#endif
+
+				SysVIAState.ifr |= IFR_TIMER2;
+				UpdateIFRTopBit();
+
+				SysVIAState.timer2hasshot = true;
+			}
+		}
 	}
 }
 
