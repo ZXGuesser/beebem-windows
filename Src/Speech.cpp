@@ -575,6 +575,8 @@ static unsigned char speechrom_data[16 * 16384];
 
 TMS5220::TMS5220()
 {
+	m_irq_pin = false;
+
 	Reset();
 }
 
