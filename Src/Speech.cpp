@@ -441,8 +441,8 @@ class TMS5220
 		bool m_ready_pin;
 
 		// These contain data describing the current and previous voice frames.
-		bool m_OLDE;
-		bool m_OLDP;
+		bool m_OLDE; // OLD_FRAME_SILENCE_FLAG
+		bool m_OLDP; // OLD_FRAME_UNVOICED_FLAG
 
 		uint8_t m_new_frame_energy_idx;
 		uint8_t m_new_frame_pitch_idx;
@@ -989,9 +989,6 @@ int16_t TMS5220::LatticeFilter()
 
 // Fill the buffer with a specific number of samples.
 
-#define OLD_FRAME_SILENCE_FLAG m_OLDE // 1 if E=0, 0 otherwise.
-#define OLD_FRAME_UNVOICED_FLAG m_OLDP // 1 if P=0 (unvoiced), 0 if voiced.
-
 #define NEW_FRAME_STOP_FLAG (m_new_frame_energy_idx == 0xF) // 1 if this is a stop (Energy = 0xF) frame.
 #define NEW_FRAME_SILENCE_FLAG (m_new_frame_energy_idx == 0) // ditto as above
 #define NEW_FRAME_UNVOICED_FLAG (m_new_frame_pitch_idx == 0) // ditto as above
@@ -1023,7 +1020,7 @@ void TMS5220::ProcessSamples(short* buffer, int size)
 				// If the new frame is a stop frame, unset both TALK and SPEN
 				// (via TCON). TALKD remains active while the energy is ramping
 				// to 0.
-				if (m_new_frame_energy_idx == 0xF)
+				if (NEW_FRAME_STOP_FLAG)
 				{
 					m_TALK = 0;
 					m_SPEN = 0;
@@ -1040,11 +1037,11 @@ void TMS5220::ProcessSamples(short* buffer, int size)
 				// Old frame was unvoiced, new frame is silence/zero energy
 				// (non-existent on tms51xx rev D and F (present and working
 				// on tms52xx, present but buggy on tms51xx rev A and B).
-				if (((OLD_FRAME_UNVOICED_FLAG == 0) && NEW_FRAME_UNVOICED_FLAG)
-				    || ((OLD_FRAME_UNVOICED_FLAG == 1) && !NEW_FRAME_UNVOICED_FLAG)
-				    || ((OLD_FRAME_SILENCE_FLAG == 1) && !NEW_FRAME_SILENCE_FLAG)
-				  //|| ((m_inhibit == 1) && (OLD_FRAME_UNVOICED_FLAG == 1) && (NEW_FRAME_SILENCE_FLAG == 1)) ) //TMS51xx INTERP BUG1
-				    || ((OLD_FRAME_UNVOICED_FLAG == 1) && NEW_FRAME_SILENCE_FLAG))
+				if ((!m_OLDP && NEW_FRAME_UNVOICED_FLAG)
+				    || (m_OLDP && !NEW_FRAME_UNVOICED_FLAG)
+				    || (m_OLDE && !NEW_FRAME_SILENCE_FLAG)
+				  //|| ((m_inhibit == 1) && m_OLDP && NEW_FRAME_SILENCE_FLAG) //TMS51xx INTERP BUG1
+				    || (m_OLDP && NEW_FRAME_SILENCE_FLAG))
 				{
 					m_inhibit = true;
 				}
@@ -1127,7 +1124,7 @@ void TMS5220::ProcessSamples(short* buffer, int size)
 			}
 
 			// Calculate the output.
-			if (OLD_FRAME_UNVOICED_FLAG == 1)
+			if (m_OLDP)
 			{
 				// Generate unvoiced samples here.
 				if (m_RNG & 1)
@@ -1220,9 +1217,9 @@ void TMS5220::ProcessSamples(short* buffer, int size)
 				if (m_IP == 7) // RESETL4
 				{
 					// Latch OLDE and OLDP
-					// if (OLD_FRAME_SILENCE_FLAG) m_uv_zpar = 0; // TMS51xx INTERP BUG2
-					OLD_FRAME_SILENCE_FLAG = NEW_FRAME_SILENCE_FLAG; // m_OLDE
-					OLD_FRAME_UNVOICED_FLAG = NEW_FRAME_UNVOICED_FLAG; // m_OLDP
+					// if (m_OLDE) m_uv_zpar = 0; // TMS51xx INTERP BUG2
+					m_OLDE = NEW_FRAME_SILENCE_FLAG;
+					m_OLDP = NEW_FRAME_UNVOICED_FLAG;
 					// if TALK was clear last frame, halt speech now,
 					// since TALKD (latched from TALK on new frame)
 					// just went inactive.
@@ -1491,10 +1488,6 @@ uint8_t TMS5220::ExtractBits(int count)
 
 // Parse a new frame's worth of data.
 // Returns false if not enough bits in buffer.
-
-#define NEW_FRAME_STOP_FLAG (m_new_frame_energy_idx == 0xF) // 1 if this is a stop (Energy = 0xF) frame
-#define NEW_FRAME_SILENCE_FLAG (m_new_frame_energy_idx == 0) // ditto as above
-#define NEW_FRAME_UNVOICED_FLAG (m_new_frame_pitch_idx == 0) // ditto as above
 
 void TMS5220::ParseFrame()
 {
