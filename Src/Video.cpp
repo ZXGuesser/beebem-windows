@@ -1723,16 +1723,16 @@ void SaveVideoUEF(FILE *SUEF)
 	UEFWrite32(VideoState.CharLine, SUEF);
 	UEFWrite32(VideoState.InCharLineUp, SUEF);
 	UEFWrite32(VideoState.VSyncState, SUEF);
-	UEFWrite8(VideoState.IsNewTVFrame, SUEF);
-	UEFWrite8(VideoState.InterlaceFrame, SUEF);
-	UEFWrite8(VideoState.DoCA1Int, SUEF);
+	UEFWriteBool(VideoState.IsNewTVFrame, SUEF);
+	UEFWriteBool(VideoState.InterlaceFrame, SUEF);
+	UEFWriteBool(VideoState.DoCA1Int, SUEF);
 	UEFWrite32(ova, SUEF);
 	UEFWrite32(ovn, SUEF);
 	UEFWrite32(CursorFieldCount, SUEF);
-	UEFWrite8(CursorOnState, SUEF);
+	UEFWriteBool(CursorOnState, SUEF);
 	UEFWrite32(CurY, SUEF);
 	UEFWrite32(Mode7FlashTrigger, SUEF);
-	UEFWrite8(Mode7FlashOn, SUEF);
+	UEFWriteBool(Mode7FlashOn, SUEF);
 	UEFWrite32(VideoTriggerCount - TotalCycles, SUEF);
 }
 

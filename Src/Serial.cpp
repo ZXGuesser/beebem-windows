@@ -1254,17 +1254,17 @@ int SerialGetTapeClock()
 
 void SaveSerialUEF(FILE *SUEF)
 {
-	UEFWrite8(SerialULA.RS423, SUEF);
+	UEFWriteBool(SerialULA.RS423, SUEF);
 	UEFWriteString(TapeFileName, SUEF);
-	UEFWrite8(SerialULA.CassetteRelay, SUEF);
+	UEFWriteBool(SerialULA.CassetteRelay, SUEF);
 	UEFWrite32(SerialACIA.TxRate, SUEF);
 	UEFWrite32(SerialACIA.RxRate, SUEF);
 	UEFWrite8(SerialACIA.ClkDivide, SUEF);
 	UEFWrite8(SerialACIA.Parity, SUEF);
 	UEFWrite8(SerialACIA.StopBits, SUEF);
 	UEFWrite8(SerialACIA.DataBits, SUEF);
-	UEFWrite8(SerialACIA.RIE, SUEF);
-	UEFWrite8(SerialACIA.TIE, SUEF);
+	UEFWriteBool(SerialACIA.RIE, SUEF);
+	UEFWriteBool(SerialACIA.TIE, SUEF);
 	UEFWrite8(SerialACIA.TxD, SUEF);
 	UEFWrite8(SerialACIA.RxD, SUEF);
 	UEFWrite8(SerialACIA.RDR, SUEF);
@@ -1274,17 +1274,17 @@ void SaveSerialUEF(FILE *SUEF)
 	UEFWrite8(SerialACIA.Status, SUEF);
 	UEFWrite8(SerialACIA.Control, SUEF);
 	UEFWrite8(SerialULA.Control, SUEF);
-	UEFWrite8(0, SUEF); // DCD
-	UEFWrite8(0, SUEF); // DCDI
-	UEFWrite8(0, SUEF); // ODCDI
+	UEFWriteBool(false, SUEF); // DCD
+	UEFWriteBool(false, SUEF); // DCDI
+	UEFWriteBool(false, SUEF); // ODCDI
 	UEFWrite8(0, SUEF); // DCDClear
 	UEFWrite32(TapeState.Clock, SUEF);
 	UEFWrite32(TapeState.ClockSpeed, SUEF);
-	UEFWrite8(SerialULA.TapeCarrier, SUEF);
+	UEFWriteBool(SerialULA.TapeCarrier, SUEF);
 	UEFWrite32(SerialULA.CarrierCycleCount, SUEF);
-	UEFWrite8(TapeState.Playing, SUEF);
-	UEFWrite8(TapeState.Recording, SUEF);
-	UEFWrite8(TapeState.Unlock, SUEF);
+	UEFWriteBool(TapeState.Playing, SUEF);
+	UEFWriteBool(TapeState.Recording, SUEF);
+	UEFWriteBool(TapeState.Unlock, SUEF);
 	UEFWrite32(TapeState.UEFBuf, SUEF);
 	UEFWrite32(TapeState.OldUEFBuf, SUEF);
 	UEFWrite32(TapeState.OldClock, SUEF);

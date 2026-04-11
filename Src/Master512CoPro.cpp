@@ -3876,8 +3876,8 @@ void Master512CoPro::SaveState(FILE *SUEF)
 	UEFWrite32(m_icount, SUEF);
 
 	UEFWrite32(m_prefix_seg, SUEF);
-	UEFWrite8(m_seg_prefix, SUEF);
-	UEFWrite8(m_seg_prefix_next, SUEF);
+	UEFWriteBool(m_seg_prefix, SUEF);
+	UEFWriteBool(m_seg_prefix_next, SUEF);
 
 	UEFWrite32(m_ea, SUEF);
 	UEFWrite16(m_eo, SUEF);
@@ -3888,18 +3888,18 @@ void Master512CoPro::SaveState(FILE *SUEF)
 	UEFWrite32(m_src, SUEF);
 	UEFWrite32(m_pc, SUEF);
 
-	UEFWrite8(m_halt, SUEF);
+	UEFWriteBool(m_halt, SUEF);
 
 	for (int i = 0; i < 2; i++)
 	{
-		UEFWrite8(m_dma[i].drq_state, SUEF);
+		UEFWriteBool(m_dma[i].drq_state, SUEF);
 		UEFWrite32(m_dma[i].source, SUEF);
 		UEFWrite32(m_dma[i].dest, SUEF);
 		UEFWrite16(m_dma[i].count, SUEF);
 		UEFWrite16(m_dma[i].control, SUEF);
 	}
 
-	UEFWrite8(m_last_dma, SUEF);
+	UEFWriteBool(m_last_dma, SUEF);
 }
 
 void Master512CoPro::LoadState(FILE *SUEF)

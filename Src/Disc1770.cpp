@@ -1312,19 +1312,19 @@ void Save1770UEF(FILE *SUEF)
 	UEFWrite8(Track, SUEF);
 	UEFWrite8(ATrack, SUEF);
 	UEFWrite8(Sector, SUEF);
-	UEFWrite8(HeadDir, SUEF);
+	UEFWriteBool(HeadDir, SUEF);
 	UEFWrite8(FDCommand, SUEF);
 	UEFWrite8(NextFDCommand, SUEF);
 	UEFWrite32(LoadingCycles, SUEF);
 	UEFWrite32(SpinDown[0], SUEF);
 	UEFWrite32(SpinDown[1], SUEF);
-	UEFWrite8(UpdateTrack, SUEF);
-	UEFWrite8(MultiSect, SUEF);
+	UEFWriteBool(UpdateTrack, SUEF);
+	UEFWriteBool(MultiSect, SUEF);
 	UEFWrite8(StepRate, SUEF);
-	UEFWrite8(SpinUp, SUEF);
-	UEFWrite8(Verify, SUEF);
-	UEFWrite8(LightsOn[0], SUEF);
-	UEFWrite8(LightsOn[1], SUEF);
+	UEFWriteBool(SpinUp, SUEF);
+	UEFWriteBool(Verify, SUEF);
+	UEFWriteBool(LightsOn[0], SUEF);
+	UEFWriteBool(LightsOn[1], SUEF);
 	UEFWrite32(ByteCount, SUEF);
 	UEFWrite32(0, SUEF); // Was DataPos
 	UEFWrite8(ExtControl, SUEF);
@@ -1343,11 +1343,11 @@ void Save1770UEF(FILE *SUEF)
 	UEFWrite32(DefStart[1], SUEF);
 	UEFWrite32(TrkLen[0], SUEF);
 	UEFWrite32(TrkLen[1], SUEF);
-	UEFWrite8(DWriteable[0], SUEF);
-	UEFWrite8(DWriteable[1], SUEF);
-	UEFWrite8(DiskDensity[0], SUEF);
-	UEFWrite8(DiskDensity[1], SUEF);
-	UEFWrite8(SelectedDensity, SUEF);
+	UEFWriteBool(DWriteable[0], SUEF);
+	UEFWriteBool(DWriteable[1], SUEF);
+	UEFWriteBool(DiskDensity[0], SUEF);
+	UEFWriteBool(DiskDensity[1], SUEF);
+	UEFWriteBool(SelectedDensity, SUEF);
 	UEFWrite8(RotSect, SUEF);
 	UEFWriteString(FDCDLL, SUEF);
 }

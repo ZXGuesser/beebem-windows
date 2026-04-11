@@ -104,8 +104,8 @@ void SaveVIAUEF(FILE *SUEF, VIAState* pVIA)
 	UEFWrite8(pVIA->pcr, SUEF);
 	UEFWrite8(pVIA->ifr, SUEF);
 	UEFWrite8(pVIA->ier, SUEF);
-	UEFWrite8(pVIA->timer1hasshot, SUEF);
-	UEFWrite8(pVIA->timer2hasshot, SUEF);
+	UEFWriteBool(pVIA->timer1hasshot, SUEF);
+	UEFWriteBool(pVIA->timer2hasshot, SUEF);
 }
 
 /*-------------------------------------------------------------------------*/

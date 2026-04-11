@@ -3383,7 +3383,7 @@ void Save6502UEF(FILE *SUEF)
 	UEFWrite32(TotalCycles, SUEF);
 	UEFWrite8(IntStatus, SUEF);
 	UEFWrite8(NMIStatus, SUEF);
-	UEFWrite8(NMILock, SUEF);
+	UEFWriteBool(NMILock, SUEF);
 	UEFWrite16(0, SUEF);
 }
 

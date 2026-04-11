@@ -1467,7 +1467,7 @@ void BeebWin::SaveEmuUEF(FILE *SUEF)
 	// Note about this block: It should only be handled by BeebEm from UefState.cpp if
 	// the UEF has been determined to be from BeebEm (Block 046C)
 	UEFWrite8(static_cast<unsigned char>(MachineType), SUEF);
-	UEFWrite8(NativeFDC ? 0 : 1, SUEF);
+	UEFWriteBool(!NativeFDC, SUEF);
 	UEFWrite8(static_cast<unsigned char>(TubeType), SUEF);
 	UEFWrite16((int)m_KeyboardMapping, SUEF);
 	if (m_KeyboardMapping == KeyboardMappingType::User)
@@ -1498,7 +1498,7 @@ void BeebWin::LoadEmuUEF(FILE *SUEF, int Version)
 		MachineType = static_cast<Model>(Type);
 	}
 
-	NativeFDC = UEFRead8(SUEF) == 0;
+	NativeFDC = !UEFReadBool(SUEF);
 	TubeType = static_cast<TubeDevice>(UEFRead8(SUEF));
 
 	if (Version >= 11)

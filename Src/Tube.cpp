@@ -2707,7 +2707,7 @@ void Save65C02UEF(FILE *SUEF)
 	UEFWrite32(TotalTubeCycles, SUEF);
 	UEFWrite8(TubeIntStatus, SUEF);
 	UEFWrite8(TubeNMIStatus, SUEF);
-	UEFWrite8(TubeNMILock, SUEF);
+	UEFWriteBool(TubeNMILock, SUEF);
 	UEFWrite16(0, SUEF);
 }
 

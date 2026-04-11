@@ -348,7 +348,7 @@ void SaveZ80UEF(FILE *SUEF)
 
 	UEFWrite16(pc, SUEF);
 	UEFWrite16(PreZPC, SUEF);
-	UEFWrite8(inROM, SUEF);
+	UEFWriteBool(inROM, SUEF);
 }
 
 void LoadZ80UEF(FILE *SUEF)

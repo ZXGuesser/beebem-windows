@@ -4682,7 +4682,7 @@ void CArm::SaveState(FILE* SUEF)
 	UEFWrite8(interruptDisableFlag, SUEF);
 	UEFWrite8(fastInterruptDisableFlag, SUEF);
 	UEFWrite8(conditionFlags, SUEF);
-	UEFWrite8(prefetchInvalid, SUEF);
+	UEFWriteBool(prefetchInvalid, SUEF);
 	UEFWrite32(prefetchInstruction, SUEF);
 	UEFWrite32(currentInstruction, SUEF);
 
