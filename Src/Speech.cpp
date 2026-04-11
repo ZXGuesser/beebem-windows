@@ -517,8 +517,6 @@ class TMS5220
 
 		// PHROM variables.
 
-		// Length of data pointed by speechrom_data, from 0 to 2^18.
-		uint32_t m_speechROMlen;
 		// 18 bit pointer in ROM.
 		uint32_t m_speechROMaddr;
 		// Which 4-bit nibble will be affected by load address.
@@ -567,7 +565,9 @@ bool SpeechEnabled;
 bool SpeechStarted;
 
 static TMS5220StreamState* tms5220;
-static unsigned char speechrom_data[16 * 16384];
+
+constexpr int SPEECH_ROM_LENGTH = 16 * 16384;
+static unsigned char speechrom_data[SPEECH_ROM_LENGTH];
 
 // #define DEBUG_SPEECH
 
@@ -653,7 +653,6 @@ void TMS5220::Reset()
 
 	m_ready_count = 0;
 
-	m_speechROMlen = 16 * 16384;
 	m_speechROMaddr = 0;
 	m_load_pointer = 0;
 	m_ROM_bits_count = 0;
@@ -1698,13 +1697,13 @@ void TMS5220::LoadPhromAddress(int data)
 
 void TMS5220::ReadAndBranch()
 {
-	if (m_speechROMaddr < m_speechROMlen - 1)
+	if (m_speechROMaddr < SPEECH_ROM_LENGTH - 1)
 	{
 		m_speechROMaddr = (m_speechROMaddr & 0x3C000)
 		                  | (((((unsigned long)speechrom_data[m_speechROMaddr]) << 8)
 		                  | speechrom_data[m_speechROMaddr + 1]) & 0x3FFF);
 	}
-	else if (m_speechROMaddr == m_speechROMlen - 1)
+	else if (m_speechROMaddr == SPEECH_ROM_LENGTH - 1)
 	{
 		m_speechROMaddr = (m_speechROMaddr & 0x3C000)
 		                  | ((((unsigned long)speechrom_data[m_speechROMaddr]) << 8) & 0x3FFF);
@@ -1730,7 +1729,7 @@ uint8_t TMS5220::ReadPhrom(int count)
 		count--;
 	}
 
-	if (m_speechROMaddr < m_speechROMlen)
+	if (m_speechROMaddr < SPEECH_ROM_LENGTH)
 	{
 		val = 0;
 		int pos = 8 - m_ROM_bits_count;
@@ -1755,7 +1754,7 @@ uint8_t TMS5220::ReadPhrom(int count)
 
 				m_speechROMaddr = (m_speechROMaddr + 1) & TMS5220_ADDRESS_MASK;
 
-				if (m_speechROMaddr >= m_speechROMlen)
+				if (m_speechROMaddr >= SPEECH_ROM_LENGTH)
 				{
 					count = 0;
 				}
@@ -1838,7 +1837,7 @@ void TMS5220::LoadState(FILE *SUEF)
 	m_ready_count = UEFRead32(SUEF);
 
 	// PHROM state.
-	m_speechROMlen = UEFRead32(SUEF);
+	UEFRead32(SUEF); // Was m_speechROMlen
 	m_speechROMaddr = UEFRead32(SUEF);
 	m_load_pointer = UEFRead32(SUEF);
 	m_ROM_bits_count = UEFRead8(SUEF);
@@ -1903,7 +1902,7 @@ void TMS5220::SaveState(FILE *SUEF) const
 	UEFWrite32(m_ready_count, SUEF);
 
 	// PHROM state.
-	UEFWrite32(m_speechROMlen, SUEF);
+	UEFWrite32(SPEECH_ROM_LENGTH, SUEF); // Was m_speechROMlen
 	UEFWrite32(m_speechROMaddr, SUEF);
 	UEFWrite32(m_load_pointer, SUEF);
 	UEFWrite8(m_ROM_bits_count, SUEF);
