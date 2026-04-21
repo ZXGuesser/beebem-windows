@@ -5437,7 +5437,7 @@ void BeebWin::ParseCommandLine()
 
 				if (strlen(__argv[i]) < MAX_PATH)
 				{
-					strcpy(m_UserDataPath, __argv[++i]);
+					strcpy(m_UserDataPath, __argv[i]);
 
 					if (strcmp(m_UserDataPath, "-") == 0)
 					{
