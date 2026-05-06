@@ -3115,8 +3115,6 @@ static bool DebugCmdPoke(const char* args)
 static bool DebugCmdSave(const char* args)
 {
 	int count = 0;
-	char* info = NULL;
-	int infoSize = 0;
 	char filename[MAX_PATH];
 	ZeroMemory(filename, MAX_PATH);
 
@@ -3144,52 +3142,72 @@ static bool DebugCmdSave(const char* args)
 		}
 	}
 
-	if (filename[0] != '\0')
+	if (filename[0] == '\0')
 	{
-		if (count <= 0 || count > LinesDisplayed)
-		{
-			count = LinesDisplayed;
-		}
-
-		FILE *fd = fopen(filename, "w");
-
-		if (fd != nullptr)
-		{
-			for (int i = LinesDisplayed - count; i < LinesDisplayed; ++i)
-			{
-				int len = (int)(SendMessage(hwndInfo, LB_GETTEXTLEN, i, NULL) + 1) * sizeof(TCHAR);
-
-				if (len > infoSize)
-				{
-					infoSize = len;
-					info = (char*)realloc(info, len);
-				}
-
-				if (info != nullptr)
-				{
-					SendMessage(hwndInfo, LB_GETTEXT, i, (LPARAM)info);
-					fprintf(fd, "%s\n", info);
-				}
-				else
-				{
-					DebugDisplayInfoF("Allocation failure while writing to %s", filename);
-					fclose(fd);
-					return true;
-				}
-			}
-			fclose(fd);
-			free(info);
-			DebugDisplayInfoF("Wrote %d lines to: %s", count, filename);
-		}
-		else
-		{
-			DebugDisplayInfoF("Failed open for write: %s", filename);
-		}
-
-		return true;
+		return false;
 	}
 
-	return false;
+	if (count <= 0 || count > LinesDisplayed)
+	{
+		count = LinesDisplayed;
+	}
+
+	char* info = nullptr;
+
+	FILE* pFile = fopen(filename, "w");
+
+	if (pFile == nullptr)
+	{
+		DebugDisplayInfoF("Failed open for write: %s", filename);
+		goto Exit;
+	}
+
+	info = (char*)malloc(100);
+
+	if (info == nullptr)
+	{
+		DebugDisplayInfoF("Allocation failure while writing to %s", filename);
+		goto Exit;
+	}
+
+	int infoSize = 0;
+
+	for (int i = LinesDisplayed - count; i < LinesDisplayed; ++i)
+	{
+		int len = (int)(SendMessage(hwndInfo, LB_GETTEXTLEN, i, NULL) + 1) * sizeof(TCHAR);
+
+		if (len > infoSize)
+		{
+			infoSize = len;
+			info = (char*)realloc(info, len);
+		}
+
+		if (info == nullptr)
+		{
+			DebugDisplayInfoF("Allocation failure while writing to %s", filename);
+			goto Exit;
+		}
+
+		SendMessage(hwndInfo, LB_GETTEXT, i, (LPARAM)info);
+		fprintf(pFile, "%s\n", info);
+	}
+
+	DebugDisplayInfoF("Wrote %d lines to: %s", count, filename);
+
+Exit:
+	if (info != nullptr)
+	{
+		free(info);
+		info = nullptr;
+	}
+
+	if (pFile != nullptr)
+	{
+		fclose(pFile);
+		pFile = nullptr;
+	}
+
+	return true;
 }
 
 /****************************************************************************/
