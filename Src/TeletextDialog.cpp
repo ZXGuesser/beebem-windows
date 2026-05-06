@@ -118,12 +118,12 @@ INT_PTR TeletextDialog::DlgProc(UINT   nMessage,
 	switch (nMessage)
 	{
 		case WM_INITDIALOG: {
-			ComboBox_AddString(GetDlgItem(m_hwnd, IDC_TELETEXT_SOURCE), "TCP/IP");
-			ComboBox_AddString(GetDlgItem(m_hwnd, IDC_TELETEXT_SOURCE), "Capture Files");
+			ComboBox_AddString(GetDlgItem(IDC_TELETEXT_SOURCE), "TCP/IP");
+			ComboBox_AddString(GetDlgItem(IDC_TELETEXT_SOURCE), "Capture Files");
 
 			int Index = static_cast<int>(m_TeletextSource);
 
-			ComboBox_SetCurSel(GetDlgItem(m_hwnd, IDC_TELETEXT_SOURCE), Index);
+			ComboBox_SetCurSel(GetDlgItem(IDC_TELETEXT_SOURCE), Index);
 
 			EnableFileControls(m_TeletextSource == TeletextSourceType::File);
 			EnableIPControls(m_TeletextSource == TeletextSourceType::IP);
@@ -181,7 +181,7 @@ INT_PTR TeletextDialog::OnCommand(int Notification, int nCommandID)
 			if (Notification == CBN_SELCHANGE)
 			{
 				m_TeletextSource = static_cast<TeletextSourceType>(
-					ComboBox_GetCurSel(GetDlgItem(m_hwnd, IDC_TELETEXT_SOURCE))
+					ComboBox_GetCurSel(GetDlgItem(IDC_TELETEXT_SOURCE))
 				);
 
 				EnableFileControls(m_TeletextSource == TeletextSourceType::File);
@@ -311,7 +311,7 @@ void TeletextDialog::EnableFileControls(bool bEnable)
 {
 	for (int i = 0; i < _countof(EnableFileControl); i++)
 	{
-		HWND hwndCtrl = GetDlgItem(m_hwnd, EnableFileControl[i]);
+		HWND hwndCtrl = GetDlgItem(EnableFileControl[i]);
 		EnableWindow(hwndCtrl, bEnable);
 		ShowWindow(hwndCtrl, bEnable ? SW_SHOW : SW_HIDE);
 	}
@@ -323,7 +323,7 @@ void TeletextDialog::EnableIPControls(bool bEnable)
 {
 	for (int i = 0; i < _countof(EnableIPAddressControl); i++)
 	{
-		HWND hwndCtrl = GetDlgItem(m_hwnd, EnableIPAddressControl[i]);
+		HWND hwndCtrl = GetDlgItem(EnableIPAddressControl[i]);
 		EnableWindow(hwndCtrl, bEnable);
 		ShowWindow(hwndCtrl, bEnable ? SW_SHOW : SW_HIDE);
 	}

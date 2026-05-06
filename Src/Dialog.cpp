@@ -119,9 +119,16 @@ INT_PTR CALLBACK Dialog::sDlgProc(HWND   hwnd,
 
 /****************************************************************************/
 
+HWND Dialog::GetDlgItem(int nID)
+{
+	return ::GetDlgItem(m_hwnd, nID);
+}
+
+/****************************************************************************/
+
 std::string Dialog::GetDlgItemText(int nID)
 {
-	int Length = GetWindowTextLength(GetDlgItem(m_hwnd, nID));
+	int Length = GetWindowTextLength(GetDlgItem(nID));
 
 	std::vector<char> Text;
 	Text.resize(Length + 1);
@@ -133,37 +140,44 @@ std::string Dialog::GetDlgItemText(int nID)
 
 /****************************************************************************/
 
+LRESULT Dialog::SendDlgItemMessage(int nID, UINT Msg, WPARAM wParam, LPARAM lParam)
+{
+	return ::SendDlgItemMessage(m_hwnd, nID, Msg, wParam, lParam);
+}
+
+/****************************************************************************/
+
 void Dialog::SetDlgItemText(int nID, const std::string& str)
 {
-	SetWindowText(GetDlgItem(m_hwnd, nID), str.c_str());
+	SetWindowText(GetDlgItem(nID), str.c_str());
 }
 
 /****************************************************************************/
 
 bool Dialog::IsDlgItemChecked(int nID)
 {
-	return SendDlgItemMessage(m_hwnd, nID, BM_GETCHECK, 0, 0) == BST_CHECKED;
+	return SendDlgItemMessage(nID, BM_GETCHECK, 0, 0) == BST_CHECKED;
 }
 
 /****************************************************************************/
 
 void Dialog::SetDlgItemChecked(int nID, bool bChecked)
 {
-	SendDlgItemMessage(m_hwnd, nID, BM_SETCHECK, bChecked ? BST_CHECKED : BST_UNCHECKED, 0);
+	SendDlgItemMessage(nID, BM_SETCHECK, bChecked ? BST_CHECKED : BST_UNCHECKED, 0);
 }
 
 /****************************************************************************/
 
 void Dialog::SetDlgItemFocus(int nID)
 {
-	SetFocus(GetDlgItem(m_hwnd, nID));
+	SetFocus(GetDlgItem(nID));
 }
 
 /****************************************************************************/
 
 void Dialog::EnableDlgItem(int nID, bool bEnable)
 {
-	EnableWindow(GetDlgItem(m_hwnd, nID), bEnable);
+	EnableWindow(GetDlgItem(nID), bEnable);
 }
 
 /****************************************************************************/

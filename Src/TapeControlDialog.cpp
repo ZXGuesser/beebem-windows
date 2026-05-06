@@ -35,8 +35,8 @@ TapeControlDialog* g_pTapeControlDialog = nullptr;
 
 /****************************************************************************/
 
-TapeControlDialog::TapeControlDialog(HINSTANCE hinst, HWND hwndMain) :
-	Dialog(hinst, hwndMain, IDD_TAPECONTROL)
+TapeControlDialog::TapeControlDialog(HINSTANCE hInstance, HWND hwndMain) :
+	Dialog(hInstance, hwndMain, IDD_TAPECONTROL)
 {
 }
 
@@ -150,7 +150,7 @@ INT_PTR TapeControlDialog::DlgProc(UINT message, WPARAM wParam, LPARAM /* lParam
 	switch (message)
 	{
 		case WM_INITDIALOG: {
-			m_hwndMap = GetDlgItem(m_hwnd, IDC_TAPE_CONTROL_MAP);
+			m_hwndMap = GetDlgItem(IDC_TAPE_CONTROL_MAP);
 
 			SendMessage(m_hwndMap,
 			            WM_SETFONT,

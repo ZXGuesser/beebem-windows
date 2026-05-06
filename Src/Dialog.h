@@ -52,8 +52,10 @@ class Dialog
 		) = 0;
 
 	protected:
+		HWND GetDlgItem(int nID);
 		std::string GetDlgItemText(int nID);
 		void SetDlgItemText(int nID, const std::string& str);
+		LRESULT SendDlgItemMessage(int nID, UINT Msg, WPARAM wParam, LPARAM lParam);
 		bool IsDlgItemChecked(int nID);
 		void SetDlgItemChecked(int nID, bool bChecked);
 		void SetDlgItemFocus(int nID);

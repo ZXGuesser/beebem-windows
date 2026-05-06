@@ -72,7 +72,7 @@ INT_PTR SerialPortDialog::DlgProc(UINT   nMessage,
 
 		char sz[20];
 		sprintf(sz, "%d", m_IPPort);
-		SetWindowText(GetDlgItem(m_hwnd, IDC_IP_PORT), sz);
+		SetWindowText(GetDlgItem(IDC_IP_PORT), sz);
 
 		SetDlgItemChecked(IDC_IP323_RAW_COMMS, m_IP232RawComms);
 		SetDlgItemChecked(IDC_IP232_HANDSHAKE, m_IP232Handshake);
