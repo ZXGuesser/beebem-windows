@@ -410,9 +410,9 @@ bool BeebWin::LoadTape(const char *FileName)
 		Report(MessageType::Error, "Unknown tape format:\n  %a", FileName);
 	}
 
-	if (Success && TapeControlEnabled)
+	if (Success && g_pTapeControlDialog != nullptr)
 	{
-		TapeControlSetFileName(FileName);
+		g_pTapeControlDialog->SetFileName(FileName);
 	}
 
 	return Success;

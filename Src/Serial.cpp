@@ -974,10 +974,10 @@ CSWResult LoadCSWTape(const char *FileName)
 
 		csw_ptr = 0;
 
-		if (TapeControlEnabled)
+		if (g_pTapeControlDialog != nullptr)
 		{
-			TapeControlAddMapLines();
-			TapeControlUpdateCounter(csw_ptr);
+			g_pTapeControlDialog->AddMapLines();
+			g_pTapeControlDialog->UpdateCounter(csw_ptr);
 		}
 	}
 
@@ -1015,10 +1015,10 @@ UEFResult LoadUEFTape(const char *FileName)
 
 		UEFFile.CreateTapeMap(TapeMap);
 
-		if (TapeControlEnabled)
+		if (g_pTapeControlDialog != nullptr)
 		{
-			TapeControlAddMapLines();
-			TapeControlUpdateCounter(TapeState.Clock);
+			g_pTapeControlDialog->AddMapLines();
+			g_pTapeControlDialog->UpdateCounter(TapeState.Clock);
 		}
 	}
 
@@ -1037,9 +1037,9 @@ void CloseTape()
 
 	TapeFileName[0] = '\0';
 
-	if (TapeControlEnabled)
+	if (g_pTapeControlDialog != nullptr)
 	{
-		TapeControlCloseTape();
+		g_pTapeControlDialog->CloseTape();
 	}
 }
 

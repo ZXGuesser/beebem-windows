@@ -34,6 +34,8 @@ class Dialog
 
 	public:
 		bool DoModal();
+		bool Open();
+		void Close();
 
 	private:
 		static INT_PTR CALLBACK sDlgProc(

@@ -24,18 +24,38 @@ Boston, MA  02110-1301, USA.
 
 #include <vector>
 
+#include "Dialog.h"
 #include "TapeMap.h"
 
-void TapeControlOpenDialog(HINSTANCE hinst, HWND hwndMain);
-void TapeControlAddMapLines();
-void TapeControlUpdateCounter(int Time);
-void TapeControlStopRecording(bool RefreshControl);
-void TapeControlCloseTape();
-void TapeControlCloseDialog();
-void TapeControlSetFileName(const char *FileName);
-void TapeControlSetUnlock(bool Unlock);
+class TapeControlDialog : public Dialog
+{
+	public:
+		TapeControlDialog(HINSTANCE hInstance,
+		                  HWND hwndParent);
 
-extern bool TapeControlEnabled;
+	public:
+		void UpdateCounter(int Time);
+		void SetUnlock(bool Unlock);
+		void SetFileName(const char *FileName);
+		void CloseTape();
+		void AddMapLines();
+
+	private:
+		virtual INT_PTR DlgProc(UINT nMessage,
+		                        WPARAM wParam,
+		                        LPARAM lParam);
+
+		void NewTape();
+		void EjectTape();
+		void UpdateState();
+
+	private:
+		HWND m_hwndMap;
+};
+
+void TapeControlUpdateCounter(int Time);
+
 extern std::vector<TapeMapEntry> TapeMap;
+extern TapeControlDialog* g_pTapeControlDialog;
 
 #endif

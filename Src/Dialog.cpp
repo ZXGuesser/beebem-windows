@@ -23,6 +23,7 @@ Boston, MA  02110-1301, USA.
 #include <vector>
 
 #include "Dialog.h"
+#include "Main.h"
 #include "WindowUtils.h"
 
 /****************************************************************************/
@@ -49,6 +50,35 @@ bool Dialog::DoModal()
 	                                reinterpret_cast<LPARAM>(this));
 
 	return Result == IDOK;
+}
+
+/****************************************************************************/
+
+bool Dialog::Open()
+{
+	if (m_hwnd == nullptr)
+	{
+		m_hwnd = CreateDialogParam(m_hInstance,
+		                           MAKEINTRESOURCE(m_DialogID),
+		                           nullptr,
+		                           sDlgProc,
+		                           reinterpret_cast<LPARAM>(this));
+
+		hCurrentDialog = m_hwnd;
+
+		ShowWindow(m_hwnd, SW_SHOW);
+	}
+
+	return true;
+}
+
+/****************************************************************************/
+
+void Dialog::Close()
+{
+	DestroyWindow(m_hwnd);
+	m_hwnd = nullptr;
+	hCurrentDialog = nullptr;
 }
 
 /****************************************************************************/

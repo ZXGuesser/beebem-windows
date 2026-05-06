@@ -3534,9 +3534,9 @@ void BeebWin::SetUnlockTape(bool Unlock)
 
 	CheckMenuItem(IDM_UNLOCKTAPE, TapeState.Unlock);
 
-	if (TapeControlEnabled)
+	if (g_pTapeControlDialog != nullptr)
 	{
-		TapeControlSetUnlock(Unlock);
+		g_pTapeControlDialog->SetUnlock(Unlock);
 	}
 }
 
@@ -4815,13 +4815,15 @@ void BeebWin::HandleCommand(UINT MenuID)
 		break;
 
 	case IDM_TAPECONTROL:
-		if (TapeControlEnabled)
+		if (g_pTapeControlDialog != nullptr)
 		{
-			TapeControlCloseDialog();
+			g_pTapeControlDialog->Close();
+			g_pTapeControlDialog = nullptr;
 		}
 		else
 		{
-			TapeControlOpenDialog(hInst, m_hWnd);
+			g_pTapeControlDialog = new TapeControlDialog(hInst, m_hWnd);
+			g_pTapeControlDialog->Open();
 		}
 		break;
 

@@ -31,112 +31,53 @@ Boston, MA  02110-1301, USA.
 
 // Tape control dialog box variables
 std::vector<TapeMapEntry> TapeMap;
-bool TapeControlEnabled = false;
-static HWND hwndTapeControl;
-static HWND hwndMap;
-
-static INT_PTR CALLBACK TapeControlDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam);
+TapeControlDialog* g_pTapeControlDialog = nullptr;
 
 /****************************************************************************/
 
-static void TapeControlNewTape();
-static void TapeControlEjectTape();
-static void UpdateState(HWND hwndDlg);
-
-/****************************************************************************/
-
-void TapeControlOpenDialog(HINSTANCE hinst, HWND /* hwndMain */)
+TapeControlDialog::TapeControlDialog(HINSTANCE hinst, HWND hwndMain) :
+	Dialog(hinst, hwndMain, IDD_TAPECONTROL)
 {
-	TapeControlEnabled = true;
-
-	if (!IsWindow(hwndTapeControl))
-	{
-		hwndTapeControl = CreateDialog(hinst, MAKEINTRESOURCE(IDD_TAPECONTROL),
-		                               nullptr, TapeControlDlgProc);
-		hCurrentDialog = hwndTapeControl;
-
-		DisableRoundedCorners(hwndTapeControl);
-		ShowWindow(hwndTapeControl, SW_SHOW);
-
-		hwndMap = GetDlgItem(hwndTapeControl, IDC_TAPE_CONTROL_MAP);
-		SendMessage(hwndMap, WM_SETFONT, (WPARAM)GetStockObject(ANSI_FIXED_FONT),
-		            (LPARAM)MAKELPARAM(FALSE,0));
-
-		int Time = SerialGetTapeClock();
-		TapeControlAddMapLines();
-		TapeControlUpdateCounter(Time);
-	}
 }
 
 /****************************************************************************/
 
-void TapeControlCloseDialog()
+void TapeControlDialog::AddMapLines()
 {
-	DestroyWindow(hwndTapeControl);
-	hwndTapeControl = nullptr;
-	hwndMap = nullptr;
-	TapeControlEnabled = false;
-	hCurrentDialog = nullptr;
-}
-
-/****************************************************************************/
-
-void TapeControlAddMapLines()
-{
-	SendMessage(hwndMap, LB_RESETCONTENT, 0, 0);
+	SendMessage(m_hwndMap, LB_RESETCONTENT, 0, 0);
 
 	for (const TapeMapEntry& line : TapeMap)
 	{
-		SendMessage(hwndMap, LB_ADDSTRING, 0, (LPARAM)line.desc.c_str());
+		SendMessage(m_hwndMap, LB_ADDSTRING, 0, (LPARAM)line.desc.c_str());
 	}
 
-	UpdateState(hwndTapeControl);
+	UpdateState();
 }
 
 /****************************************************************************/
 
-void TapeControlUpdateCounter(int tape_time)
+void TapeControlDialog::UpdateCounter(int tape_time)
 {
-	if (TapeControlEnabled)
+	size_t i = 0;
+
+	while (i < TapeMap.size() && TapeMap[i].time <= tape_time)
 	{
-		size_t i = 0;
-
-		while (i < TapeMap.size() && TapeMap[i].time <= tape_time)
-			i++;
-
-		if (i > 0)
-			i--;
-
-		SendMessage(hwndMap, LB_SETCURSEL, (WPARAM)i, 0);
+		i++;
 	}
+
+	if (i > 0)
+	{
+		i--;
+	}
+
+	SendMessage(m_hwndMap, LB_SETCURSEL, (WPARAM)i, 0);
 }
 
 /****************************************************************************/
 
-static void EnableDlgItem(HWND hDlg, UINT nIDDlgItem, bool Enable)
+void TapeControlDialog::UpdateState()
 {
-	EnableWindow(GetDlgItem(hDlg, nIDDlgItem), Enable);
-}
-
-/****************************************************************************/
-
-static bool IsDlgItemChecked(HWND hDlg, UINT nIDDlgItem)
-{
-	return SendDlgItemMessage(hDlg, nIDDlgItem, BM_GETCHECK, 0, 0) == BST_CHECKED;
-}
-
-/****************************************************************************/
-
-static void SetDlgItemChecked(HWND hDlg, UINT nIDDlgItem, bool Checked)
-{
-	SendDlgItemMessage(hDlg, nIDDlgItem, BM_SETCHECK, Checked ? BST_CHECKED : BST_UNCHECKED, 0);
-}
-
-/****************************************************************************/
-
-static void UpdateState(HWND hwndDlg)
-{
-	SetFocus(hwndDlg);
+	SetFocus(m_hwnd);
 
 	SerialTapeState State = SerialGetTapeState();
 
@@ -147,56 +88,56 @@ static void UpdateState(HWND hwndDlg)
 		case SerialTapeState::Playing:
 			nIDCheckButton = IDC_PLAYING;
 
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_PLAY, false);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_STOP, true);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_EJECT, false);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_REWIND, true);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_LOAD_TAPE, true);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_NEW_TAPE, true);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_RECORD, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_PLAY, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_STOP, true);
+			EnableDlgItem(IDC_TAPE_CONTROL_EJECT, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_REWIND, true);
+			EnableDlgItem(IDC_TAPE_CONTROL_LOAD_TAPE, true);
+			EnableDlgItem(IDC_TAPE_CONTROL_NEW_TAPE, true);
+			EnableDlgItem(IDC_TAPE_CONTROL_RECORD, false);
 			break;
 
 		case SerialTapeState::Recording:
 			nIDCheckButton = IDC_RECORDING;
 
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_PLAY, false);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_STOP, true);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_EJECT, false);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_REWIND, true);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_LOAD_TAPE, false);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_NEW_TAPE, false);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_RECORD, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_PLAY, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_STOP, true);
+			EnableDlgItem(IDC_TAPE_CONTROL_EJECT, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_REWIND, true);
+			EnableDlgItem(IDC_TAPE_CONTROL_LOAD_TAPE, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_NEW_TAPE, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_RECORD, false);
 			break;
 
 		case SerialTapeState::Stopped:
 			nIDCheckButton = IDC_STOPPED;
 
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_PLAY, true);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_STOP, false);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_EJECT, true);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_REWIND, true);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_LOAD_TAPE, true);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_NEW_TAPE, true);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_RECORD, SerialTapeIsUef());
+			EnableDlgItem(IDC_TAPE_CONTROL_PLAY, true);
+			EnableDlgItem(IDC_TAPE_CONTROL_STOP, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_EJECT, true);
+			EnableDlgItem(IDC_TAPE_CONTROL_REWIND, true);
+			EnableDlgItem(IDC_TAPE_CONTROL_LOAD_TAPE, true);
+			EnableDlgItem(IDC_TAPE_CONTROL_NEW_TAPE, true);
+			EnableDlgItem(IDC_TAPE_CONTROL_RECORD, SerialTapeIsUef());
 			break;
 
 		case SerialTapeState::NoTape:
 		default:
 			nIDCheckButton = IDC_STOPPED;
 
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_PLAY, false);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_STOP, false);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_EJECT, false);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_REWIND, false);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_LOAD_TAPE, true);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_NEW_TAPE, true);
-			EnableDlgItem(hwndDlg, IDC_TAPE_CONTROL_RECORD, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_PLAY, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_STOP, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_EJECT, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_REWIND, false);
+			EnableDlgItem(IDC_TAPE_CONTROL_LOAD_TAPE, true);
+			EnableDlgItem(IDC_TAPE_CONTROL_NEW_TAPE, true);
+			EnableDlgItem(IDC_TAPE_CONTROL_RECORD, false);
 			break;
 	}
 
 	mainWin->EnableSaveState(State != SerialTapeState::Recording);
 
-	CheckRadioButton(hwndDlg,
+	CheckRadioButton(m_hwnd,
 	                 IDC_PLAYING,
 	                 IDC_STOPPED,
 	                 nIDCheckButton);
@@ -204,14 +145,27 @@ static void UpdateState(HWND hwndDlg)
 
 /****************************************************************************/
 
-INT_PTR CALLBACK TapeControlDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM /* lParam */)
+INT_PTR TapeControlDialog::DlgProc(UINT message, WPARAM wParam, LPARAM /* lParam */)
 {
 	switch (message)
 	{
-		case WM_INITDIALOG:
-			SetDlgItemText(hwndDlg, IDC_TAPE_FILENAME, TapeFileName);
-			UpdateState(hwndDlg);
+		case WM_INITDIALOG: {
+			m_hwndMap = GetDlgItem(m_hwnd, IDC_TAPE_CONTROL_MAP);
+
+			SendMessage(m_hwndMap,
+			            WM_SETFONT,
+			            (WPARAM)GetStockObject(ANSI_FIXED_FONT),
+			            (LPARAM)MAKELPARAM(FALSE, 0));
+
+			SetDlgItemText(IDC_TAPE_FILENAME, TapeFileName);
+			UpdateState();
+
+			int Time = SerialGetTapeClock();
+			AddMapLines();
+			UpdateCounter(Time);
+
 			return TRUE;
+		}
 
 		case WM_ACTIVATE:
 			if (LOWORD(wParam) == WA_INACTIVE)
@@ -220,7 +174,7 @@ INT_PTR CALLBACK TapeControlDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, L
 			}
 			else
 			{
-				hCurrentDialog = hwndTapeControl;
+				hCurrentDialog = m_hwnd;
 			}
 			return FALSE;
 
@@ -230,7 +184,7 @@ INT_PTR CALLBACK TapeControlDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, L
 				case IDC_TAPE_CONTROL_MAP:
 					if (HIWORD(wParam) == LBN_SELCHANGE)
 					{
-						LRESULT s = SendMessage(hwndMap, LB_GETCURSEL, 0, 0);
+						LRESULT s = SendMessage(m_hwndMap, LB_GETCURSEL, 0, 0);
 
 						if (s != LB_ERR && s >= 0 && s < (int)TapeMap.size())
 						{
@@ -242,7 +196,7 @@ INT_PTR CALLBACK TapeControlDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, L
 				case IDC_TAPE_CONTROL_PLAY:
 					SerialStopTapeRecording();
 					SerialPlayTape();
-					UpdateState(hwndDlg);
+					UpdateState();
 					return TRUE;
 
 				case IDC_TAPE_CONTROL_STOP:
@@ -262,22 +216,22 @@ INT_PTR CALLBACK TapeControlDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, L
 							}
 
 							UEFFile.CreateTapeMap(TapeMap);
-							TapeControlAddMapLines();
+							AddMapLines();
 						}
 					}
 
 					SerialStopTape();
-					UpdateState(hwndDlg);
+					UpdateState();
 					return TRUE;
 
 				case IDC_TAPE_CONTROL_EJECT:
-					TapeControlEjectTape();
-					UpdateState(hwndDlg);
+					EjectTape();
+					UpdateState();
 					return TRUE;
 
 				case IDC_TAPE_CONTROL_REWIND:
 					RewindTape();
-					UpdateState(hwndDlg);
+					UpdateState();
 					return TRUE;
 
 				case IDC_TAPE_CONTROL_LOAD_TAPE:
@@ -285,26 +239,27 @@ INT_PTR CALLBACK TapeControlDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, L
 					return TRUE;
 
 				case IDC_TAPE_CONTROL_NEW_TAPE:
-					TapeControlNewTape();
-					TapeControlSetFileName("(Untitled)");
+					NewTape();
+					SetFileName("(Untitled)");
 					UEFFile.CreateTapeMap(TapeMap);
-					TapeControlAddMapLines();
-					UpdateState(hwndDlg);
+					AddMapLines();
+					UpdateState();
 					return TRUE;
 
 				case IDC_TAPE_CONTROL_RECORD:
 					SerialRecordTape();
-					UpdateState(hwndDlg);
+					UpdateState();
 					return TRUE;
 
 				case IDC_TAPE_CONTROL_UNLOCK: {
-					bool Unlock = IsDlgItemChecked(hwndDlg, IDC_TAPE_CONTROL_UNLOCK);
+					bool Unlock = IsDlgItemChecked(IDC_TAPE_CONTROL_UNLOCK);
 					mainWin->SetUnlockTape(Unlock);
 					return TRUE;
 				}
 
 				case IDCANCEL:
-					TapeControlCloseDialog();
+					Close();
+					g_pTapeControlDialog = nullptr;
 					return TRUE;
 			}
 	}
@@ -314,39 +269,49 @@ INT_PTR CALLBACK TapeControlDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, L
 
 /****************************************************************************/
 
-static void TapeControlEjectTape()
+void TapeControlDialog::EjectTape()
 {
 	SerialEjectTape();
-	TapeControlSetFileName("");
+	SetFileName("");
 }
 
 /****************************************************************************/
 
-static void TapeControlNewTape()
+void TapeControlDialog::NewTape()
 {
 	mainWin->NewTape(TapeFileName, sizeof(TapeFileName));
 }
 
 /****************************************************************************/
 
-void TapeControlCloseTape()
+void TapeControlDialog::CloseTape()
 {
-	SendMessage(hwndMap, LB_RESETCONTENT, 0, 0);
-	UpdateState(hwndTapeControl);
+	SendMessage(m_hwndMap, LB_RESETCONTENT, 0, 0);
+	UpdateState();
 }
 
 /****************************************************************************/
 
-void TapeControlSetFileName(const char *FileName)
+void TapeControlDialog::SetFileName(const char *FileName)
 {
-	SetDlgItemText(hwndTapeControl, IDC_TAPE_FILENAME, FileName);
+	SetDlgItemText(IDC_TAPE_FILENAME, FileName);
 }
 
 /****************************************************************************/
 
-void TapeControlSetUnlock(bool Unlock)
+void TapeControlDialog::SetUnlock(bool Unlock)
 {
-	SetDlgItemChecked(hwndTapeControl, IDC_TAPE_CONTROL_UNLOCK, Unlock);
+	SetDlgItemChecked(IDC_TAPE_CONTROL_UNLOCK, Unlock);
+}
+
+/****************************************************************************/
+
+void TapeControlUpdateCounter(int Time)
+{
+	if (g_pTapeControlDialog != nullptr)
+	{
+		g_pTapeControlDialog->UpdateCounter(Time);
+	}
 }
 
 /****************************************************************************/
