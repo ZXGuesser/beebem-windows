@@ -5577,30 +5577,26 @@ void BeebWin::ParseCommandLine()
 				Invalid = true;
 				++i;
 			}
-			else
+			else if (m_CommandLineFileName1[0] == '\0') // Assume it's a file name
 			{
-				// Assume it's a file name
-				if (m_CommandLineFileName1[0] == '\0')
+				if (strlen(__argv[i]) < MAX_PATH)
 				{
-					if (strlen(__argv[i]) < MAX_PATH)
-					{
-						strcpy(m_CommandLineFileName1, __argv[i]);
-					}
-					else
-					{
-						Invalid = true;
-					}
+					strcpy(m_CommandLineFileName1, __argv[i]);
 				}
-				else if (m_CommandLineFileName2[0] == '\0')
+				else
 				{
-					if (strlen(__argv[i]) < MAX_PATH)
-					{
-						strcpy(m_CommandLineFileName2, __argv[i]);
-					}
-					else
-					{
-						Invalid = true;
-					}
+					Invalid = true;
+				}
+			}
+			else if (m_CommandLineFileName2[0] == '\0')
+			{
+				if (strlen(__argv[i]) < MAX_PATH)
+				{
+					strcpy(m_CommandLineFileName2, __argv[i]);
+				}
+				else
+				{
+					Invalid = true;
 				}
 			}
 
