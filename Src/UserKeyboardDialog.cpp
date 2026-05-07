@@ -35,33 +35,14 @@ Boston, MA  02110-1301, USA.
 #include "SelectKeyDialog.h"
 #include "WindowUtils.h"
 
-static void SetKeyColour(COLORREF aColour);
-static void SelectKeyMapping(HWND hwnd, UINT ctrlID, HWND hwndCtrl);
-static void SetRowCol(UINT ctrlID);
-static INT_PTR CALLBACK UserKeyboardDlgProc(HWND   hwnd,
-                                            UINT   nMessage,
-                                            WPARAM wParam,
-                                            LPARAM lParam);
-static void OnDrawItem(UINT CtrlID, LPDRAWITEMSTRUCT lpDrawItemStruct);
-static void DrawSides(HDC hDC, RECT rect, COLORREF TopLeft, COLORREF BottomRight);
-static void DrawBorder(HDC hDC, RECT rect, BOOL Depressed);
-static void DrawText(HDC hDC, RECT rect, HWND hwndCtrl, COLORREF colour, bool Depressed);
-static COLORREF GetKeyColour(UINT ctrlID);
+/****************************************************************************/
+
+UserKeyboardDialog* g_pUserKeyboardDialog = nullptr;
 
 // Colour used to highlight the selected key.
 static const COLORREF HighlightColour   = 0x00FF0080; // Purple
 static const COLORREF FunctionKeyColour = 0x000000FF; // Red
 static const COLORREF NormalKeyColour   = 0x00000000; // Black
-static COLORREF oldKeyColour;
-
-static HWND hwndBBCKey; // Holds the BBCKey control handle which is now selected.
-static UINT selectedCtrlID; // Holds ctrlId of selected key (or 0 if none selected).
-static HWND hwndMain; // Holds the BeebWin window handle.
-static HWND hwndUserKeyboard;
-
-static int BBCRow; // Used to store the Row and Col values while we wait
-static int BBCCol; // for a key press from the User.
-static bool doingShifted; // Selecting shifted or unshifted key press
 
 static const char* szSelectKeyDialogTitle[2] = {
 	"Press key for unshifted press...",
@@ -70,194 +51,44 @@ static const char* szSelectKeyDialogTitle[2] = {
 
 /****************************************************************************/
 
-bool UserKeyboardDialog(HWND hwndParent)
+UserKeyboardDialog::UserKeyboardDialog(HINSTANCE hInstance,
+                                       HWND hwndParent) :
+	Dialog(hInstance, hwndParent, IDD_USERKYBRD),
+	m_hwndBBCKey(nullptr),
+	m_SelectedCtrlID(0),
+	m_OldKeyColour(RGB(0, 0, 0)),
+	m_BBCRow(0),
+	m_BBCCol(0),
+	m_DoingShifted(false)
 {
-	// Initialise locals used during this window's life.
-	hwndMain = hwndParent;
-	selectedCtrlID = 0;
-
-	// Open the dialog box. This is created as a modeless dialog so that
-	// the "select key" dialog box can handle key-press messages.
-	hwndUserKeyboard = CreateDialog(
-		hInst,
-		MAKEINTRESOURCE(IDD_USERKYBRD),
-		hwndParent,
-		UserKeyboardDlgProc
-	);
-
-	if (hwndUserKeyboard != nullptr)
-	{
-		DisableRoundedCorners(hwndUserKeyboard);
-
-		EnableWindow(hwndParent, FALSE);
-
-		return true;
-	}
-
-	return false;
 }
 
 /****************************************************************************/
 
-static void SetKeyColour(COLORREF aColour)
-{
-	HDC hdc = GetDC(hwndBBCKey);
-	SetBkColor(hdc, aColour);
-	ReleaseDC(hwndBBCKey, hdc);
-	InvalidateRect(hwndBBCKey, nullptr, TRUE);
-	UpdateWindow(hwndBBCKey);
-}
-
-/****************************************************************************/
-
-static void SelectKeyMapping(HWND hwnd, UINT ctrlID, HWND hwndCtrl)
-{
-	// Set the placeholders.
-	SetRowCol(ctrlID);
-
-	oldKeyColour = GetKeyColour(ctrlID);
-
-	hwndBBCKey = hwndCtrl;
-	selectedCtrlID = ctrlID;
-
-	doingShifted = false;
-
-	std::string UsedKeys = GetKeysUsed(BBCRow, BBCCol, doingShifted);
-
-	// Now ask the user to input the PC key to assign to the BBC key.
-	g_pSelectKeyDialog = new SelectKeyDialog(
-		hInst,
-		hwnd,
-		szSelectKeyDialogTitle[doingShifted ? 1 : 0],
-		UsedKeys,
-		true,
-		BBCRow,
-		BBCCol,
-		doingShifted
-	);
-
-	g_pSelectKeyDialog->Open();
-}
-
-/****************************************************************************/
-
-static void SetRowCol(UINT ctrlID)
-{
-	switch (ctrlID)
-	{
-	// Character keys.
-	case IDK_A: BBCRow = 4; BBCCol = 1; break;
-	case IDK_B: BBCRow = 6; BBCCol = 4; break;
-	case IDK_C: BBCRow = 5; BBCCol = 2; break;
-	case IDK_D: BBCRow = 3; BBCCol = 2; break;
-	case IDK_E: BBCRow = 2; BBCCol = 2; break;
-	case IDK_F: BBCRow = 4; BBCCol = 3; break;
-	case IDK_G: BBCRow = 5; BBCCol = 3; break;
-	case IDK_H: BBCRow = 5; BBCCol = 4; break;
-	case IDK_I: BBCRow = 2; BBCCol = 5; break;
-	case IDK_J: BBCRow = 4; BBCCol = 5; break;
-	case IDK_K: BBCRow = 4; BBCCol = 6; break;
-	case IDK_L: BBCRow = 5; BBCCol = 6; break;
-	case IDK_M: BBCRow = 6; BBCCol = 5; break;
-	case IDK_N: BBCRow = 5; BBCCol = 5; break;
-	case IDK_O: BBCRow = 3; BBCCol = 6; break;
-	case IDK_P: BBCRow = 3; BBCCol = 7; break;
-	case IDK_Q: BBCRow = 1; BBCCol = 0; break;
-	case IDK_R: BBCRow = 3; BBCCol = 3; break;
-	case IDK_S: BBCRow = 5; BBCCol = 1; break;
-	case IDK_T: BBCRow = 2; BBCCol = 3; break;
-	case IDK_U: BBCRow = 3; BBCCol = 5; break;
-	case IDK_V: BBCRow = 6; BBCCol = 3; break;
-	case IDK_W: BBCRow = 2; BBCCol = 1; break;
-	case IDK_X: BBCRow = 4; BBCCol = 2; break;
-	case IDK_Y: BBCRow = 4; BBCCol = 4; break;
-	case IDK_Z: BBCRow = 6; BBCCol = 1; break;
-
-	// Number keys.
-	case IDK_0: BBCRow = 2; BBCCol = 7; break;
-	case IDK_1: BBCRow = 3; BBCCol = 0; break;
-	case IDK_2: BBCRow = 3; BBCCol = 1; break;
-	case IDK_3: BBCRow = 1; BBCCol = 1; break;
-	case IDK_4: BBCRow = 1; BBCCol = 2; break;
-	case IDK_5: BBCRow = 1; BBCCol = 3; break;
-	case IDK_6: BBCRow = 3; BBCCol = 4; break;
-	case IDK_7: BBCRow = 2; BBCCol = 4; break;
-	case IDK_8: BBCRow = 1; BBCCol = 5; break;
-	case IDK_9: BBCRow = 2; BBCCol = 6; break;
-
-	// Function keys.
-	case IDK_F0: BBCRow = 2; BBCCol = 0; break;
-	case IDK_F1: BBCRow = 7; BBCCol = 1; break;
-	case IDK_F2: BBCRow = 7; BBCCol = 2; break;
-	case IDK_F3: BBCRow = 7; BBCCol = 3; break;
-	case IDK_F4: BBCRow = 1; BBCCol = 4; break;
-	case IDK_F5: BBCRow = 7; BBCCol = 4; break;
-	case IDK_F6: BBCRow = 7; BBCCol = 5; break;
-	case IDK_F7: BBCRow = 1; BBCCol = 6; break;
-	case IDK_F8: BBCRow = 7; BBCCol = 6; break;
-	case IDK_F9: BBCRow = 7; BBCCol = 7; break;
-
-	// Special keys.
-	case IDK_LEFT:       BBCRow = 1;  BBCCol = 9; break;
-	case IDK_RIGHT:      BBCRow = 7;  BBCCol = 9; break;
-	case IDK_UP:         BBCRow = 3;  BBCCol = 9; break;
-	case IDK_DOWN:       BBCRow = 2;  BBCCol = 9; break;
-	case IDK_BREAK:      BBCRow = -2; BBCCol = -2; break;
-	case IDK_COPY:       BBCRow = 6;  BBCCol = 9; break;
-	case IDK_DEL:        BBCRow = 5;  BBCCol = 9; break;
-	case IDK_CAPS:       BBCRow = 4;  BBCCol = 0; break;
-	case IDK_TAB:        BBCRow = 6;  BBCCol = 0; break;
-	case IDK_CTRL:       BBCRow = 0;  BBCCol = 1; break;
-	case IDK_SPACE:      BBCRow = 6;  BBCCol = 2; break;
-	case IDK_RETURN:     BBCRow = 4;  BBCCol = 9; break;
-	case IDK_ESC:        BBCRow = 7;  BBCCol = 0; break;
-	case IDK_SHIFT_L:    BBCRow = 0;  BBCCol = 0; break;
-	case IDK_SHIFT_R:    BBCRow = 0;  BBCCol = 0; break;
-	case IDK_SHIFT_LOCK: BBCRow = 5;  BBCCol = 0; break;
-
-	// Special Character keys.
-	case IDK_SEMI_COLON:   BBCRow = 5; BBCCol = 7; break;
-	case IDK_EQUALS:       BBCRow = 1; BBCCol = 7; break;
-	case IDK_COMMA:        BBCRow = 6; BBCCol = 6; break;
-	case IDK_CARET:        BBCRow = 1; BBCCol = 8; break;
-	case IDK_DOT:          BBCRow = 6; BBCCol = 7; break;
-	case IDK_FWDSLASH:     BBCRow = 6; BBCCol = 8; break;
-	case IDK_STAR:         BBCRow = 4; BBCCol = 8; break;
-	case IDK_OPEN_SQUARE:  BBCRow = 3; BBCCol = 8; break;
-	case IDK_BACKSLASH:    BBCRow = 7; BBCCol = 8; break;
-	case IDK_CLOSE_SQUARE: BBCRow = 5; BBCCol = 8; break;
-	case IDK_AT:           BBCRow = 4; BBCCol = 7; break;
-	case IDK_UNDERSCORE:   BBCRow = 2; BBCCol = 8; break;
-
-	default:
-		BBCRow = 0; BBCCol = 0;
-		break;
-	}
-}
-
-/****************************************************************************/
-
-static INT_PTR CALLBACK UserKeyboardDlgProc(HWND   hwnd,
-                                            UINT   nMessage,
-                                            WPARAM wParam,
-                                            LPARAM lParam)
+INT_PTR UserKeyboardDialog::DlgProc(UINT nMessage,
+                                    WPARAM wParam,
+                                    LPARAM lParam)
 {
 	switch (nMessage)
 	{
+	case WM_INITDIALOG:
+		EnableWindow(m_hwndParent, FALSE);
+		break;
+
 	case WM_COMMAND:
 		switch (wParam)
 		{
 		case IDOK:
 		case IDCANCEL:
-			EnableWindow(hwndMain, TRUE);
-			DestroyWindow(hwnd);
-			hwndUserKeyboard = nullptr;
+			EnableWindow(m_hwndParent, TRUE);
 
-			PostMessage(hwndMain, WM_USER_KEYBOARD_DIALOG_CLOSED, 0, 0);
+			Close();
+
+			PostMessage(m_hwndParent, WM_USER_KEYBOARD_DIALOG_CLOSED, 0, 0);
 			break;
 
 		default:
-			SelectKeyMapping(hwnd, (UINT)wParam, (HWND)lParam);
+			SelectKeyMapping((UINT)wParam, (HWND)lParam);
 			break;
 		}
 		return TRUE;
@@ -268,7 +99,7 @@ static INT_PTR CALLBACK UserKeyboardDlgProc(HWND   hwnd,
 		return TRUE;
 
 	case WM_CLEAR_KEY_MAPPING:
-		ClearUserKeyMapping(BBCRow, BBCCol, doingShifted);
+		ClearUserKeyMapping(m_BBCRow, m_BBCCol, m_DoingShifted);
 		break;
 
 	case WM_SELECT_KEY_DIALOG_CLOSED:
@@ -276,9 +107,9 @@ static INT_PTR CALLBACK UserKeyboardDlgProc(HWND   hwnd,
 		{
 			// Assign the BBC key to the PC key.
 			SetUserKeyMapping(
-				BBCRow,
-				BBCCol,
-				doingShifted,
+				m_BBCRow,
+				m_BBCCol,
+				m_DoingShifted,
 				g_pSelectKeyDialog->Key(),
 				g_pSelectKeyDialog->Shift()
 			);
@@ -287,31 +118,31 @@ static INT_PTR CALLBACK UserKeyboardDlgProc(HWND   hwnd,
 		delete g_pSelectKeyDialog;
 		g_pSelectKeyDialog = nullptr;
 
-		if ((wParam == IDOK || wParam == IDCONTINUE) && !doingShifted)
+		if ((wParam == IDOK || wParam == IDCONTINUE) && !m_DoingShifted)
 		{
-			doingShifted = true;
+			m_DoingShifted = true;
 
-			std::string UsedKeys = GetKeysUsed(BBCRow, BBCCol, doingShifted);
+			std::string UsedKeys = GetKeysUsed(m_BBCRow, m_BBCCol, m_DoingShifted);
 
 			g_pSelectKeyDialog = new SelectKeyDialog(
 				hInst,
-				hwndUserKeyboard,
-				szSelectKeyDialogTitle[doingShifted ? 1 : 0],
+				m_hwnd,
+				szSelectKeyDialogTitle[m_DoingShifted ? 1 : 0],
 				UsedKeys,
 				true,
-				BBCRow,
-				BBCCol,
-				doingShifted
+				m_BBCRow,
+				m_BBCCol,
+				m_DoingShifted
 			);
 
 			g_pSelectKeyDialog->Open();
 		}
 		else
 		{
-			selectedCtrlID = 0;
+			m_SelectedCtrlID = 0;
 
 			// Show the key as not depressed, i.e., normal.
-			SetKeyColour(oldKeyColour);
+			SetKeyColour(m_OldKeyColour);
 		}
 		return TRUE;
 
@@ -324,7 +155,145 @@ static INT_PTR CALLBACK UserKeyboardDlgProc(HWND   hwnd,
 
 /****************************************************************************/
 
-static void OnDrawItem(UINT CtrlID, LPDRAWITEMSTRUCT lpDrawItemStruct)
+void UserKeyboardDialog::SetKeyColour(COLORREF aColour)
+{
+	HDC hdc = GetDC(m_hwndBBCKey);
+	SetBkColor(hdc, aColour);
+	ReleaseDC(m_hwndBBCKey, hdc);
+	InvalidateRect(m_hwndBBCKey, nullptr, TRUE);
+	UpdateWindow(m_hwndBBCKey);
+}
+
+/****************************************************************************/
+
+void UserKeyboardDialog::SelectKeyMapping(UINT ctrlID, HWND hwndCtrl)
+{
+	// Set the placeholders.
+	SetRowCol(ctrlID);
+
+	m_OldKeyColour = GetKeyColour(ctrlID);
+
+	m_hwndBBCKey = hwndCtrl;
+	m_SelectedCtrlID = ctrlID;
+
+	m_DoingShifted = false;
+
+	std::string UsedKeys = GetKeysUsed(m_BBCRow, m_BBCCol, m_DoingShifted);
+
+	// Now ask the user to input the PC key to assign to the BBC key.
+	g_pSelectKeyDialog = new SelectKeyDialog(
+		hInst,
+		m_hwnd,
+		szSelectKeyDialogTitle[m_DoingShifted ? 1 : 0],
+		UsedKeys,
+		true,
+		m_BBCRow,
+		m_BBCCol,
+		m_DoingShifted
+	);
+
+	g_pSelectKeyDialog->Open();
+}
+
+/****************************************************************************/
+
+void UserKeyboardDialog::SetRowCol(UINT ctrlID)
+{
+	switch (ctrlID)
+	{
+	// Character keys.
+	case IDK_A: m_BBCRow = 4; m_BBCCol = 1; break;
+	case IDK_B: m_BBCRow = 6; m_BBCCol = 4; break;
+	case IDK_C: m_BBCRow = 5; m_BBCCol = 2; break;
+	case IDK_D: m_BBCRow = 3; m_BBCCol = 2; break;
+	case IDK_E: m_BBCRow = 2; m_BBCCol = 2; break;
+	case IDK_F: m_BBCRow = 4; m_BBCCol = 3; break;
+	case IDK_G: m_BBCRow = 5; m_BBCCol = 3; break;
+	case IDK_H: m_BBCRow = 5; m_BBCCol = 4; break;
+	case IDK_I: m_BBCRow = 2; m_BBCCol = 5; break;
+	case IDK_J: m_BBCRow = 4; m_BBCCol = 5; break;
+	case IDK_K: m_BBCRow = 4; m_BBCCol = 6; break;
+	case IDK_L: m_BBCRow = 5; m_BBCCol = 6; break;
+	case IDK_M: m_BBCRow = 6; m_BBCCol = 5; break;
+	case IDK_N: m_BBCRow = 5; m_BBCCol = 5; break;
+	case IDK_O: m_BBCRow = 3; m_BBCCol = 6; break;
+	case IDK_P: m_BBCRow = 3; m_BBCCol = 7; break;
+	case IDK_Q: m_BBCRow = 1; m_BBCCol = 0; break;
+	case IDK_R: m_BBCRow = 3; m_BBCCol = 3; break;
+	case IDK_S: m_BBCRow = 5; m_BBCCol = 1; break;
+	case IDK_T: m_BBCRow = 2; m_BBCCol = 3; break;
+	case IDK_U: m_BBCRow = 3; m_BBCCol = 5; break;
+	case IDK_V: m_BBCRow = 6; m_BBCCol = 3; break;
+	case IDK_W: m_BBCRow = 2; m_BBCCol = 1; break;
+	case IDK_X: m_BBCRow = 4; m_BBCCol = 2; break;
+	case IDK_Y: m_BBCRow = 4; m_BBCCol = 4; break;
+	case IDK_Z: m_BBCRow = 6; m_BBCCol = 1; break;
+
+	// Number keys.
+	case IDK_0: m_BBCRow = 2; m_BBCCol = 7; break;
+	case IDK_1: m_BBCRow = 3; m_BBCCol = 0; break;
+	case IDK_2: m_BBCRow = 3; m_BBCCol = 1; break;
+	case IDK_3: m_BBCRow = 1; m_BBCCol = 1; break;
+	case IDK_4: m_BBCRow = 1; m_BBCCol = 2; break;
+	case IDK_5: m_BBCRow = 1; m_BBCCol = 3; break;
+	case IDK_6: m_BBCRow = 3; m_BBCCol = 4; break;
+	case IDK_7: m_BBCRow = 2; m_BBCCol = 4; break;
+	case IDK_8: m_BBCRow = 1; m_BBCCol = 5; break;
+	case IDK_9: m_BBCRow = 2; m_BBCCol = 6; break;
+
+	// Function keys.
+	case IDK_F0: m_BBCRow = 2; m_BBCCol = 0; break;
+	case IDK_F1: m_BBCRow = 7; m_BBCCol = 1; break;
+	case IDK_F2: m_BBCRow = 7; m_BBCCol = 2; break;
+	case IDK_F3: m_BBCRow = 7; m_BBCCol = 3; break;
+	case IDK_F4: m_BBCRow = 1; m_BBCCol = 4; break;
+	case IDK_F5: m_BBCRow = 7; m_BBCCol = 4; break;
+	case IDK_F6: m_BBCRow = 7; m_BBCCol = 5; break;
+	case IDK_F7: m_BBCRow = 1; m_BBCCol = 6; break;
+	case IDK_F8: m_BBCRow = 7; m_BBCCol = 6; break;
+	case IDK_F9: m_BBCRow = 7; m_BBCCol = 7; break;
+
+	// Special keys.
+	case IDK_LEFT:       m_BBCRow = 1;  m_BBCCol = 9; break;
+	case IDK_RIGHT:      m_BBCRow = 7;  m_BBCCol = 9; break;
+	case IDK_UP:         m_BBCRow = 3;  m_BBCCol = 9; break;
+	case IDK_DOWN:       m_BBCRow = 2;  m_BBCCol = 9; break;
+	case IDK_BREAK:      m_BBCRow = -2; m_BBCCol = -2; break;
+	case IDK_COPY:       m_BBCRow = 6;  m_BBCCol = 9; break;
+	case IDK_DEL:        m_BBCRow = 5;  m_BBCCol = 9; break;
+	case IDK_CAPS:       m_BBCRow = 4;  m_BBCCol = 0; break;
+	case IDK_TAB:        m_BBCRow = 6;  m_BBCCol = 0; break;
+	case IDK_CTRL:       m_BBCRow = 0;  m_BBCCol = 1; break;
+	case IDK_SPACE:      m_BBCRow = 6;  m_BBCCol = 2; break;
+	case IDK_RETURN:     m_BBCRow = 4;  m_BBCCol = 9; break;
+	case IDK_ESC:        m_BBCRow = 7;  m_BBCCol = 0; break;
+	case IDK_SHIFT_L:    m_BBCRow = 0;  m_BBCCol = 0; break;
+	case IDK_SHIFT_R:    m_BBCRow = 0;  m_BBCCol = 0; break;
+	case IDK_SHIFT_LOCK: m_BBCRow = 5;  m_BBCCol = 0; break;
+
+	// Special Character keys.
+	case IDK_SEMI_COLON:   m_BBCRow = 5; m_BBCCol = 7; break;
+	case IDK_EQUALS:       m_BBCRow = 1; m_BBCCol = 7; break;
+	case IDK_COMMA:        m_BBCRow = 6; m_BBCCol = 6; break;
+	case IDK_CARET:        m_BBCRow = 1; m_BBCCol = 8; break;
+	case IDK_DOT:          m_BBCRow = 6; m_BBCCol = 7; break;
+	case IDK_FWDSLASH:     m_BBCRow = 6; m_BBCCol = 8; break;
+	case IDK_STAR:         m_BBCRow = 4; m_BBCCol = 8; break;
+	case IDK_OPEN_SQUARE:  m_BBCRow = 3; m_BBCCol = 8; break;
+	case IDK_BACKSLASH:    m_BBCRow = 7; m_BBCCol = 8; break;
+	case IDK_CLOSE_SQUARE: m_BBCRow = 5; m_BBCCol = 8; break;
+	case IDK_AT:           m_BBCRow = 4; m_BBCCol = 7; break;
+	case IDK_UNDERSCORE:   m_BBCRow = 2; m_BBCCol = 8; break;
+
+	default:
+		m_BBCRow = 0; m_BBCCol = 0;
+		break;
+	}
+}
+
+/****************************************************************************/
+
+void UserKeyboardDialog::OnDrawItem(UINT CtrlID, LPDRAWITEMSTRUCT lpDrawItemStruct)
 {
 	// Set the Pen and Background Brush.
 	HBRUSH aBrush = CreateSolidBrush(GetKeyColour(CtrlID));
@@ -361,7 +330,7 @@ static void OnDrawItem(UINT CtrlID, LPDRAWITEMSTRUCT lpDrawItemStruct)
 
 /****************************************************************************/
 
-static void DrawSides(HDC hDC, RECT rect, COLORREF TopLeft, COLORREF BottomRight)
+void UserKeyboardDialog::DrawSides(HDC hDC, RECT rect, COLORREF TopLeft, COLORREF BottomRight)
 {
 	HPEN hTopLeftPen = CreatePen(PS_SOLID, 1, TopLeft);
 	HPEN hBottomRightPen = CreatePen(PS_SOLID, 1, BottomRight);
@@ -385,7 +354,7 @@ static void DrawSides(HDC hDC, RECT rect, COLORREF TopLeft, COLORREF BottomRight
 
 /****************************************************************************/
 
-static void DrawBorder(HDC hDC, RECT rect, BOOL Depressed)
+void UserKeyboardDialog::DrawBorder(HDC hDC, RECT rect, BOOL Depressed)
 {
 	// Draw outer border.
 	if (Depressed)
@@ -407,7 +376,7 @@ static void DrawBorder(HDC hDC, RECT rect, BOOL Depressed)
 
 /****************************************************************************/
 
-static void DrawText(HDC hDC, RECT rect, HWND hwndCtrl, COLORREF colour, bool Depressed)
+void UserKeyboardDialog::DrawText(HDC hDC, RECT rect, HWND hwndCtrl, COLORREF colour, bool Depressed)
 {
 	SIZE Size;
 	CHAR text[10];
@@ -432,9 +401,9 @@ static void DrawText(HDC hDC, RECT rect, HWND hwndCtrl, COLORREF colour, bool De
 
 /****************************************************************************/
 
-static COLORREF GetKeyColour(UINT ctrlID)
+COLORREF UserKeyboardDialog::GetKeyColour(UINT ctrlID)
 {
-	if (selectedCtrlID == ctrlID)
+	if (m_SelectedCtrlID == ctrlID)
 	{
 		return HighlightColour;
 	}
@@ -457,3 +426,5 @@ static COLORREF GetKeyColour(UINT ctrlID)
 		return NormalKeyColour;
 	}
 }
+
+/****************************************************************************/

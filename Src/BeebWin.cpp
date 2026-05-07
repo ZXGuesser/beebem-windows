@@ -5361,11 +5361,20 @@ void BeebWin::OpenUserKeyboardDialog()
 		TogglePause();
 	}
 
-	UserKeyboardDialog(m_hWnd);
+	if (g_pUserKeyboardDialog == nullptr)
+	{
+		g_pUserKeyboardDialog = new UserKeyboardDialog(hInst, m_hWnd);
+		g_pUserKeyboardDialog->Open();
+	}
 }
+
+/*****************************************************************************/
 
 void BeebWin::UserKeyboardDialogClosed()
 {
+	delete g_pUserKeyboardDialog;
+	g_pUserKeyboardDialog = nullptr;
+
 	// Restart the emulator if it wasn't paused before the "user keyboard"
 	// dialog box was opened.
 
