@@ -33,24 +33,19 @@ Boston, MA  02110-1301, USA.
 
 /****************************************************************************/
 
-static bool IsDlgItemChecked(HWND hDlg, int nIDDlgItem);
-
-SelectKeyDialog* selectKeyDialog;
+SelectKeyDialog* g_pSelectKeyDialog = nullptr;
 
 /****************************************************************************/
 
-SelectKeyDialog::SelectKeyDialog(
-	HINSTANCE hInstance,
-	HWND hwndParent,
-	const std::string& Title,
-	const std::string& SelectedKey,
-	bool BeebKey,
-	int Row,
-	int Column,
-	bool DoingShifted) :
-	m_hInstance(hInstance),
-	m_hwnd(nullptr),
-	m_hwndParent(hwndParent),
+SelectKeyDialog::SelectKeyDialog(HINSTANCE hInstance,
+                                 HWND hwndParent,
+                                 const std::string& Title,
+                                 const std::string& SelectedKey,
+                                 bool BeebKey,
+                                 int Row,
+                                 int Column,
+                                 bool DoingShifted) :
+	Dialog(hInstance, hwndParent, IDD_SELECT_KEY),
 	m_Title(Title),
 	m_SelectedKey(SelectedKey),
 	m_BeebKey(BeebKey),
@@ -58,66 +53,27 @@ SelectKeyDialog::SelectKeyDialog(
 	m_Row(Row),
 	m_Column(Column),
 	m_DoingShifted(DoingShifted),
-	m_Shift(false)
+	m_Shift(false),
+	m_Result(IDCANCEL)
 {
 }
 
 /****************************************************************************/
 
-bool SelectKeyDialog::Open()
-{
-	// Create modeless dialog box
-	m_hwnd = CreateDialogParam(
-		m_hInstance,
-		MAKEINTRESOURCE(IDD_SELECT_KEY),
-		m_hwndParent,
-		sDlgProc,
-		reinterpret_cast<LPARAM>(this)
-	);
-
-	if (m_hwnd != nullptr)
-	{
-		DisableRoundedCorners(m_hwnd);
-
-		EnableWindow(m_hwndParent, FALSE);
-
-		return true;
-	}
-
-	return false;
-}
-
-/****************************************************************************/
-
-void SelectKeyDialog::Close(UINT nResultID)
-{
-	EnableWindow(m_hwndParent, TRUE);
-	DestroyWindow(m_hwnd);
-	m_hwnd = nullptr;
-
-	PostMessage(m_hwndParent, WM_SELECT_KEY_DIALOG_CLOSED, nResultID, 0);
-}
-
-/****************************************************************************/
-
-INT_PTR SelectKeyDialog::DlgProc(
-	HWND   hwnd,
-	UINT   nMessage,
-	WPARAM wParam,
-	LPARAM /* lParam */)
+INT_PTR SelectKeyDialog::DlgProc(UINT nMessage,
+                                 WPARAM wParam,
+                                 LPARAM /* lParam */)
 {
 	switch (nMessage)
 	{
 	case WM_INITDIALOG:
-		m_hwnd = hwnd;
-
 		SetWindowText(m_hwnd, m_Title.c_str());
 
-		SetDlgItemText(m_hwnd, IDC_ASSIGNED_KEYS, m_SelectedKey.c_str());
+		SetDlgItemText(IDC_ASSIGNED_KEYS, m_SelectedKey.c_str());
 
 		if (!m_BeebKey)
 		{
-			ShowWindow(GetDlgItem(m_hwnd, IDC_SHIFT), SW_HIDE);
+			ShowWindow(GetDlgItem(IDC_SHIFT), SW_HIDE);
 		}
 		return TRUE;
 
@@ -136,7 +92,8 @@ INT_PTR SelectKeyDialog::DlgProc(
 	case WM_SYSCOMMAND:
 		if (wParam == SC_CLOSE)
 		{
-			Close(IDCANCEL);
+			m_Result = IDCANCEL;
+			Close();
 			return TRUE;
 		}
 		break;
@@ -156,49 +113,22 @@ INT_PTR SelectKeyDialog::DlgProc(
 				m_SelectedKey = "";
 			}
 
-			SetDlgItemText(m_hwnd, IDC_ASSIGNED_KEYS, m_SelectedKey.c_str());
+			SetDlgItemText(IDC_ASSIGNED_KEYS, m_SelectedKey.c_str());
 			return TRUE;
 
 		case IDOK:
-			Close(IDCONTINUE);
+			m_Result = IDCONTINUE;
+			Close();
 			return TRUE;
 		}
+		break;
+
+	case WM_DESTROY:
+		PostMessage(m_hwndParent, WM_SELECT_KEY_DIALOG_CLOSED, m_Result, 0);
 		break;
 	}
 
 	return FALSE;
-}
-
-/****************************************************************************/
-
-INT_PTR CALLBACK SelectKeyDialog::sDlgProc(
-	HWND   hwnd,
-	UINT   nMessage,
-	WPARAM wParam,
-	LPARAM lParam)
-{
-	SelectKeyDialog* dialog;
-
-	if (nMessage == WM_INITDIALOG)
-	{
-		SetWindowLongPtr(hwnd, DWLP_USER, lParam);
-		dialog = reinterpret_cast<SelectKeyDialog*>(lParam);
-	}
-	else
-	{
-		dialog = reinterpret_cast<SelectKeyDialog*>(
-			GetWindowLongPtr(hwnd, DWLP_USER)
-		);
-	}
-
-	if (dialog)
-	{
-		return dialog->DlgProc(hwnd, nMessage, wParam, lParam);
-	}
-	else
-	{
-		return FALSE;
-	}
 }
 
 /****************************************************************************/
@@ -208,10 +138,11 @@ bool SelectKeyDialog::HandleMessage(const MSG& msg)
 	if (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN)
 	{
 		m_Key = (int)msg.wParam;
+		m_Shift = IsDlgItemChecked(IDC_SHIFT);
+		m_Result = IDOK;
 
-		m_Shift = IsDlgItemChecked(m_hwnd, IDC_SHIFT);
+		Close();
 
-		Close(IDOK);
 		return true;
 	}
 
@@ -230,13 +161,6 @@ int SelectKeyDialog::Key() const
 bool SelectKeyDialog::Shift() const
 {
 	return m_Shift;
-}
-
-/****************************************************************************/
-
-static bool IsDlgItemChecked(HWND hDlg, int nIDDlgItem)
-{
-	return SendDlgItemMessage(hDlg, nIDDlgItem, BM_GETCHECK, 0, 0) == BST_CHECKED;
 }
 
 /****************************************************************************/

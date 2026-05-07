@@ -92,9 +92,9 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */,
 			{
 				bool handled = false;
 
-				if (selectKeyDialog != nullptr)
+				if (g_pSelectKeyDialog != nullptr)
 				{
-					handled = selectKeyDialog->HandleMessage(msg);
+					handled = g_pSelectKeyDialog->HandleMessage(msg);
 				}
 
 				if (!handled && !IsDialogMessage(hCurrentDialog, &msg))

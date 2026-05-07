@@ -21,9 +21,9 @@ Boston, MA  02110-1301, USA.
 #ifndef SELECT_KEY_DIALOG_HEADER
 #define SELECT_KEY_DIALOG_HEADER
 
-#include <windows.h>
+#include "Dialog.h"
 
-class SelectKeyDialog
+class SelectKeyDialog : public Dialog
 {
 	public:
 		SelectKeyDialog(
@@ -37,33 +37,17 @@ class SelectKeyDialog
 			bool DoingShifted
 		);
 
-		bool Open();
-		void Close(UINT nResultID);
-
 		bool HandleMessage(const MSG& msg);
 
 		int Key() const;
 		bool Shift() const;
 
 	private:
-		static INT_PTR CALLBACK sDlgProc(
-			HWND   hwnd,
-			UINT   nMessage,
-			WPARAM wParam,
-			LPARAM lParam
-		);
-
-		INT_PTR DlgProc(
-			HWND   hwnd,
-			UINT   nMessage,
-			WPARAM wParam,
-			LPARAM lParam
-		);
+		INT_PTR DlgProc(UINT nMessage,
+		                WPARAM wParam,
+		                LPARAM lParam);
 
 	private:
-		HINSTANCE m_hInstance;
-		HWND m_hwnd;
-		HWND m_hwndParent;
 		std::string m_Title;
 		std::string m_SelectedKey;
 		bool m_BeebKey;
@@ -72,8 +56,9 @@ class SelectKeyDialog
 		int m_Column;
 		bool m_DoingShifted;
 		bool m_Shift;
+		UINT m_Result;
 };
 
-extern SelectKeyDialog* selectKeyDialog;
+extern SelectKeyDialog* g_pSelectKeyDialog;
 
 #endif

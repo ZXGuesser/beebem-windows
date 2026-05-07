@@ -227,9 +227,9 @@ INT_PTR UserPortBreakoutDialog::DlgProc(UINT nMessage,
 		return TRUE;
 
 	case WM_DESTROY:
-		if (selectKeyDialog != nullptr)
+		if (g_pSelectKeyDialog != nullptr)
 		{
-			selectKeyDialog->Close(IDCANCEL);
+			g_pSelectKeyDialog->Close();
 		}
 
 		EnableWindow(m_hwndParent, TRUE);
@@ -246,12 +246,12 @@ INT_PTR UserPortBreakoutDialog::DlgProc(UINT nMessage,
 		if (wParam == IDOK)
 		{
 			// Assign the BBC key to the PC key.
-			BitKeys[m_BitKey] = selectKeyDialog->Key();
+			BitKeys[m_BitKey] = g_pSelectKeyDialog->Key();
 			ShowBitKey(m_BitKey, BitKeyButtonIDs[m_BitKey]);
 		}
 
-		delete selectKeyDialog;
-		selectKeyDialog = nullptr;
+		delete g_pSelectKeyDialog;
+		g_pSelectKeyDialog = nullptr;
 
 		return TRUE;
 	}
@@ -334,7 +334,7 @@ void UserPortBreakoutDialog::PromptForBitKeyInput(int bitKey)
 
 	std::string PCKeys = GetPCKeyName(BitKeys[m_BitKey]);
 
-	selectKeyDialog = new SelectKeyDialog(
+	g_pSelectKeyDialog = new SelectKeyDialog(
 		m_hInstance,
 		m_hwnd,
 		"Press the key to use...",
@@ -345,7 +345,7 @@ void UserPortBreakoutDialog::PromptForBitKeyInput(int bitKey)
 		false
 	);
 
-	selectKeyDialog->Open();
+	g_pSelectKeyDialog->Open();
 }
 
 /****************************************************************************/

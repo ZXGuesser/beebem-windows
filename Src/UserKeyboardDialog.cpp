@@ -125,7 +125,7 @@ static void SelectKeyMapping(HWND hwnd, UINT ctrlID, HWND hwndCtrl)
 	std::string UsedKeys = GetKeysUsed(BBCRow, BBCCol, doingShifted);
 
 	// Now ask the user to input the PC key to assign to the BBC key.
-	selectKeyDialog = new SelectKeyDialog(
+	g_pSelectKeyDialog = new SelectKeyDialog(
 		hInst,
 		hwnd,
 		szSelectKeyDialogTitle[doingShifted ? 1 : 0],
@@ -136,7 +136,7 @@ static void SelectKeyMapping(HWND hwnd, UINT ctrlID, HWND hwndCtrl)
 		doingShifted
 	);
 
-	selectKeyDialog->Open();
+	g_pSelectKeyDialog->Open();
 }
 
 /****************************************************************************/
@@ -279,13 +279,13 @@ static INT_PTR CALLBACK UserKeyboardDlgProc(HWND   hwnd,
 				BBCRow,
 				BBCCol,
 				doingShifted,
-				selectKeyDialog->Key(),
-				selectKeyDialog->Shift()
+				g_pSelectKeyDialog->Key(),
+				g_pSelectKeyDialog->Shift()
 			);
 		}
 
-		delete selectKeyDialog;
-		selectKeyDialog = nullptr;
+		delete g_pSelectKeyDialog;
+		g_pSelectKeyDialog = nullptr;
 
 		if ((wParam == IDOK || wParam == IDCONTINUE) && !doingShifted)
 		{
@@ -293,7 +293,7 @@ static INT_PTR CALLBACK UserKeyboardDlgProc(HWND   hwnd,
 
 			std::string UsedKeys = GetKeysUsed(BBCRow, BBCCol, doingShifted);
 
-			selectKeyDialog = new SelectKeyDialog(
+			g_pSelectKeyDialog = new SelectKeyDialog(
 				hInst,
 				hwndUserKeyboard,
 				szSelectKeyDialogTitle[doingShifted ? 1 : 0],
@@ -304,7 +304,7 @@ static INT_PTR CALLBACK UserKeyboardDlgProc(HWND   hwnd,
 				doingShifted
 			);
 
-			selectKeyDialog->Open();
+			g_pSelectKeyDialog->Open();
 		}
 		else
 		{
