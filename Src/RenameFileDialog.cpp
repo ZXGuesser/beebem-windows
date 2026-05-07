@@ -60,11 +60,11 @@ INT_PTR RenameFileDialog::DlgProc(
 			GetDlgItemText(IDC_HOST_FILE_NAME);
 
 			m_HostFileName = GetDlgItemText(IDC_HOST_FILE_NAME);
-			EndDialog(m_hwnd, wParam);
+			EndDialog(wParam);
 			break;
 
 		case IDCANCEL:
-			EndDialog(m_hwnd, wParam);
+			EndDialog(wParam);
 			return TRUE;
 		}
 	}
@@ -78,3 +78,5 @@ const std::string& RenameFileDialog::GetHostFileName() const
 {
 	return m_HostFileName;
 }
+
+/****************************************************************************/

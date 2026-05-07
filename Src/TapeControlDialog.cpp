@@ -35,8 +35,8 @@ TapeControlDialog* g_pTapeControlDialog = nullptr;
 
 /****************************************************************************/
 
-TapeControlDialog::TapeControlDialog(HINSTANCE hInstance, HWND hwndMain) :
-	Dialog(hInstance, hwndMain, IDD_TAPECONTROL)
+TapeControlDialog::TapeControlDialog(HINSTANCE hInstance, HWND hwndParent) :
+	Dialog(hInstance, hwndParent, IDD_TAPECONTROL)
 {
 }
 

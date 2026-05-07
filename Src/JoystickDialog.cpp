@@ -144,11 +144,11 @@ INT_PTR JoystickDialog::DlgProc(UINT   nMessage,
 
 				case IDOK:
 					UpdateSelected();
-					EndDialog(m_hwnd, wParam);
+					EndDialog(wParam);
 					return TRUE;
 
 				case IDCANCEL:
-					EndDialog(m_hwnd, wParam);
+					EndDialog(wParam);
 					return TRUE;
 
 				case IDC_REFRESH:

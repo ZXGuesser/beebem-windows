@@ -164,7 +164,7 @@ INT_PTR ExportFileDialog::DlgProc(UINT   nMessage,
 			return TRUE;
 
 		case IDCANCEL:
-			EndDialog(m_hwnd, wParam);
+			EndDialog(wParam);
 			return TRUE;
 		}
 	}

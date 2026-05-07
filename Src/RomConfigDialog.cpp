@@ -297,11 +297,11 @@ INT_PTR RomConfigDialog::DlgProc(UINT   nMessage,
 				break;
 
 			case IDOK:
-				EndDialog(m_hwnd, TRUE);
+				EndDialog(TRUE);
 				return TRUE;
 
 			case IDCANCEL:
-				EndDialog(m_hwnd, FALSE);
+				EndDialog(FALSE);
 				return TRUE;
 			}
 			break;

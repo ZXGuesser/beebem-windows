@@ -74,11 +74,11 @@ INT_PTR KeyboardLinksDialog::DlgProc(UINT   nMessage,
 						}
 					}
 
-					EndDialog(m_hwnd, wParam);
+					EndDialog(wParam);
 					return TRUE;
 
 				case IDCANCEL:
-					EndDialog(m_hwnd, wParam);
+					EndDialog(wParam);
 					return TRUE;
 			}
 			break;

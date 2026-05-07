@@ -60,7 +60,7 @@ bool Dialog::Open()
 	{
 		m_hwnd = CreateDialogParam(m_hInstance,
 		                           MAKEINTRESOURCE(m_DialogID),
-		                           nullptr,
+		                           m_hwndParent,
 		                           sDlgProc,
 		                           reinterpret_cast<LPARAM>(this));
 
@@ -83,8 +83,8 @@ void Dialog::Close()
 
 /****************************************************************************/
 
-INT_PTR CALLBACK Dialog::sDlgProc(HWND   hwnd,
-                                  UINT   nMessage,
+INT_PTR CALLBACK Dialog::sDlgProc(HWND hwnd,
+                                  UINT nMessage,
                                   WPARAM wParam,
                                   LPARAM lParam)
 {
@@ -180,4 +180,10 @@ void Dialog::EnableDlgItem(int nID, bool bEnable)
 	EnableWindow(GetDlgItem(nID), bEnable);
 }
 
+/****************************************************************************/
+
+void Dialog::EndDialog(INT_PTR nResult)
+{
+	::EndDialog(m_hwnd, nResult);
+}
 /****************************************************************************/

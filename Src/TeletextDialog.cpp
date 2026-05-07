@@ -169,12 +169,12 @@ INT_PTR TeletextDialog::OnCommand(int Notification, int nCommandID)
 				}
 			}
 
-			EndDialog(m_hwnd, IDOK);
+			EndDialog(IDOK);
 			return FALSE;
 		}
 
 		case IDCANCEL:
-			EndDialog(m_hwnd, IDCANCEL);
+			EndDialog(IDCANCEL);
 			return FALSE;
 
 		case IDC_TELETEXT_SOURCE:

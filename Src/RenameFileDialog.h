@@ -39,9 +39,6 @@ class RenameFileDialog : public Dialog
 		const std::string& GetHostFileName() const;
 
 	private:
-		void ExportSelectedFiles();
-
-	private:
 		virtual INT_PTR DlgProc(
 			UINT   nMessage,
 			WPARAM wParam,

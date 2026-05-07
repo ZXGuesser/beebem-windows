@@ -39,14 +39,14 @@ class Dialog
 
 	private:
 		static INT_PTR CALLBACK sDlgProc(
-			HWND   hwnd,
-			UINT   nMessage,
+			HWND hwnd,
+			UINT nMessage,
 			WPARAM wParam,
 			LPARAM lParam
 		);
 
 		virtual INT_PTR DlgProc(
-			UINT   nMessage,
+			UINT nMessage,
 			WPARAM wParam,
 			LPARAM lParam
 		) = 0;
@@ -60,6 +60,7 @@ class Dialog
 		void SetDlgItemChecked(int nID, bool bChecked);
 		void SetDlgItemFocus(int nID);
 		void EnableDlgItem(int nID, bool bEnable);
+		void EndDialog(INT_PTR nResult);
 
 	protected:
 		HINSTANCE m_hInstance;

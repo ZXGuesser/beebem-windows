@@ -125,12 +125,12 @@ INT_PTR SerialPortDialog::DlgProc(UINT   nMessage,
 				m_IP232Handshake = IsDlgItemChecked(IDC_IP232_HANDSHAKE);
 			}
 
-			EndDialog(m_hwnd, wParam);
+			EndDialog(wParam);
 			break;
 		}
 
 		case IDCANCEL:
-			EndDialog(m_hwnd, wParam);
+			EndDialog(wParam);
 			return TRUE;
 
 		case IDC_SERIAL_PORT_DESTINATION_SERIAL_PORT:

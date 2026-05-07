@@ -52,7 +52,7 @@ INT_PTR AboutDialog::DlgProc(UINT nMessage, WPARAM wParam, LPARAM /* lParam */)
 			{
 				case IDOK:
 				case IDCANCEL:
-					EndDialog(m_hwnd, wParam);
+					EndDialog(wParam);
 					return TRUE;
 			}
 	}
