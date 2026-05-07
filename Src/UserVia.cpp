@@ -113,9 +113,9 @@ void UserVIAWrite(int Address, unsigned char Value)
 				UpdateIFRTopBit();
 			}
 
-			if (userPortBreakoutDialog != nullptr)
+			if (g_pUserPortBreakoutDialog != nullptr)
 			{
-				userPortBreakoutDialog->ShowOutputs(UserVIAState.orb);
+				g_pUserPortBreakoutDialog->ShowOutputs(UserVIAState.orb);
 			}
 
 			if (UserPortRTCEnabled)
@@ -272,9 +272,9 @@ unsigned char UserVIARead(int Address)
 				Value = (Value & 0xfe) | (unsigned char)UserPortRTCReadBit();
 			}
 
-			if (userPortBreakoutDialog != nullptr)
+			if (g_pUserPortBreakoutDialog != nullptr)
 			{
-				userPortBreakoutDialog->ShowInputs(Value);
+				g_pUserPortBreakoutDialog->ShowInputs(Value);
 			}
 
 			if (AMXMouseEnabled)

@@ -2531,9 +2531,9 @@ LRESULT BeebWin::WndProc(UINT nMessage, WPARAM wParam, LPARAM lParam)
 			{
 				bool bit = false;
 
-				if (userPortBreakoutDialog != nullptr)
+				if (g_pUserPortBreakoutDialog != nullptr)
 				{
-					bit = userPortBreakoutDialog->KeyDown((int)wParam);
+					bit = g_pUserPortBreakoutDialog->KeyDown((int)wParam);
 				}
 
 				if (!bit)
@@ -2621,9 +2621,9 @@ LRESULT BeebWin::WndProc(UINT nMessage, WPARAM wParam, LPARAM lParam)
 			{
 				bool bit = false;
 
-				if (userPortBreakoutDialog != nullptr)
+				if (g_pUserPortBreakoutDialog != nullptr)
 				{
-					bit = userPortBreakoutDialog->KeyUp(static_cast<int>(wParam));
+					bit = g_pUserPortBreakoutDialog->KeyUp(static_cast<int>(wParam));
 				}
 
 				if (!bit)
@@ -2803,8 +2803,8 @@ LRESULT BeebWin::WndProc(UINT nMessage, WPARAM wParam, LPARAM lParam)
 			break;
 
 		case WM_USER_PORT_BREAKOUT_DIALOG_CLOSED:
-			delete userPortBreakoutDialog;
-			userPortBreakoutDialog = nullptr;
+			delete g_pUserPortBreakoutDialog;
+			g_pUserPortBreakoutDialog = nullptr;
 			break;
 
 		case WM_IP232_ERROR:
@@ -4828,16 +4828,16 @@ void BeebWin::HandleCommand(UINT MenuID)
 		break;
 
 	case IDM_BREAKOUT:
-		if (userPortBreakoutDialog != nullptr)
+		if (g_pUserPortBreakoutDialog != nullptr)
 		{
-			userPortBreakoutDialog->Close();
-			delete userPortBreakoutDialog;
-			userPortBreakoutDialog = nullptr;
+			g_pUserPortBreakoutDialog->Close();
+			delete g_pUserPortBreakoutDialog;
+			g_pUserPortBreakoutDialog = nullptr;
 		}
 		else
 		{
-			userPortBreakoutDialog = new UserPortBreakoutDialog(hInst, m_hWnd);
-			userPortBreakoutDialog->Open();
+			g_pUserPortBreakoutDialog = new UserPortBreakoutDialog(hInst, m_hWnd);
+			g_pUserPortBreakoutDialog->Open();
 		}
 		break;
 

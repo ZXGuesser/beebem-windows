@@ -33,7 +33,7 @@ Boston, MA  02110-1301, USA.
 
 /* User Port Breakout Box */
 
-UserPortBreakoutDialog* userPortBreakoutDialog = nullptr;
+UserPortBreakoutDialog* g_pUserPortBreakoutDialog = nullptr;
 
 int BitKeys[8] = { 48, 49, 50, 51, 52, 53, 54, 55 };
 

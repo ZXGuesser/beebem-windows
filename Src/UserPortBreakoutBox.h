@@ -75,6 +75,6 @@ class UserPortBreakoutDialog
 
 extern int BitKeys[8];
 
-extern UserPortBreakoutDialog* userPortBreakoutDialog;
+extern UserPortBreakoutDialog* g_pUserPortBreakoutDialog;
 
 #endif
