@@ -20,6 +20,8 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
+#include <windows.h>
+
 #include "UserPortBreakoutBox.h"
 #include "KeyMap.h"
 #include "Main.h"
@@ -44,67 +46,13 @@ static const UINT BitKeyButtonIDs[8] = {
 
 /****************************************************************************/
 
-UserPortBreakoutDialog::UserPortBreakoutDialog(
-	HINSTANCE hInstance,
-	HWND hwndParent) :
-	m_hInstance(hInstance),
-	m_hwnd(nullptr),
-	m_hwndParent(hwndParent),
+UserPortBreakoutDialog::UserPortBreakoutDialog(HINSTANCE hInstance,
+                                               HWND hwndParent) :
+	Dialog(hInstance, hwndParent, IDD_BREAKOUT),
 	m_BitKey(0),
 	m_LastInputData(0),
 	m_LastOutputData(0)
 {
-}
-
-/****************************************************************************/
-
-bool UserPortBreakoutDialog::Open()
-{
-	if (m_hwnd != nullptr)
-	{
-		// The dialog box is already open.
-		return false;
-	}
-
-	m_hwnd = CreateDialogParam(
-		m_hInstance,
-		MAKEINTRESOURCE(IDD_BREAKOUT),
-		m_hwndParent,
-		sDlgProc,
-		reinterpret_cast<LPARAM>(this)
-	);
-
-	if (m_hwnd != nullptr)
-	{
-		DisableRoundedCorners(m_hwnd);
-
-		hCurrentDialog = m_hwnd;
-		return true;
-	}
-
-	return false;
-}
-
-/****************************************************************************/
-
-void UserPortBreakoutDialog::Close()
-{
-	if (m_hwnd == nullptr)
-	{
-		return;
-	}
-
-	if (selectKeyDialog != nullptr)
-	{
-		selectKeyDialog->Close(IDCANCEL);
-	}
-
-	EnableWindow(m_hwndParent, TRUE);
-	DestroyWindow(m_hwnd);
-	m_hwnd = nullptr;
-	hCurrentDialog = nullptr;
-
-	PostMessage(m_hwndParent, WM_USER_PORT_BREAKOUT_DIALOG_CLOSED, 0, 0);
 }
 
 /****************************************************************************/
@@ -157,41 +105,9 @@ bool UserPortBreakoutDialog::KeyUp(int Key)
 
 /****************************************************************************/
 
-INT_PTR CALLBACK UserPortBreakoutDialog::sDlgProc(
-	HWND   hwnd,
-	UINT   nMessage,
-	WPARAM wParam,
-	LPARAM lParam)
-{
-	UserPortBreakoutDialog* dialog;
-
-	if (nMessage == WM_INITDIALOG)
-	{
-		SetWindowLongPtr(hwnd, DWLP_USER, lParam);
-		dialog = reinterpret_cast<UserPortBreakoutDialog*>(lParam);
-	}
-	else
-	{
-		dialog = reinterpret_cast<UserPortBreakoutDialog*>(
-			GetWindowLongPtr(hwnd, DWLP_USER)
-		);
-	}
-
-	if (dialog)
-	{
-		return dialog->DlgProc(hwnd, nMessage, wParam, lParam);
-	}
-	else
-	{
-		return FALSE;
-	}
-}
-
-INT_PTR UserPortBreakoutDialog::DlgProc(
-	HWND   /* hwnd */,
-	UINT   nMessage,
-	WPARAM wParam,
-	LPARAM /* lParam */)
+INT_PTR UserPortBreakoutDialog::DlgProc(UINT nMessage,
+                                        WPARAM wParam,
+                                        LPARAM /* lParam */)
 {
 	bool bit;
 
@@ -310,6 +226,17 @@ INT_PTR UserPortBreakoutDialog::DlgProc(
 		}
 		return TRUE;
 
+	case WM_DESTROY:
+		if (selectKeyDialog != nullptr)
+		{
+			selectKeyDialog->Close(IDCANCEL);
+		}
+
+		EnableWindow(m_hwndParent, TRUE);
+
+		PostMessage(m_hwndParent, WM_USER_PORT_BREAKOUT_DIALOG_CLOSED, 0, 0);
+		break;
+
 	case WM_CLEAR_KEY_MAPPING:
 		BitKeys[m_BitKey] = 0;
 		ShowBitKey(m_BitKey, BitKeyButtonIDs[m_BitKey]);
@@ -336,14 +263,14 @@ INT_PTR UserPortBreakoutDialog::DlgProc(
 
 bool UserPortBreakoutDialog::GetValue(int ctrlID)
 {
-	return SendDlgItemMessage(m_hwnd, ctrlID, BM_GETCHECK, 0, 0) == BST_CHECKED;
+	return SendDlgItemMessage(ctrlID, BM_GETCHECK, 0, 0) == BST_CHECKED;
 }
 
 /****************************************************************************/
 
 void UserPortBreakoutDialog::SetValue(int ctrlID, bool State)
 {
-	SendDlgItemMessage(m_hwnd, ctrlID, BM_SETCHECK, State ? 1 : 0, 0);
+	SendDlgItemMessage(ctrlID, BM_SETCHECK, State ? 1 : 0, 0);
 }
 
 /****************************************************************************/
@@ -394,7 +321,7 @@ void UserPortBreakoutDialog::ShowInputs(unsigned char data)
 
 void UserPortBreakoutDialog::ShowBitKey(int key, int ctrlID)
 {
-	SetDlgItemText(m_hwnd, ctrlID, GetPCKeyName(BitKeys[key]));
+	SetDlgItemText(ctrlID, GetPCKeyName(BitKeys[key]));
 }
 
 /****************************************************************************/
@@ -420,3 +347,5 @@ void UserPortBreakoutDialog::PromptForBitKeyInput(int bitKey)
 
 	selectKeyDialog->Open();
 }
+
+/****************************************************************************/
