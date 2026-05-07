@@ -40,9 +40,10 @@ Dialog::Dialog(HINSTANCE hInstance,
 
 /****************************************************************************/
 
+// Show modal dialog box.
+
 bool Dialog::DoModal()
 {
-	// Show dialog box
 	INT_PTR Result = DialogBoxParam(m_hInstance,
 	                                MAKEINTRESOURCE(m_DialogID),
 	                                m_hwndParent,
@@ -53,6 +54,8 @@ bool Dialog::DoModal()
 }
 
 /****************************************************************************/
+
+// Open modeless dialog box.
 
 bool Dialog::Open()
 {
@@ -74,6 +77,8 @@ bool Dialog::Open()
 
 /****************************************************************************/
 
+// Close modeless dialog box.
+
 void Dialog::Close()
 {
 	DestroyWindow(m_hwnd);
@@ -88,28 +93,28 @@ INT_PTR CALLBACK Dialog::sDlgProc(HWND hwnd,
                                   WPARAM wParam,
                                   LPARAM lParam)
 {
-	Dialog* dialog;
+	Dialog* pDialog;
 
 	if (nMessage == WM_INITDIALOG)
 	{
 		SetWindowLongPtr(hwnd, DWLP_USER, lParam);
-		dialog = reinterpret_cast<Dialog*>(lParam);
-		dialog->m_hwnd = hwnd;
+		pDialog = reinterpret_cast<Dialog*>(lParam);
+		pDialog->m_hwnd = hwnd;
 
 		DisableRoundedCorners(hwnd);
 
-		CentreWindow(dialog->m_hwndParent, hwnd);
+		CentreWindow(pDialog->m_hwndParent, hwnd);
 	}
 	else
 	{
-		dialog = reinterpret_cast<Dialog*>(
+		pDialog = reinterpret_cast<Dialog*>(
 			GetWindowLongPtr(hwnd, DWLP_USER)
 		);
 	}
 
-	if (dialog)
+	if (pDialog != nullptr)
 	{
-		return dialog->DlgProc(nMessage, wParam, lParam);
+		return pDialog->DlgProc(nMessage, wParam, lParam);
 	}
 	else
 	{
@@ -186,4 +191,5 @@ void Dialog::EndDialog(INT_PTR nResult)
 {
 	::EndDialog(m_hwnd, nResult);
 }
+
 /****************************************************************************/
