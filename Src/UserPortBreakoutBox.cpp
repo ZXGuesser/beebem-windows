@@ -232,8 +232,6 @@ INT_PTR UserPortBreakoutDialog::DlgProc(UINT nMessage,
 			g_pSelectKeyDialog->Close();
 		}
 
-		EnableWindow(m_hwndParent, TRUE);
-
 		PostMessage(m_hwndParent, WM_USER_PORT_BREAKOUT_DIALOG_CLOSED, 0, 0);
 		break;
 
