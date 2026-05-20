@@ -23,14 +23,14 @@ Boston, MA  02110-1301, USA.
 
 #include <string>
 
-class Dialog
+#include "Window.h"
+
+class Dialog : public Window
 {
 	public:
-		Dialog(
-			HINSTANCE hInstance,
-			HWND hwndParent,
-			int DialogID
-		);
+		Dialog(HINSTANCE hInstance,
+		       HWND hwndParent,
+		       int DialogID);
 
 	public:
 		bool DoModal();
@@ -38,35 +38,19 @@ class Dialog
 		void Close();
 
 	private:
-		static INT_PTR CALLBACK sDlgProc(
-			HWND hwnd,
-			UINT nMessage,
-			WPARAM wParam,
-			LPARAM lParam
-		);
+		static INT_PTR CALLBACK DlgProcCallback(HWND hwnd,
+		                                        UINT nMessage,
+		                                        WPARAM wParam,
+		                                        LPARAM lParam);
 
-		virtual INT_PTR DlgProc(
-			UINT nMessage,
-			WPARAM wParam,
-			LPARAM lParam
-		) = 0;
-
-	protected:
-		HWND GetDlgItem(int nID);
-		std::string GetDlgItemText(int nID);
-		void SetDlgItemText(int nID, const std::string& str);
-		LRESULT SendDlgItemMessage(int nID, UINT Msg, WPARAM wParam, LPARAM lParam);
-		bool IsDlgItemChecked(int nID);
-		void SetDlgItemChecked(int nID, bool bChecked);
-		void SetDlgItemFocus(int nID);
-		void EnableDlgItem(int nID, bool bEnable);
-		void EndDialog(INT_PTR nResult);
+		virtual INT_PTR DlgProc(UINT nMessage,
+		                        WPARAM wParam,
+		                        LPARAM lParam) = 0;
 
 	protected:
 		HINSTANCE m_hInstance;
 		HWND m_hwndParent;
 		int m_DialogID;
-		HWND m_hwnd;
 };
 
 #endif

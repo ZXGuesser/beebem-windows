@@ -26,6 +26,9 @@ Boston, MA  02110-1301, USA.
 #ifndef ECONET_HEADER
 #define ECONET_HEADER
 
+#include <deque>
+#include <string>
+
 bool EconetReset();
 unsigned char EconetRead(unsigned char Register);
 void EconetWrite(unsigned char Register, unsigned char Value);
@@ -79,6 +82,49 @@ extern unsigned char PreferredNetworkID;
 
 extern char EconetCfgPath[MAX_PATH];
 extern char AUNMapPath[MAX_PATH];
+
+enum class BroadcastSource
+{
+	Unknown,
+	Local,
+	Gateway
+};
+
+// Holds data from Econet.cfg file or a host we have discovered
+struct EconetHost
+{
+	unsigned char Station;
+	unsigned char Network;
+	unsigned long IPAddress;
+	unsigned short Port;
+	bool Static; // Static hosts are defined in Econet.cfg, otherwise dynamic.
+	BroadcastSource Broadcasts; // where to accept broadcasts from
+	time_t Timeout;
+};
+
+struct EconetNet
+{
+	unsigned long IPAddress;
+	unsigned char Network;
+	unsigned short Port; // AUN port or base port from which sequential ports are calculated
+	BroadcastSource Broadcasts; // where to accept broadcasts from
+};
+
+struct EconetGateway
+{
+	unsigned long IPAddress;
+	unsigned short Port;
+};
+
+const EconetGateway* GetEconetGateway();
+
+int GetEconetHostCount();
+const EconetHost* GetEconetHost(int Index);
+
+int GetEconetNetworkCount();
+const EconetNet* GetEconetNetwork(int Index);
+
+const std::deque<std::string>* GetEconetLogBuffer();
 
 // #define DEBUG_ECONET
 // #define DEBUG_ECONET_ADLC

@@ -112,9 +112,9 @@ LPARAM ListView::GetItemData(UINT uRow)
 
 /****************************************************************************/
 
-void ListView::SetItemText(UINT uRow, UINT uCol, const LPTSTR pszText)
+void ListView::SetItemText(UINT uRow, UINT uCol, const char* pszText)
 {
-	ListView_SetItemText(m_hWnd, uRow, uCol, pszText);
+	ListView_SetItemText(m_hWnd, uRow, uCol, const_cast<char*>(pszText));
 }
 
 /****************************************************************************/

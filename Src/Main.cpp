@@ -33,6 +33,7 @@ Boston, MA  02110-1301, USA.
 #include "6502core.h"
 #include "BeebWin.h"
 #include "Debug.h"
+#include "EconetDialog.h"
 #include "Log.h"
 #include "SelectKeyDialog.h"
 
@@ -79,6 +80,16 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */,
 			{
 				// Quit the app on WM_QUIT
 				break;
+			}
+
+			if (g_pEconetDialog != nullptr && g_pEconetDialog->ProcessMessage(&msg))
+			{
+				if (!g_pEconetDialog->IsOpen())
+				{
+					mainWin->EconetDialogClosed();
+				}
+
+				continue;
 			}
 
 			if (hCurrentDialog != nullptr && hCurrentAccelTable != nullptr)

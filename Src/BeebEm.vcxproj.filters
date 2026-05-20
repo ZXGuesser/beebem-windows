@@ -114,6 +114,9 @@
     <ClCompile Include="Econet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="EconetDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="ExportFileDialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -165,6 +168,9 @@
     <ClCompile Include="Log.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="LogView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -181,6 +187,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Preferences.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PropertySheetPage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Registry.cpp">
@@ -283,6 +292,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Video.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Window.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WindowUtils.cpp">
@@ -428,6 +440,9 @@
     <ClInclude Include="Econet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="EconetDialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="ExportFileDialog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -479,6 +494,9 @@
     <ClInclude Include="Log.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="LogView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="Main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -507,6 +525,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Preferences.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PropertySheetPage.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Registry.h">
@@ -621,6 +642,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Video.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Window.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="WindowUtils.h">
