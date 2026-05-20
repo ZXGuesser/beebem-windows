@@ -429,6 +429,9 @@ public:
 	void ToggleEconet();
 	void ResetEconet();
 	void UpdateEconetMenu();
+	void OnEconetNetwork();
+	void EconetDialogClosed();
+	void OnEconetAppendLog(bool BufferFull);
 
 	void DisableWindowsKeys();
 	void UpdateDisableKeysMenu();

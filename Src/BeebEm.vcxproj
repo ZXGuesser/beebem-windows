@@ -195,6 +195,7 @@
     <ClCompile Include="DiscEdit.cpp" />
     <ClCompile Include="DiscInfo.cpp" />
     <ClCompile Include="Econet.cpp" />
+    <ClCompile Include="EconetDialog.cpp" />
     <ClCompile Include="ExportFileDialog.cpp" />
     <ClCompile Include="Ext1770.cpp" />
     <ClCompile Include="FileDialog.cpp" />
@@ -211,12 +212,14 @@
     <ClCompile Include="IP232.cpp" />
     <ClCompile Include="ListView.cpp" />
     <ClCompile Include="Log.cpp" />
+    <ClCompile Include="LogView.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Master512CoPro.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="Music5000.cpp" />
     <ClCompile Include="PALRom.cpp" />
     <ClCompile Include="Preferences.cpp" />
+    <ClCompile Include="PropertySheetPage.cpp" />
     <ClCompile Include="Registry.cpp" />
     <ClCompile Include="RenameFileDialog.cpp" />
     <ClCompile Include="RingBuffer.cpp" />
@@ -252,6 +255,7 @@
     <ClCompile Include="UserVia.cpp" />
     <ClCompile Include="Via.cpp" />
     <ClCompile Include="Video.cpp" />
+    <ClCompile Include="Window.cpp" />
     <ClCompile Include="WindowUtils.cpp" />
     <ClCompile Include="XAudio2Streamer.cpp" />
     <ClCompile Include="Z80.cpp" />
@@ -367,6 +371,7 @@
     <ClInclude Include="DiscInfo.h" />
     <ClInclude Include="DiscType.h" />
     <ClInclude Include="Econet.h" />
+    <ClInclude Include="EconetDialog.h" />
     <ClInclude Include="ExportFileDialog.h" />
     <ClInclude Include="Ext1770.h" />
     <ClInclude Include="FileDialog.h" />
@@ -379,6 +384,7 @@
     <ClInclude Include="JoystickOptions.h" />
     <ClInclude Include="KeyboardLinksDialog.h" />
     <ClInclude Include="ListView.h" />
+    <ClInclude Include="LogView.h" />
     <ClInclude Include="Master512CoPro.h" />
     <ClInclude Include="Ide.h" />
     <ClInclude Include="IP232.h" />
@@ -393,6 +399,7 @@
     <ClInclude Include="PALRom.h" />
     <ClInclude Include="Port.h" />
     <ClInclude Include="Preferences.h" />
+    <ClInclude Include="PropertySheetPage.h" />
     <ClInclude Include="RenameFileDialog.h" />
     <ClInclude Include="Registry.h" />
     <ClInclude Include="Resource.h" />
@@ -432,6 +439,7 @@
     <ClInclude Include="Version.h" />
     <ClInclude Include="Via.h" />
     <ClInclude Include="Video.h" />
+    <ClInclude Include="Window.h" />
     <ClInclude Include="WindowUtils.h" />
     <ClInclude Include="XAudio2Streamer.h" />
     <ClInclude Include="Z80.h" />

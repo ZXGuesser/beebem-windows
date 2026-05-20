@@ -101,6 +101,9 @@
 #define IDD_ABOUT                       120
 #define IDD_TELETEXT                    121
 #define IDD_JOYSTICK                    122
+#define IDD_ECONET_NETWORK              123
+#define IDD_ECONET_SETTINGS             124
+#define IDD_ECONET_LOG                  125
 #define IDC_DEBUGBREAK                  1010
 #define IDC_DEBUGINFO                   1015
 #define IDC_DEBUGCOMMAND                1016
@@ -240,6 +243,20 @@
 #define IDC_CHANNEL23_INPUT_COMBO       1149
 #define IDC_BUTTON0_INPUT_COMBO         1150
 #define IDC_BUTTON1_INPUT_COMBO         1151
+#define IDC_NETWORKS_LIST               1152
+#define IDC_STATIONS_LIST               1153
+#define IDC_AUTO_CONFIGURE              1154
+#define IDC_MASSAGE_NETWORKS            1155
+#define IDC_FIND_GATEWAYS               1156
+#define IDC_FLAG_FILL_TIMEOUT_EDIT      1157
+#define IDC_SCOUT_ACK_TIMEOUT_EDIT      1158
+#define IDC_FOUR_WAY_TIMEOUT_EDIT       1159
+#define IDC_TIME_BETWEEN_BYTES_EDIT     1160
+#define IDC_DEFAULT_NETWORK_ID          1161
+#define IDC_GATEWAY                     1162
+#define IDC_GATEWAY_IP_ADDRESS          1163
+#define IDC_GATEWAY_PORT                1164
+#define IDC_LOG                         1164
 #define IDM_ABOUT                       40001
 #define IDM_DISC                        40002
 #define IDM_LOADDISC0                   40002
@@ -475,15 +492,16 @@
 #define IDM_TEXTTOSPEECH_INCREASE_RATE  40324
 #define IDM_TEXTTOSPEECH_DECREASE_RATE  40325
 #define IDM_SELECT_TELETEXT_DATA_SOURCE 40326
+#define IDM_ECONET_NETWORK              40327
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        123
-#define _APS_NEXT_COMMAND_VALUE         40327
-#define _APS_NEXT_CONTROL_VALUE         1152
+#define _APS_NEXT_RESOURCE_VALUE        125
+#define _APS_NEXT_COMMAND_VALUE         40328
+#define _APS_NEXT_CONTROL_VALUE         1165
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

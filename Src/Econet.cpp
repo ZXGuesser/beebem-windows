@@ -42,12 +42,13 @@ Boston, MA  02110-1301, USA.
 #include <assert.h>
 #include <stdio.h>
 
+#include <algorithm>
+#include <ctime>
+#include <deque>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <vector>
-#include <ctime>
-#include <algorithm>
-#include <memory>
 
 #include "Econet.h"
 #include "6502core.h"
@@ -55,6 +56,7 @@ Boston, MA  02110-1301, USA.
 #include "Debug.h"
 #include "DebugTrace.h"
 #include "Main.h"
+#include "Messages.h"
 #include "Rtc.h"
 #include "Socket.h"
 #include "StringUtils.h"
@@ -284,13 +286,6 @@ enum class FourWayStage
 
 static FourWayStage AUNState;
 
-enum class BroadcastSource
-{
-	Unknown,
-	Local,
-	Gateway
-};
-
 struct EconetHeaderType
 {
 	unsigned char DestStn;
@@ -391,32 +386,6 @@ struct ExtendedAUNPacket
 	unsigned char Buffer[ETHERNET_BUFFER_SIZE];
 };
 
-// Holds data from Econet.cfg file or a host we have discovered.
-struct EconetHost
-{
-	unsigned char Station;
-	unsigned char Network;
-	unsigned long IPAddress;
-	unsigned short Port;
-	bool Static; // Static hosts are defined in Econet.cfg, otherwise dynamic.
-	BroadcastSource Broadcasts; // Where to accept broadcasts from.
-	time_t Timeout;
-};
-
-struct EconetNet
-{
-	unsigned long IPAddress;
-	unsigned char Network;
-	unsigned short Port; // AUN port or base port from which sequential ports are calculated
-	BroadcastSource Broadcasts; // Where to accept broadcasts from.
-};
-
-struct EconetGateway
-{
-	unsigned long IPAddress;
-	unsigned short Port;
-};
-
 struct NetStn
 {
 	unsigned char network;
@@ -471,6 +440,9 @@ static MC6854 ADLC;
 // query requested the response be sent to.
 int WhatNetPort = -1; // invalid value when not expecting a WhatNet response
 
+static const size_t MAX_LOG_MESSAGES = 2000;
+static std::deque<std::string> EconetLogMessages;
+
 /****************************************************************************/
 
 static void EconetResetState();
@@ -480,6 +452,7 @@ static bool EconetPollReal();
 static void EconetSendPacket();
 static bool EconetReceivePacket();
 static void EconetError(const char *Format, ...);
+static void EconetLog(const char *Format, ...);
 
 /****************************************************************************/
 
@@ -3706,6 +3679,90 @@ static void EconetError(const char *Format, ...)
 	mainWin->ReportV(MessageType::Error, Format, Args);
 
 	va_end(Args);
+}
+
+/****************************************************************************/
+
+static void EconetLog(const char *Format, ...)
+{
+	va_list Args;
+	va_start(Args, Format);
+
+	// 2026-07-11 11:45:00.123
+	// _vscprintf doesn't count terminating '\0'
+	int Length = _vscprintf(Format, Args) + 24 + 1;
+
+	char *pBuffer = (char*)malloc(Length * sizeof(char));
+
+	if (pBuffer != nullptr)
+	{
+		SYSTEMTIME Time;
+		GetLocalTime(&Time);
+
+		sprintf(pBuffer, "%04d-%02d-%02d %02d:%02d:%02d.%03d ",
+		        Time.wYear, Time.wMonth, Time.wDay,
+		        Time.wHour, Time.wMinute, Time.wSecond, Time.wMilliseconds);
+
+		vsprintf_s(pBuffer + 24, (Length - 24) * sizeof(char), Format, Args);
+
+		bool BufferFull = EconetLogMessages.size() == MAX_LOG_MESSAGES;
+
+		if (BufferFull)
+		{
+			// Discard oldest message.
+			EconetLogMessages.pop_front();
+		}
+
+		EconetLogMessages.push_back(pBuffer);
+
+		free(pBuffer);
+
+		PostMessage(mainWin->GethWnd(), WM_ECONET_APPEND_LOG, BufferFull, 0);
+	}
+
+	va_end(Args);
+}
+
+/****************************************************************************/
+
+const EconetGateway* GetEconetGateway()
+{
+	return &Gateway;
+}
+
+/****************************************************************************/
+
+int GetEconetHostCount()
+{
+	return (int)Stations.size();
+}
+
+/****************************************************************************/
+
+const EconetHost* GetEconetHost(int Index)
+{
+	return &Stations[Index];
+}
+
+/****************************************************************************/
+
+int GetEconetNetworkCount()
+{
+	return (int)Networks.size();
+}
+
+/****************************************************************************/
+
+const EconetNet* GetEconetNetwork(int Index)
+{
+	return &Networks[Index];
+}
+
+/****************************************************************************/
+
+const std::deque<std::string>* GetEconetLogBuffer()
+{
+	return &EconetLogMessages;
 }
 
 /****************************************************************************/

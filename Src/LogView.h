@@ -1,6 +1,6 @@
 /****************************************************************
 BeebEm - BBC Micro and Master 128 Emulator
-Copyright (C) 2023 Chris Needham
+Copyright (C) 2026  Chris Needham
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -18,39 +18,58 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-#ifndef DIALOG_HEADER
-#define DIALOG_HEADER
+#ifndef LOG_VIEW_HEADER
+#define LOG_VIEW_HEADER
 
-#include <string>
+#include <deque>
 
-#include "Window.h"
-
-class Dialog : public Window
+class LogView
 {
 	public:
-		Dialog(HINSTANCE hInstance,
-		       HWND hwndParent,
-		       int DialogID);
+		LogView(const std::deque<std::string>* pLogBuffer);
 
-	public:
-		bool DoModal();
-		bool Open();
-		void Close();
+		static bool InitClass(HINSTANCE hInstance);
+
+		bool Create(HINSTANCE hInstance,
+		            HWND hwndParent,
+		            int id,
+		            const RECT& rc);
+
+		void SetLogBuffer(const std::deque<std::string>* pLogBuffer);
+		void AppendLog(bool BufferFull);
+		void Clear();
 
 	private:
-		static INT_PTR CALLBACK DlgProcCallback(HWND hwnd,
+		static LRESULT CALLBACK WndProcCallback(HWND hwnd,
 		                                        UINT nMessage,
 		                                        WPARAM wParam,
 		                                        LPARAM lParam);
 
-		virtual INT_PTR DlgProc(UINT nMessage,
-		                        WPARAM wParam,
-		                        LPARAM lParam) = 0;
+		LRESULT WndProc(UINT nMessage,
+		                WPARAM wParam,
+		                LPARAM lParam);
 
-	protected:
-		HINSTANCE m_hInstance;
+		void OnNcCreate();
+		void OnPaint();
+		void OnLButtonDown(int YPos);
+		void OnMouseMove(int YPos);
+		void OnLButtonUp(int YPos);
+		void OnVScroll(int Event);
+		void OnMouseWheel(int Delta);
+
+		void UpdateScrollBar();
+		int GetLineAtY(int y) const;
+
+	private:
+		HWND m_hwnd;
 		HWND m_hwndParent;
-		int m_DialogID;
+		const std::deque<std::string>* m_pLogBuffer;
+		HFONT m_hFont;
+		int m_LineHeight;
+		int m_ScrollPos;
+		bool m_Dragging;
+		int m_SelectionStart;
+		int m_SelectionEnd;
 };
 
 #endif

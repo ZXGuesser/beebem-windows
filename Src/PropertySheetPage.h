@@ -1,6 +1,6 @@
 /****************************************************************
 BeebEm - BBC Micro and Master 128 Emulator
-Copyright (C) 2023 Chris Needham
+Copyright (C) 2026  Chris Needham
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -18,24 +18,19 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-#ifndef DIALOG_HEADER
-#define DIALOG_HEADER
-
-#include <string>
+#ifndef PROPERTY_SHEET_PAGE_HEADER
+#define PROPERTY_SHEET_PAGE_HEADER
 
 #include "Window.h"
 
-class Dialog : public Window
+class PropertySheetPage : public Window
 {
 	public:
-		Dialog(HINSTANCE hInstance,
-		       HWND hwndParent,
-		       int DialogID);
+		PropertySheetPage(HINSTANCE hInstance,
+		                  int DialogID);
 
 	public:
-		bool DoModal();
-		bool Open();
-		void Close();
+		const PROPSHEETPAGE* GetPropSheetPage() const;
 
 	private:
 		static INT_PTR CALLBACK DlgProcCallback(HWND hwnd,
@@ -43,14 +38,22 @@ class Dialog : public Window
 		                                        WPARAM wParam,
 		                                        LPARAM lParam);
 
-		virtual INT_PTR DlgProc(UINT nMessage,
-		                        WPARAM wParam,
-		                        LPARAM lParam) = 0;
+		INT_PTR DlgProc(UINT nMessage,
+		                WPARAM wParam,
+		                LPARAM lParam);
 
-	protected:
-		HINSTANCE m_hInstance;
-		HWND m_hwndParent;
-		int m_DialogID;
+		virtual INT_PTR HandleMessage(UINT nMessage,
+		                              WPARAM wParam,
+		                              LPARAM lParam);
+
+	private:
+		virtual void OnInitDialog();
+		virtual bool OnSetActive();
+		virtual bool OnKillActive();
+		virtual bool OnApply();
+
+	private:
+		PROPSHEETPAGE m_Page;
 };
 
 #endif

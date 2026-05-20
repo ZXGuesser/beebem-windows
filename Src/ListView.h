@@ -43,7 +43,7 @@ class ListView
 		void DeleteAllItems();
 		int GetItemCount();
 		LPARAM GetItemData(UINT uRow);
-		void SetItemText(UINT uRow, UINT uCol, const LPTSTR pszText);
+		void SetItemText(UINT uRow, UINT uCol, const char* pszText);
 		int FindItemData(LPARAM ItemData);
 		int GetNextItem(int Index, UINT Flags);
 

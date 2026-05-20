@@ -1,6 +1,6 @@
 /****************************************************************
 BeebEm - BBC Micro and Master 128 Emulator
-Copyright (C) 2020  Chris Needham
+Copyright (C) 2026 Chris Needham
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -18,23 +18,29 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
-#ifndef MESSAGES_HEADER
-#define MESSAGES_HEADER
+#ifndef WINDOW_HEADER
+#define WINDOW_HEADER
 
-#include <windows.h>
+#include <string>
 
-constexpr UINT WM_USER_KEYBOARD_DIALOG_CLOSED      = WM_APP;
-constexpr UINT WM_SELECT_KEY_DIALOG_CLOSED         = WM_APP + 1;
-constexpr UINT WM_CLEAR_KEY_MAPPING                = WM_APP + 2;
-constexpr UINT WM_USER_PORT_BREAKOUT_DIALOG_CLOSED = WM_APP + 3;
-constexpr UINT WM_IP232_ERROR                      = WM_APP + 4;
-constexpr UINT WM_DIRECTX9_DEVICE_LOST             = WM_APP + 5;
-constexpr UINT WM_SET_WINDOW_CLIENT_SIZE           = WM_APP + 6;
-constexpr UINT WM_REPORT_ERROR                     = WM_APP + 7;
-constexpr UINT WM_INIT_JOYSTICK                    = WM_APP + 8;
-constexpr UINT WM_ECONET_APPEND_LOG                = WM_APP + 9;
+class Window
+{
+	public:
+		Window();
 
-// Menu item IDs
-constexpr UINT IDM_TEXT_TO_SPEECH_VOICE_BASE = 50000;
+	protected:
+		HWND GetDlgItem(int nID);
+		std::string GetDlgItemText(int nID);
+		void SetDlgItemText(int nID, const std::string& str);
+		LRESULT SendDlgItemMessage(int nID, UINT Msg, WPARAM wParam, LPARAM lParam);
+		bool IsDlgItemChecked(int nID);
+		void SetDlgItemChecked(int nID, bool bChecked);
+		void SetDlgItemFocus(int nID);
+		void EnableDlgItem(int nID, bool bEnable);
+		void EndDialog(INT_PTR nResult);
+
+	protected:
+		HWND m_hwnd;
+};
 
 #endif

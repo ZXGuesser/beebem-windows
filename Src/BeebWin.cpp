@@ -67,6 +67,7 @@ using std::max;
 #include "Disc8271.h"
 #include "DiscInfo.h"
 #include "Econet.h" // Rob O'Donnell Christmas 2004.
+#include "EconetDialog.h"
 #include "Ext1770.h"
 #include "FolderSelectDialog.h"
 #include "FileType.h"
@@ -78,6 +79,7 @@ using std::max;
 #include "KeyboardLinksDialog.h"
 #include "KeyMap.h"
 #include "Log.h"
+#include "LogView.h"
 #include "Main.h"
 #include "Master512CoPro.h"
 #include "Messages.h"
@@ -484,6 +486,11 @@ bool BeebWin::Initialise()
 	if (WSAStartup(MAKEWORD(2, 2), &WsaData) != 0)
 	{
 		Report(MessageType::Error, "Windows Sockets initialisation failed");
+		return false;
+	}
+
+	if (!LogView::InitClass(hInst))
+	{
 		return false;
 	}
 
@@ -1238,6 +1245,7 @@ void BeebWin::ReleaseBitmap()
 }
 
 /****************************************************************************/
+
 bool BeebWin::InitClass()
 {
 	WNDCLASS wc;
@@ -2833,6 +2841,10 @@ LRESULT BeebWin::WndProc(UINT nMessage, WPARAM wParam, LPARAM lParam)
 			OnInitJoystick();
 			break;
 
+		case WM_ECONET_APPEND_LOG:
+			OnEconetAppendLog(wParam != 0);
+			break;
+
 		default: // Passes it on if unprocessed
 			return DefWindowProc(m_hWnd, nMessage, wParam, lParam);
 	}
@@ -4027,6 +4039,55 @@ void BeebWin::UpdateEconetMenu()
 
 /****************************************************************************/
 
+void BeebWin::OnEconetNetwork()
+{
+	if (g_pEconetDialog != nullptr)
+	{
+		return;
+	}
+
+	g_pEconetDialog = new(std::nothrow) EconetDialog(hInst,
+	                                                 m_hWnd,
+	                                                 GetEconetLogBuffer());
+
+	if (g_pEconetDialog == nullptr)
+	{
+		return;
+	}
+
+	if (g_pEconetDialog->Open())
+	{
+		EnableMenuItem(IDM_ECONET_NETWORK, false);
+	}
+	else
+	{
+		delete g_pEconetDialog;
+		g_pEconetDialog = nullptr;
+	}
+}
+
+/****************************************************************************/
+
+void BeebWin::EconetDialogClosed()
+{
+	delete g_pEconetDialog;
+	g_pEconetDialog = nullptr;
+
+	EnableMenuItem(IDM_ECONET_NETWORK, true);
+}
+
+/****************************************************************************/
+
+void BeebWin::OnEconetAppendLog(bool BufferFull)
+{
+	if (g_pEconetDialog != nullptr)
+	{
+		g_pEconetDialog->AppendLog(BufferFull);
+	}
+}
+
+/****************************************************************************/
+
 void BeebWin::UpdateLEDMenu()
 {
 	CheckMenuRadioItem(
@@ -4180,6 +4241,10 @@ void BeebWin::HandleCommand(UINT MenuID)
 	//Rob
 	case IDM_ECONET:
 		ToggleEconet();
+		break;
+
+	case IDM_ECONET_NETWORK:
+		OnEconetNetwork();
 		break;
 
 	case IDM_DISPGDI:
