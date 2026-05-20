@@ -1233,7 +1233,7 @@ bool EconetReset()
 
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Sending gateway discovery packet (%s port %d)\n",
-			           IpAddressStr(BroadcastAddresses[i]).c_str(), DEFAULT_AUN_PORT);
+			           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(), ntohs(RecvAddr.sin_port));
 			#endif
 
 			if (sendto(Socket, (const char *)&Packet, sizeof(Packet), 0,
