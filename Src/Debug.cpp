@@ -1182,13 +1182,13 @@ static void SetDlgItemChecked(HWND hDlg, int nIDDlgItem, bool checked)
 
 /****************************************************************************/
 
-void DebugOpenDialog(HINSTANCE hinst, HWND /* hwndMain */)
+void DebugOpenDialog(HINSTANCE hInstance, HWND /* hwndParent */)
 {
 	if (hwndInvisibleOwner == nullptr)
 	{
 		// Keep the debugger off the taskbar with an invisible owner window.
 		// This persists until the process closes.
-		hwndInvisibleOwner = CreateWindowEx(0, "STATIC", 0, 0, 0, 0, 0, 0, 0, 0, hinst, 0);
+		hwndInvisibleOwner = CreateWindowEx(0, "STATIC", 0, 0, 0, 0, 0, 0, 0, 0, hInstance, 0);
 	}
 
 	if (hwndDebug != nullptr)
@@ -1198,8 +1198,8 @@ void DebugOpenDialog(HINSTANCE hinst, HWND /* hwndMain */)
 
 	DebugEnabled = true;
 
-	haccelDebug = LoadAccelerators(hinst, MAKEINTRESOURCE(IDR_ACCELERATORS));
-	hwndDebug = CreateDialog(hinst, MAKEINTRESOURCE(IDD_DEBUG),
+	haccelDebug = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDR_ACCELERATORS));
+	hwndDebug = CreateDialog(hInstance, MAKEINTRESOURCE(IDD_DEBUG),
 	                         hwndInvisibleOwner, DebugDlgProc);
 
 	hCurrentDialog = hwndDebug;

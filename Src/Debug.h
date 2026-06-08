@@ -124,7 +124,7 @@ int DebugDisassembleInstructionWithCPUStatus(int Addr,
                                              unsigned char PSR,
                                              char *pszOutput);
 
-void DebugOpenDialog(HINSTANCE hinst, HWND hwndMain);
+void DebugOpenDialog(HINSTANCE hInstance, HWND hwndParent);
 void DebugCloseDialog();
 
 void DebugDisplayTrace(DebugType Type, bool Host, const char *Info);
