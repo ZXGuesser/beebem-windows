@@ -473,58 +473,6 @@ static void EconetError(const char *Format, ...);
 
 //---------------------------------------------------------------------------
 
-#ifdef DEBUG_ECONET
-
-static void DebugDumpBytes(const char* pszMessage, const unsigned char* pData, int Length)
-{
-	const int BytesPerLine = 16;
-
-	bool Pad  = Length > BytesPerLine;
-
-	int Offset = 0;
-
-	std::string str;
-
-	while (Length > 0)
-	{
-		int i;
-
-		for (i = 0; i < BytesPerLine && i < Length; i++)
-		{
-			char sz[5];
-			sprintf(sz, "%02X ", pData[Offset + i]);
-
-			str += sz;
-		}
-
-		if (Pad)
-		{
-			for (; i < BytesPerLine; i++)
-			{
-				str += "   ";
-			}
-		}
-
-		str += "| ";
-
-		for (i = 0; i < BytesPerLine && i < Length; i++)
-		{
-			str += isprint(pData[Offset + i]) ? pData[Offset + i] : '.';
-		}
-
-		DebugTrace("%s %s\n", pszMessage, str.c_str());
-
-		str.clear();
-
-		Length -= BytesPerLine;
-		Offset += BytesPerLine;
-	}
-}
-
-#endif
-
-//---------------------------------------------------------------------------
-
 static const char* AUNStateStr(FourWayStage State)
 {
 	switch (State)
@@ -884,13 +832,14 @@ static void AllocateNewAddress()
 									// only resolve true AUN stations.
 									Stations.clear();
 									
-									// forget any configured extended AUN gateway.
-									Gateway = { 0, 0 };
+									// Forget any configured extended AUN gateway.
+									Gateway.inet_addr = 0;
+									Gateway.port = 0;
 									
 									#ifdef DEBUG_ECONET
 									DebugTrace("Econet: Automatically assigned station %d.%d using AUNMap\n",
-											   EconetNetworkID,
-											   EconetStationID);
+									           EconetNetworkID,
+									           EconetStationID);
 									#endif
 									
 									break;
@@ -1104,7 +1053,7 @@ bool EconetReset()
 		goto Fail;
 	}
 
-	// Create a SOCKET for listening for incoming AUN broadcasts
+	// Create a SOCKET for listening for incoming AUN broadcasts.
 	BroadcastListenSocket = socket(AF_INET, SOCK_DGRAM, 0);
 
 	if (BroadcastListenSocket == INVALID_SOCKET)
@@ -1133,9 +1082,9 @@ bool EconetReset()
 		RTCWriteAddress(0xE);
 		PreferredStationID = RTCReadData();
 	}
-	else if (EconetStationID) // We already have a station num
+	else if (EconetStationID != 0)
 	{
-		// Try to get same address again.
+		// We already have a station number. Try to get the same address again.
 		PreferredStationID = EconetStationID;
 		PreferredNetworkID = EconetNetworkID;
 	}
@@ -1145,8 +1094,7 @@ bool EconetReset()
 
 	if (EconetStationID != LastEconetStationID)
 	{
-		// Station number has changed
-		// Reset announce packet sequence number.
+		// Station number has changed. Reset announce packet sequence number.
 		AnnounceHandle = 0;
 	}
 
@@ -1160,7 +1108,7 @@ bool EconetReset()
 	           EconetStationID, EconetListenPort);
 	#endif
 
-	// On Master the station number is read from CMOS so update it
+	// On Master the station number is read from CMOS so update it.
 	if (MachineType == Model::Master128 || MachineType == Model::MasterET)
 	{
 		RTCWriteAddress(0xE);
@@ -1177,7 +1125,7 @@ bool EconetReset()
 
 	if (EconetListenPort != DEFAULT_AUN_PORT)
 	{
-		// Bind additional BroadcastListenSocket for reception of AUN broadcasts.
+		// Bind an additional socket for reception of AUN broadcasts.
 
 		if (!SetReuseAddr(BroadcastListenSocket))
 		{
@@ -1234,6 +1182,8 @@ bool EconetReset()
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Sending gateway discovery packet (%s port %d)\n",
 			           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(), ntohs(RecvAddr.sin_port));
+
+			DebugDumpBytes("Econet: Gateway discovery packet:", (const unsigned char*)&Packet, sizeof(Packet));
 			#endif
 
 			if (sendto(Socket, (const char *)&Packet, sizeof(Packet), 0,
@@ -1262,7 +1212,7 @@ Fail:
 
 //---------------------------------------------------------------------------
 
-// Read Econet.cfg file into network table
+// Read Econet.cfg file into network table.
 
 static bool ReadEconetConfigFile()
 {
@@ -2068,6 +2018,8 @@ bool EconetPollReal()
 
 		#ifdef DEBUG_ECONET
 		DebugTrace("Econet: Sending gateway keepalive\n");
+
+		DebugDumpBytes("Econet: Gateway keepalive packet", (const unsigned char*)&Packet, sizeof(Packet));
 		#endif
 
 		if (sendto(Socket, (const char*)&Packet, sizeof(Packet), 0,
@@ -2112,6 +2064,8 @@ bool EconetPollReal()
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Sending broadcast announce packet (%s port %d)\n",
 			           IpAddressStr(BroadcastAddresses[i]).c_str(), DEFAULT_AUN_PORT);
+
+			DebugDumpBytes("Econet: Broadcast announce packet:", (const unsigned char*)&Packet, sizeof(Packet));
 			#endif
 
 			if (sendto(Socket, (const char *)&Packet, sizeof(Packet), 0,
@@ -2805,6 +2759,8 @@ static void EconetSendPacket()
 				           (int)EconetTx.DestStn,
 				           IpAddressStr(RecvAddr.sin_addr.s_addr).c_str(),
 				           (unsigned int)ntohs(RecvAddr.sin_port));
+
+				DebugDumpBytes("Econet: Ethernet data:", (const unsigned char*)p, SendLen);
 				#endif
 
 				if (sendto(Socket, p, SendLen, 0,

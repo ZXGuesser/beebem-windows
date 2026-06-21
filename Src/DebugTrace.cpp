@@ -20,6 +20,8 @@ Boston, MA  02110-1301, USA.
 
 #include <windows.h>
 
+#include <string>
+
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -45,6 +47,52 @@ void DebugTrace(const char *format, ...)
 	}
 
 	va_end(args);
+}
+
+void DebugDumpBytes(const char* pszMessage, const unsigned char* pData, int Length)
+{
+	const int BytesPerLine = 16;
+
+	bool Pad  = Length > BytesPerLine;
+
+	int Offset = 0;
+
+	std::string str;
+
+	while (Length > 0)
+	{
+		int i;
+
+		for (i = 0; i < BytesPerLine && i < Length; i++)
+		{
+			char sz[5];
+			sprintf(sz, "%02X ", pData[Offset + i]);
+
+			str += sz;
+		}
+
+		if (Pad)
+		{
+			for (; i < BytesPerLine; i++)
+			{
+				str += "   ";
+			}
+		}
+
+		str += "| ";
+
+		for (i = 0; i < BytesPerLine && i < Length; i++)
+		{
+			str += isprint(pData[Offset + i]) ? pData[Offset + i] : '.';
+		}
+
+		DebugTrace("%s %s\n", pszMessage, str.c_str());
+
+		str.clear();
+
+		Length -= BytesPerLine;
+		Offset += BytesPerLine;
+	}
 }
 
 #endif
