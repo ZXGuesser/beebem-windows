@@ -24,10 +24,12 @@ Boston, MA  02110-1301, USA.
 #if defined(NDEBUG)
 
 #define DebugTrace(...)
+#define DebugDumpBytes(...)
 
 #else
 
 void DebugTrace(const char *format, ...);
+void DebugDumpBytes(const char* pszMessage, const unsigned char* pData, int Length);
 
 #endif
 
