@@ -1130,7 +1130,7 @@ void BeebWin::DisplayClientAreaText(HDC hDC)
 
 void BeebWin::DisplayFDCBoardInfo(HDC hDC, int x, int y)
 {
-	if (DisplayCycles > 0 && HasFDCBoard())
+	if (m_DisplayFDCBoardInfo && HasFDCBoard())
 	{
 		const char* BoardName = GetFDCBoardName();
 

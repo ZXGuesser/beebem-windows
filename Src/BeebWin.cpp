@@ -208,6 +208,7 @@ BeebWin::BeebWin()
 	m_DisplayRenderer = DisplayRendererType::DirectX9;
 	m_DirectXFullScreenMode = DirectXFullScreenMode::ScreenResolution;
 	m_DiscLedColour = LEDColour::Red;
+	m_DisplayFDCBoardInfo = false;
 
 	// DirectX stuff
 	m_DXInit = false;
@@ -5950,6 +5951,11 @@ void BeebWin::OnTimer(UINT_PTR TimerID)
 		case TIMER_DEVICE_LOST:
 			KillTimer(m_hWnd, TIMER_DEVICE_LOST);
 			OnDeviceLost();
+			break;
+
+		case TIMER_FDC_CHANGED:
+			KillTimer(m_hWnd, TIMER_FDC_CHANGED);
+			m_DisplayFDCBoardInfo = false;
 			break;
 	}
 }

@@ -1417,11 +1417,13 @@ bool BeebWin::LoadFDC(char *DLLName, bool Save)
 
 		if (NativeFDC || MachineType == Model::Master128)
 		{
-			DisplayCycles = 0;
+			KillTimer(m_hWnd, TIMER_FDC_CHANGED);
+			m_DisplayFDCBoardInfo = false;
 		}
 		else
 		{
-			DisplayCycles = 7000000;
+			SetTimer(m_hWnd, TIMER_FDC_CHANGED, 3000, nullptr);
+			m_DisplayFDCBoardInfo = true;
 		}
 
 		return true;

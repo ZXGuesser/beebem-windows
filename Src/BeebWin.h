@@ -727,6 +727,7 @@ public:
 	DisplayRendererType m_DisplayRenderer;
 	DirectXFullScreenMode m_DirectXFullScreenMode;
 	LEDColour m_DiscLedColour;
+	bool m_DisplayFDCBoardInfo;
 
 	// DirectX stuff
 	bool m_DXInit;
@@ -899,6 +900,7 @@ public:
 	static const UINT_PTR TIMER_AUTOBOOT_DELAY = 2;
 	static const UINT_PTR TIMER_PRINTER        = 3;
 	static const UINT_PTR TIMER_DEVICE_LOST    = 4;
+	static const UINT_PTR TIMER_FDC_CHANGED    = 5;
 
 	// Debug
 	bool m_WriteInstructionCounts;

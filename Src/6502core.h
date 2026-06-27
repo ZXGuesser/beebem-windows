@@ -59,7 +59,6 @@ extern int ProgramCounter;
 extern int PrePC;
 extern CycleCountT TotalCycles;
 extern bool NMILock;
-extern int DisplayCycles;
 
 extern int CyclesToInt;
 constexpr int NO_TIMER_INT_DUE = -1000000;

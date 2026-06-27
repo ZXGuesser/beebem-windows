@@ -70,7 +70,6 @@ int PrePC;
 static unsigned char Accumulator, XReg, YReg;
 static unsigned char StackReg, PSR;
 static unsigned char IRQCycles;
-int DisplayCycles=0;
 
 unsigned char IntStatus = 0; // bit set (nums in IRQ_Nums) if interrupt being caused
 unsigned char NMIStatus = 0; // bit set (nums in NMI_Nums) if NMI being caused
@@ -3330,8 +3329,10 @@ static void PollHardware(unsigned int nCycles)
 
 	TeletextPoll();
 
-	if (DisplayCycles>0) DisplayCycles-=nCycles; // Countdown time till end of display of info.
-	if (MachineType == Model::Master128 || !NativeFDC) Poll1770(nCycles); // Do 1770 Background stuff
+	if (MachineType == Model::Master128 || !NativeFDC)
+	{
+		Poll1770(nCycles); // Do 1770 Background stuff
+	}
 
 	if (EconetEnabled && EconetPoll())
 	{
