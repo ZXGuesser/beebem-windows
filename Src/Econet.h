@@ -40,6 +40,10 @@ struct EconetConfigType
 	bool MassageNetworks;
 	bool AutoConfigure;
 	bool FindGateways;
+	int FlagFillTimeout;
+	int ScoutAckTimeout;
+	unsigned int TimeBetweenBytes;
+	unsigned int FourWayStageTimeout;
 };
 
 extern EconetConfigType EconetConfig;
@@ -49,7 +53,6 @@ extern bool EconetNMIEnabled;
 extern bool EconetStateChanged;
 extern int EconetTrigger;
 extern int EconetFlagFillTimeoutTrigger;
-extern int EconetFlagFillTimeout;
 
 extern unsigned char EconetStationID;
 extern unsigned char EconetNetworkID;

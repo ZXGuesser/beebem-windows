@@ -152,6 +152,16 @@ const unsigned char STATUS_REG2_RX_DATA_AVAILABLE              = 0x80;
 // These, among others, are overridden in Econet.cfg, see ReadNetwork()
 const int DEFAULT_FLAG_FILL_TIMEOUT = 500000;
 const int DEFAULT_SCOUT_ACK_TIMEOUT = 5000;
+
+// Frequency between network actions.
+// max 250Khz network clock. 2MHz system clock. one click every 8 cycles.
+// say one byte takes about 8 clocks, receive a byte every 64 cpu cycles. ?
+// (The reason for "about" 8 clocks is that as this a continuous synchronous tx,
+// there are no start/stop bits, however to avoid detecting a dead line as ffffff
+// zeros are added and removed transparently if you get more than five "1"s
+// during data transmission - more than 5 are flags or errors)
+// 6854 datasheet has max clock frequency of 1.5MHz for the B version.
+// 64 cycles seems to be a bit fast for 'netmon' prog to keep up - set to 128.
 const unsigned int DEFAULT_TIME_BETWEEN_BYTES = 128;
 const unsigned int DEFAULT_FOUR_WAY_STAGE_TIMEOUT = 500000;
 const unsigned char DEFAULT_PREFERRED_NET = 1;
@@ -159,13 +169,15 @@ const bool DEFAULT_MASSAGE_NETWORKS = false;
 const bool DEFAULT_AUTOCONFIGURE = false;
 const bool DEFAULT_FINDGATEWAYS = false;
 
-static unsigned int FourWayStageTimeout = DEFAULT_FOUR_WAY_STAGE_TIMEOUT;
-
 EconetConfigType EconetConfig =
 {
 	DEFAULT_MASSAGE_NETWORKS, // Massage network numbers on send/receive (add/sub 128)
 	DEFAULT_AUTOCONFIGURE, // Enable station autoconfiguration and discovery features
-	DEFAULT_FINDGATEWAYS // Enable gateway discovery
+	DEFAULT_FINDGATEWAYS, // Enable gateway discovery
+	DEFAULT_FLAG_FILL_TIMEOUT, // Cycles for flag fill timeout
+	DEFAULT_SCOUT_ACK_TIMEOUT, // Cycles to delay before sending ack to scout (AUN mode only)
+	DEFAULT_TIME_BETWEEN_BYTES,
+	DEFAULT_FOUR_WAY_STAGE_TIMEOUT
 };
 
 bool EconetStateChanged = false;
@@ -182,17 +194,6 @@ uint32_t AnnounceHandle; // Sequence number for host announcements.
 const unsigned int HOST_TIMEOUT = 60; // How long since last ping before hosts can be replaced
 
 static const unsigned char powers[4] = { 1, 2, 4, 8 };
-
-// Frequency between network actions.
-// max 250Khz network clock. 2MHz system clock. one click every 8 cycles.
-// say one byte takes about 8 clocks, receive a byte every 64 cpu cycles. ?
-// (The reason for "about" 8 clocks is that as this a continuous synchronous tx,
-// there are no start/stop bits, however to avoid detecting a dead line as ffffff
-// zeros are added and removed transparently if you get more than five "1"s
-// during data transmission - more than 5 are flags or errors)
-// 6854 datasheet has max clock frequency of 1.5MHz for the B version.
-// 64 cycles seems to be a bit fast for 'netmon' prog to keep up - set to 128.
-static unsigned int TimeBetweenBytes = DEFAULT_TIME_BETWEEN_BYTES;
 
 // Station Configuration settings:
 // You specify station number on command line.
@@ -454,9 +455,7 @@ char AUNMapPath[MAX_PATH];
 
 static bool FlagFillActive; // Flag fill state
 int EconetFlagFillTimeoutTrigger; // Trigger point for flag fill
-int EconetFlagFillTimeout = DEFAULT_FLAG_FILL_TIMEOUT; // Cycles for flag fill timeout // added cfg file to override this
 static int EconetScoutAckTrigger; // Trigger point for scout ack
-static int EconetScoutAckTimeout = DEFAULT_SCOUT_ACK_TIMEOUT; // Cycles to delay before sending ack to scout (AUN mode only)
 static int EconetFourWayTrigger;
 
 static MC6854 ADLC;
@@ -1137,7 +1136,7 @@ bool EconetReset()
 	}
 
 	// How long before we bother with poll routine?
-	SetTrigger(TimeBetweenBytes, EconetTrigger);
+	SetTrigger(EconetConfig.TimeBetweenBytes, EconetTrigger);
 
 	EconetStateChanged = true;
 
@@ -1334,20 +1333,20 @@ static bool ReadEconetConfigFile()
 				}
 				else if (StrCaseCmp(Key.c_str(), "FLAGFILLTIMEOUT") == 0)
 				{
-					EconetFlagFillTimeout = ParseNumber(Key.c_str(), Value, 0, INT_MAX);
+					EconetConfig.FlagFillTimeout = ParseNumber(Key.c_str(), Value, 0, INT_MAX);
 				}
 				else if (StrCaseCmp(Key.c_str(), "SCACKTIMEOUT") == 0 ||
 				         StrCaseCmp(Key.c_str(), "SCOUTACKTIMEOUT") == 0)
 				{
-					EconetScoutAckTimeout = ParseNumber(Key.c_str(), Value, 0, INT_MAX);
+					EconetConfig.ScoutAckTimeout = ParseNumber(Key.c_str(), Value, 0, INT_MAX);
 				}
 				else if (StrCaseCmp(Key.c_str(), "TIMEBETWEENBYTES") == 0)
 				{
-					TimeBetweenBytes = ParseNumber(Key.c_str(), Value, 0, INT_MAX);
+					EconetConfig.TimeBetweenBytes = ParseNumber(Key.c_str(), Value, 0, INT_MAX);
 				}
 				else if (StrCaseCmp(Key.c_str(), "FOURWAYTIMEOUT") == 0)
 				{
-					FourWayStageTimeout = ParseNumber(Key.c_str(), Value, 0, INT_MAX);
+					EconetConfig.FourWayStageTimeout = ParseNumber(Key.c_str(), Value, 0, INT_MAX);
 				}
 				else if (StrCaseCmp(Key.c_str(), "MASSAGENETS") == 0)
 				{
@@ -1465,10 +1464,10 @@ static bool ReadAUNConfigFile()
 
 static void EconetResetState()
 {
-	EconetFlagFillTimeout = DEFAULT_FLAG_FILL_TIMEOUT;
-	EconetScoutAckTimeout = DEFAULT_SCOUT_ACK_TIMEOUT;
-	TimeBetweenBytes = DEFAULT_TIME_BETWEEN_BYTES;
-	FourWayStageTimeout = DEFAULT_FOUR_WAY_STAGE_TIMEOUT;
+	EconetConfig.FlagFillTimeout = DEFAULT_FLAG_FILL_TIMEOUT;
+	EconetConfig.ScoutAckTimeout = DEFAULT_SCOUT_ACK_TIMEOUT;
+	EconetConfig.TimeBetweenBytes = DEFAULT_TIME_BETWEEN_BYTES;
+	EconetConfig.FourWayStageTimeout = DEFAULT_FOUR_WAY_STAGE_TIMEOUT;
 
 	EconetConfig.MassageNetworks = DEFAULT_MASSAGE_NETWORKS;
 	EconetConfig.AutoConfigure = DEFAULT_AUTOCONFIGURE;
@@ -1937,7 +1936,7 @@ bool EconetPollReal()
 		}
 
 		// How long before we come back in here?
-		SetTrigger(TimeBetweenBytes, EconetTrigger);
+		SetTrigger(EconetConfig.TimeBetweenBytes, EconetTrigger);
 	}
 
 	// Reset pseudo flag fill?
@@ -1973,7 +1972,7 @@ bool EconetPollReal()
 	{
 		if (AUNState != FourWayStage::Idle)
 		{
-			SetTrigger(FourWayStageTimeout, EconetFourWayTrigger);
+			SetTrigger(EconetConfig.FourWayStageTimeout, EconetFourWayTrigger);
 		}
 	}
 	else if (TotalCycles >= EconetFourWayTrigger)
@@ -2632,7 +2631,7 @@ static void EconetSendPacket()
 				AUNState = FourWayStage::ScoutSent;
 
 				// Don't send anything but set wait anyway.
-				SetTrigger(EconetScoutAckTimeout, EconetScoutAckTrigger);
+				SetTrigger(EconetConfig.ScoutAckTimeout, EconetScoutAckTrigger);
 
 				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: Set FourWayStage::ScoutSent\n");
@@ -2646,7 +2645,7 @@ static void EconetSendPacket()
 			// Just drop it, but move on.
 			AUNState = FourWayStage::ScoutAckSent;
 
-			SetTrigger(EconetScoutAckTimeout, EconetScoutAckTrigger);
+			SetTrigger(EconetConfig.ScoutAckTimeout, EconetScoutAckTrigger);
 
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Set FourWayStage::ScoutAckSent\n");
@@ -2809,7 +2808,7 @@ static void EconetSendPacket()
 	// Sending packet will mean peer goes into flag fill while
 	// it deals with it.
 	FlagFillActive = true;
-	SetTrigger(EconetFlagFillTimeout, EconetFlagFillTimeoutTrigger);
+	SetTrigger(EconetConfig.FlagFillTimeout, EconetFlagFillTimeoutTrigger);
 
 	#ifdef DEBUG_ECONET
 	DebugTrace("Econet: FlagFill set (packet sent)\n");
@@ -3524,7 +3523,7 @@ GetNewPacket:
 				{
 					// Two other stations communicating - assume one of them will flag fill
 					FlagFillActive = true;
-					SetTrigger(EconetFlagFillTimeout, EconetFlagFillTimeoutTrigger);
+					SetTrigger(EconetConfig.FlagFillTimeout, EconetFlagFillTimeoutTrigger);
 
 					#ifdef DEBUG_ECONET
 					DebugTrace("Econet: FlagFill set - other station comms\n");
