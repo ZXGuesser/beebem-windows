@@ -34,6 +34,16 @@ bool EconetInterruptRequest();
 bool EconetPoll();
 void DebugEconetState();
 
+// Config settings
+struct EconetConfigType
+{
+	bool MassageNetworks;
+	bool AutoConfigure;
+	bool FindGateways;
+};
+
+extern EconetConfigType EconetConfig;
+
 extern bool EconetEnabled;
 extern bool EconetNMIEnabled;
 extern bool EconetStateChanged;
