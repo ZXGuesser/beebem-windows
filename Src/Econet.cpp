@@ -160,9 +160,13 @@ const bool DEFAULT_AUTOCONFIGURE = false;
 const bool DEFAULT_FINDGATEWAYS = false;
 
 static unsigned int FourWayStageTimeout = DEFAULT_FOUR_WAY_STAGE_TIMEOUT;
-static bool MassageNetworks = DEFAULT_MASSAGE_NETWORKS; // Massage network numbers on send/receive (add/sub 128)
-static bool AutoConfigure = DEFAULT_AUTOCONFIGURE; // Enable station autoconfiguration and discovery features
-static bool FindGateways = DEFAULT_FINDGATEWAYS; // Enable gateway discovery
+
+EconetConfigType EconetConfig =
+{
+	DEFAULT_MASSAGE_NETWORKS, // Massage network numbers on send/receive (add/sub 128)
+	DEFAULT_AUTOCONFIGURE, // Enable station autoconfiguration and discovery features
+	DEFAULT_FINDGATEWAYS // Enable gateway discovery
+};
 
 bool EconetStateChanged = false;
 bool EconetEnabled;    // Enable hardware
@@ -814,9 +818,9 @@ static void AllocateNewAddress()
 									BroadcastAddresses.emplace_back(INADDR_BROADCAST);
 									
 									// We are participating in a real AUN network so:
-									// Disable beebem announce and gateway discovery.
-									AutoConfigure = false;
-									FindGateways = false;
+									// Disable BeebEm announce and gateway discovery.
+									EconetConfig.AutoConfigure = false;
+									EconetConfig.FindGateways = false;
 									
 									// Forget any stations we learned from Econet.cfg and
 									// only resolve true AUN stations.
@@ -846,7 +850,7 @@ static void AllocateNewAddress()
 			}
 		}
 
-		if (EconetStationID == 0 && AutoConfigure)
+		if (EconetStationID == 0 && EconetConfig.AutoConfigure)
 		{
 			// Look for a free port and assign a suitable station number.
 			// We assign station numbers at random to reduce the chances
@@ -1063,7 +1067,7 @@ bool EconetReset()
 
 	GetLocalNetworkAddresses(LocalIpAddresses, BroadcastAddresses);
 
-	if (AutoConfigure &&
+	if (EconetConfig.AutoConfigure &&
 	    PreferredStationID == 0 &&
 	    (MachineType == Model::Master128 || MachineType == Model::MasterET))
 	{
@@ -1144,7 +1148,7 @@ bool EconetReset()
 		time(&GatewayTimeout);
 	}
 
-	if (FindGateways && Gateway.port == 0)
+	if (EconetConfig.FindGateways && Gateway.port == 0)
 	{
 		// Send a bridge discovery broadcast to learn of any
 		// Pi Econet Bridge gateways on the network.
@@ -1177,7 +1181,7 @@ bool EconetReset()
 		}
 	}
 
-	if (AutoConfigure && AnnounceHandle == 0)
+	if (EconetConfig.AutoConfigure && AnnounceHandle == 0)
 	{
 		// Start up regular announce pings.
 		time(&AnnounceTimeout);
@@ -1347,15 +1351,15 @@ static bool ReadEconetConfigFile()
 				}
 				else if (StrCaseCmp(Key.c_str(), "MASSAGENETS") == 0)
 				{
-					MassageNetworks = std::stoi(Value) != 0;
+					EconetConfig.MassageNetworks = std::stoi(Value) != 0;
 				}
 				else if (StrCaseCmp(Key.c_str(), "AUTOCONFIGURE") == 0)
 				{
-					AutoConfigure = std::stoi(Value) != 0;
+					EconetConfig.AutoConfigure = std::stoi(Value) != 0;
 				}
 				else if (StrCaseCmp(Key.c_str(), "FINDGATEWAYS") == 0)
 				{
-					FindGateways = std::stoi(Value) != 0;
+					EconetConfig.FindGateways = std::stoi(Value) != 0;
 				}
 				else if (StrCaseCmp(Key.c_str(), "DEFAULTNET") == 0)
 				{
@@ -1465,9 +1469,10 @@ static void EconetResetState()
 	EconetScoutAckTimeout = DEFAULT_SCOUT_ACK_TIMEOUT;
 	TimeBetweenBytes = DEFAULT_TIME_BETWEEN_BYTES;
 	FourWayStageTimeout = DEFAULT_FOUR_WAY_STAGE_TIMEOUT;
-	MassageNetworks = DEFAULT_MASSAGE_NETWORKS;
-	AutoConfigure = DEFAULT_AUTOCONFIGURE;
-	FindGateways = DEFAULT_FINDGATEWAYS;
+
+	EconetConfig.MassageNetworks = DEFAULT_MASSAGE_NETWORKS;
+	EconetConfig.AutoConfigure = DEFAULT_AUTOCONFIGURE;
+	EconetConfig.FindGateways = DEFAULT_FINDGATEWAYS;
 
 	// Clear tables.
 	Stations.clear();
@@ -2017,7 +2022,7 @@ bool EconetPollReal()
 	}
 
 	// Send host announce pings if timeout value has been passed.
-	if (AutoConfigure && time(NULL) > AnnounceTimeout)
+	if (EconetConfig.AutoConfigure && time(NULL) > AnnounceTimeout)
 	{
 		// Announce our address other BeebEm instances by pinging the network
 		// this uses packets conforming to the structure of AUN, but with a
@@ -2427,7 +2432,7 @@ static void EconetSendPacket()
 	}
 
 	// Match AUN nets for Econet network numbers if MassageNetworks is enabled.
-	const unsigned int mask = MassageNetworks ? 0x7F : 0xFF;
+	const unsigned int mask = EconetConfig.MassageNetworks ? 0x7F : 0xFF;
 
 	if (!SendMe)
 	{
@@ -3090,7 +3095,7 @@ GetNewPacket:
 			}
 			else
 			{
-				if (MassageNetworks)
+				if (EconetConfig.MassageNetworks)
 				{
 					// Make AUN nets > 127 appear to be Econet.
 					BeebRx.EconetHeader.SrcNet &= 0x7F;
@@ -3102,7 +3107,7 @@ GetNewPacket:
 				// Couldn't resolve Econet source address
 
 				// It might be a bridge gateway response.
-				if (BytesReceived == 12 && FindGateways)
+				if (BytesReceived == 12 && EconetConfig.FindGateways)
 				{
 					// If it is then it will be Extended AUN so all the headers are moved.
 					ExtendedAUNPacket *rx = (ExtendedAUNPacket*)&EconetRx;
@@ -3154,7 +3159,7 @@ GetNewPacket:
 				if (BytesReceived == 16 &&
 				    EconetRx.AUNHeader.Port == BEEBEM_ECONET_PORT &&
 				    EconetRx.AUNHeader.Type == AUNType::BeebEm &&
-				    AutoConfigure)
+				    EconetConfig.AutoConfigure)
 				{
 					if ((EconetRx.AUNHeader.CtrlByte | 128) == 0x9f) // BeebEm ping
 					{
@@ -3230,7 +3235,7 @@ GetNewPacket:
 					// This has no effect on the FourWayStage state, so can
 					// be handled at any time.
 					if (EconetRx.AUNHeader.Port == BEEBEM_ECONET_PORT &&
-					    EconetRx.AUNHeader.CtrlByte == 0x9f && AutoConfigure)
+					    EconetRx.AUNHeader.CtrlByte == 0x9f && EconetConfig.AutoConfigure)
 					{
 						// This is a BeebEm ping used for host discovery
 						// from an address we think we know already.
