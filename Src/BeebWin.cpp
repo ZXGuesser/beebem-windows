@@ -5588,7 +5588,7 @@ void BeebWin::ParseCommandLine()
 
 				if (Value >= 1)
 				{
-					EconetFlagFillTimeout = Value;
+					EconetConfig.FlagFillTimeout = Value;
 				}
 				else
 				{
