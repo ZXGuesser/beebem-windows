@@ -26,18 +26,17 @@ Boston, MA  02110-1301, USA.
 class FolderSelectDialog
 {
 	public:
-		enum class Result {
+		enum class Result
+		{
 			OK,
 			Cancel,
 			InvalidFolder
 		};
 
 	public:
-		FolderSelectDialog(
-			HWND hwndOwner,
-			const char *Title,
-			const char *InitialFolder
-		);
+		FolderSelectDialog(HWND hwndOwner,
+		                   const char *Title,
+		                   const char *InitialFolder);
 
 	public:
 		Result DoModal();
@@ -45,12 +44,10 @@ class FolderSelectDialog
 		std::string GetFolder() const;
 
 	private:
-		static int CALLBACK BrowseCallbackProc(
-			HWND hWnd,
-			UINT uMsg,
-			LPARAM lParam,
-			LPARAM lpData
-		);
+		static int CALLBACK BrowseCallback(HWND hwnd,
+		                                   UINT uMsg,
+		                                   LPARAM lParam,
+		                                   LPARAM lpData);
 
 	private:
 		BROWSEINFO m_BrowseInfo;
