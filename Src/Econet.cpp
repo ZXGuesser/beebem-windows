@@ -1006,14 +1006,14 @@ bool EconetReset()
 
 	EconetCloseSockets();
 
+	EconetResetState();
+
 	// Stop here if not enabled.
 	if (!EconetEnabled)
 	{
 		AnnounceHandle = 0; // Clear announce packet sequence number.
 		return true;
 	}
-
-	EconetResetState();
 
 	// Read in Econet.cfg and AUNMap. Done here so can refresh it on Break.
 	if (!ReadEconetConfigFile())
