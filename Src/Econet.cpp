@@ -153,15 +153,6 @@ const unsigned char STATUS_REG2_RX_DATA_AVAILABLE              = 0x80;
 const int DEFAULT_FLAG_FILL_TIMEOUT = 500000;
 const int DEFAULT_SCOUT_ACK_TIMEOUT = 5000;
 
-// Frequency between network actions.
-// max 250Khz network clock. 2MHz system clock. one click every 8 cycles.
-// say one byte takes about 8 clocks, receive a byte every 64 cpu cycles. ?
-// (The reason for "about" 8 clocks is that as this a continuous synchronous tx,
-// there are no start/stop bits, however to avoid detecting a dead line as ffffff
-// zeros are added and removed transparently if you get more than five "1"s
-// during data transmission - more than 5 are flags or errors)
-// 6854 datasheet has max clock frequency of 1.5MHz for the B version.
-// 64 cycles seems to be a bit fast for 'netmon' prog to keep up - set to 128.
 const unsigned int DEFAULT_TIME_BETWEEN_BYTES = 128;
 const unsigned int DEFAULT_FOUR_WAY_STAGE_TIMEOUT = 500000;
 const unsigned char DEFAULT_PREFERRED_NET = 1;
@@ -171,11 +162,11 @@ const bool DEFAULT_FINDGATEWAYS = false;
 
 EconetConfigType EconetConfig =
 {
-	DEFAULT_MASSAGE_NETWORKS, // Massage network numbers on send/receive (add/sub 128)
-	DEFAULT_AUTOCONFIGURE, // Enable station autoconfiguration and discovery features
-	DEFAULT_FINDGATEWAYS, // Enable gateway discovery
-	DEFAULT_FLAG_FILL_TIMEOUT, // Cycles for flag fill timeout
-	DEFAULT_SCOUT_ACK_TIMEOUT, // Cycles to delay before sending ack to scout (AUN mode only)
+	DEFAULT_MASSAGE_NETWORKS,
+	DEFAULT_AUTOCONFIGURE,
+	DEFAULT_FINDGATEWAYS,
+	DEFAULT_FLAG_FILL_TIMEOUT,
+	DEFAULT_SCOUT_ACK_TIMEOUT,
 	DEFAULT_TIME_BETWEEN_BYTES,
 	DEFAULT_FOUR_WAY_STAGE_TIMEOUT
 };
@@ -467,7 +458,7 @@ static MC6854 ADLC;
 // query requested the response be sent to.
 int WhatNetPort = -1; // invalid value when not expecting a WhatNet response
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 static void EconetResetState();
 static bool ReadEconetConfigFile();
@@ -477,7 +468,7 @@ static void EconetSendPacket();
 static bool EconetReceivePacket();
 static void EconetError(const char *Format, ...);
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 static const char* AUNStateStr(FourWayStage State)
 {
@@ -518,14 +509,14 @@ static const char* AUNStateStr(FourWayStage State)
 	}
 }
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 static bool IsBroadcastStation(unsigned char Station)
 {
 	return Station == 0 || Station == 255;
 }
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 static EconetHost* FindNetworkConfig(unsigned char Station, unsigned char Network)
 {
@@ -540,7 +531,7 @@ static EconetHost* FindNetworkConfig(unsigned char Station, unsigned char Networ
 	return nullptr;
 }
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 // Add or replace a station in stations list.
 
@@ -592,7 +583,7 @@ static void AddStation(unsigned char Station,
 	}
 }
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 static void EconetCloseSockets()
 {
@@ -615,7 +606,7 @@ static void EconetCloseSockets()
 	SocketServer.Stop();
 }
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 // Populate vectors of the IP addresses of network interfaces on this host,
 // and the broadcast addresses of the local networks.
@@ -701,7 +692,7 @@ Exit:
 	return Success;
 }
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 // Find an available station number.
 
@@ -943,7 +934,7 @@ static void AllocateNewAddress()
 	}
 }
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 bool EconetReset()
 {
@@ -1200,7 +1191,7 @@ Fail:
 	return false;
 }
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 // Read Econet.cfg file into network table.
 
@@ -1392,7 +1383,7 @@ static bool ReadEconetConfigFile()
 	return Success;
 }
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 static bool ReadAUNConfigFile()
 {
@@ -1464,7 +1455,7 @@ static bool ReadAUNConfigFile()
 	return Success;
 }
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 static void EconetResetState()
 {
@@ -1486,7 +1477,7 @@ static void EconetResetState()
 	Gateway.port = 0;
 }
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 // Read from address FE18.
 
@@ -1503,7 +1494,7 @@ unsigned char EconetReadStationID()
 	return EconetStationID;
 }
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 // Read from address FEA0-3.
 
@@ -1545,7 +1536,7 @@ unsigned char EconetRead(unsigned char Register)
 	return Value;
 }
 
-//---------------------------------------------------------------------------
+/****************************************************************************/
 
 // Write to address FEA0-3.
 
@@ -1603,14 +1594,14 @@ void EconetWrite(unsigned char Register, unsigned char Value)
 	EconetStateChanged = true;
 }
 
-//--------------------------------------------------------------------------------------------
+/****************************************************************************/
 
 bool EconetInterruptRequest()
 {
 	return (ADLC.Status1 & STATUS_REG1_IRQ) != 0;
 }
 
-//--------------------------------------------------------------------------------------------
+/****************************************************************************/
 
 // Returns NMI status.
 
@@ -1631,7 +1622,7 @@ bool EconetPoll()
 	return false;
 }
 
-//--------------------------------------------------------------------------------------------
+/****************************************************************************/
 
 // Run when state changed or time to check comms.
 // The majority of this code is to handle the status registers.
@@ -2402,7 +2393,7 @@ bool EconetPollReal()
 	return Interrupt;
 }
 
-//--------------------------------------------------------------------------------------------
+/****************************************************************************/
 
 // BeebTx.Buffer contains the data to send, length BeebTx.Pointer
 
@@ -2823,7 +2814,7 @@ static void EconetSendPacket()
 	BeebTx.BytesInBuffer = 0;
 }
 
-//--------------------------------------------------------------------------------------------
+/****************************************************************************/
 
 static bool IgnoreReceivedBroadcastPacket(const sockaddr_in& RecvAddr,
                                           const unsigned char* pRxBuffer)
@@ -2862,7 +2853,7 @@ static bool IgnoreReceivedBroadcastPacket(const sockaddr_in& RecvAddr,
 	return false;
 }
 
-//--------------------------------------------------------------------------------------------
+/****************************************************************************/
 
 // Try to get another packet from the network.
 
@@ -2885,7 +2876,7 @@ static bool GetReceivedPacket(ReceivedPacket* pPacket)
 	return Received;
 }
 
-//--------------------------------------------------------------------------------------------
+/****************************************************************************/
 
 static bool EconetReceivePacket()
 {
@@ -3619,7 +3610,7 @@ GetNewPacket:
 	return true;
 }
 
-//--------------------------------------------------------------------------------------------
+/****************************************************************************/
 
 void DebugEconetState()
 {
@@ -3630,7 +3621,7 @@ void DebugEconetState()
 	                  IRQCause, S2RQCause, ProgramCounter, AUNStateStr(AUNState));
 }
 
-//--------------------------------------------------------------------------------------------
+/****************************************************************************/
 
 // Display an error message box.
 
@@ -3649,4 +3640,4 @@ static void EconetError(const char *Format, ...)
 	va_end(Args);
 }
 
-//--------------------------------------------------------------------------------------------
+/****************************************************************************/
