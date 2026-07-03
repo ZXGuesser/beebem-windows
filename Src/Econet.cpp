@@ -176,7 +176,8 @@ bool EconetEnabled;    // Enable hardware
 bool EconetNMIEnabled; // 68B54 -> NMI enabled. (IC97)
 int EconetTrigger;     // Poll timer
 
-const unsigned int DEFAULT_GATEWAY_TIMEOUT = 300; // 5 minutes
+const unsigned int DEFAULT_GATEWAY_DISCOVERY_TIMEOUT = 5; // 5 seconds
+const unsigned int DEFAULT_GATEWAY_KEEPALIVE_TIMEOUT = 300; // 5 minutes
 time_t GatewayTimeout; // Gateway timer - system time not emulation trigger.
 
 const unsigned int ANNOUNCE_TIMEOUT = 15;
@@ -1131,44 +1132,14 @@ bool EconetReset()
 
 	EconetStateChanged = true;
 
-	// If a gateway is configured, wake it up by sending a keepalive packet
-	// as soon as Econet is initialised.
-	if (Gateway.port != 0)
+	// If gateway autodiscovery is enabled, periodically send a discovery
+	// packet until a gateway replies. Or, if a gateway is configured,
+	// wake it up by sending a keepalive packet as soon as Econet is
+	// initialised.
+	if ((EconetConfig.FindGateways && Gateway.port == 0) ||
+	    Gateway.port != 0)
 	{
 		time(&GatewayTimeout);
-	}
-
-	if (EconetConfig.FindGateways && Gateway.port == 0)
-	{
-		// Send a bridge discovery broadcast to learn of any
-		// Pi Econet Bridge gateways on the network.
-
-		GatewayDiscoveryPacket Packet;
-		ZeroMemory(&Packet, sizeof(Packet));
-		Packet.AUNHeader.Type = AUNType::Broadcast; // The gateway is listening for an AUN broadcast
-		Packet.AUNHeader.Port = 0x9C; // Pi Econet Bridge port
-		Packet.AUNHeader.CtrlByte = 0x10; // &90 locate gateway
-		Packet.Buffer[0] = BEEBEM_ECONET_PORT; // Where response is sent
-
-		// Send a copy of broadcast to each network interface.
-		for (size_t i = 0; i < BroadcastAddresses.size(); i++)
-		{
-			#ifdef DEBUG_ECONET
-			DebugTrace("Econet: Sending gateway discovery packet (%s:%d)\n",
-			           IpAddressStr(BroadcastAddresses[i]).c_str(),
-			           DEFAULT_AUN_PORT);
-
-			DebugDumpBytes("Econet: Gateway discovery packet:", (const unsigned char*)&Packet, sizeof(Packet));
-			#endif
-
-			if (!pSocket->Send(BroadcastAddresses[i],
-			                   DEFAULT_AUN_PORT,
-			                   (const unsigned char*)&Packet,
-			                   sizeof(Packet)))
-			{
-				EconetError("Econet: Failed to send bridge discovery broadcast");
-			}
-		}
 	}
 
 	if (EconetConfig.AutoConfigure && AnnounceHandle == 0)
@@ -1977,6 +1948,42 @@ bool EconetPollReal()
 		#endif
 	}
 
+	if (EconetConfig.FindGateways && Gateway.port == 0 && time(NULL) >= GatewayTimeout)
+	{
+		// Send a bridge discovery broadcast to learn of any
+		// Pi Econet Bridge gateways on the network.
+
+		GatewayDiscoveryPacket Packet;
+		ZeroMemory(&Packet, sizeof(Packet));
+		Packet.AUNHeader.Type = AUNType::Broadcast; // The gateway is listening for an AUN broadcast
+		Packet.AUNHeader.Port = 0x9C; // Pi Econet Bridge port
+		Packet.AUNHeader.CtrlByte = 0x10; // &90 locate gateway
+		Packet.Buffer[0] = BEEBEM_ECONET_PORT; // Where response is sent
+
+		// Send a copy of broadcast to each network interface.
+		for (size_t i = 0; i < BroadcastAddresses.size(); i++)
+		{
+			#ifdef DEBUG_ECONET
+			DebugTrace("Econet: Sending gateway discovery packet (%s:%u)\n",
+			           IpAddressStr(BroadcastAddresses[i]).c_str(),
+			           DEFAULT_AUN_PORT);
+
+			DebugDumpBytes("Econet: Gateway discovery packet:", (const unsigned char*)&Packet, sizeof(Packet));
+			#endif
+
+			if (!pSocket->Send(BroadcastAddresses[i],
+			                   DEFAULT_AUN_PORT,
+			                   (const unsigned char*)&Packet,
+			                   sizeof(Packet)))
+			{
+				EconetError("Econet: Failed to send bridge discovery broadcast");
+			}
+		}
+
+		// Set timeout to try again until a gateway replies.
+		GatewayTimeout = time(NULL) + DEFAULT_GATEWAY_DISCOVERY_TIMEOUT;
+	}
+
 	// Send Gateway keepalive if timeout value has been passed.
 	if (Gateway.port != 0 && time(NULL) >= GatewayTimeout)
 	{
@@ -2008,7 +2015,7 @@ bool EconetPollReal()
 		}
 
 		// Set timeout again.
-		GatewayTimeout = time(NULL) + DEFAULT_GATEWAY_TIMEOUT;
+		GatewayTimeout = time(NULL) + DEFAULT_GATEWAY_KEEPALIVE_TIMEOUT;
 	}
 
 	// Send host announce pings if timeout value has been passed.
