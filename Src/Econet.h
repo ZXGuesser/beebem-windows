@@ -43,6 +43,9 @@ struct EconetConfigType
 	bool AutoConfigure;
 	// Enable gateway discovery
 	bool FindGateways;
+	// Fixed gateway IP address and port (if FindGateways is false)
+	unsigned long GatewayIPAddress;
+	unsigned short GatewayPort;
 	// Cycles for flag fill timeout
 	int FlagFillTimeout;
 	// Cycles to delay before sending ack to scout (AUN mode only)
