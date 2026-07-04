@@ -159,12 +159,16 @@ const unsigned char DEFAULT_PREFERRED_NET = 1;
 const bool DEFAULT_MASSAGE_NETWORKS = false;
 const bool DEFAULT_AUTOCONFIGURE = false;
 const bool DEFAULT_FINDGATEWAYS = false;
+const unsigned long DEFAULT_GATEWAY_IP_ADDRESS = 0;
+const unsigned short DEFAULT_GATEWAY_PORT = 0;
 
 EconetConfigType EconetConfig =
 {
 	DEFAULT_MASSAGE_NETWORKS,
 	DEFAULT_AUTOCONFIGURE,
 	DEFAULT_FINDGATEWAYS,
+	DEFAULT_GATEWAY_IP_ADDRESS,
+	DEFAULT_GATEWAY_PORT,
 	DEFAULT_FLAG_FILL_TIMEOUT,
 	DEFAULT_SCOUT_ACK_TIMEOUT,
 	DEFAULT_TIME_BETWEEN_BYTES,
@@ -408,8 +412,8 @@ struct EconetNet
 
 struct EconetGateway
 {
-	unsigned long inet_addr;
-	unsigned short port;
+	unsigned long IPAddress;
+	unsigned short Port;
 };
 
 struct NetStn
@@ -424,7 +428,8 @@ static std::vector<unsigned long> BroadcastAddresses; // The broadcast address o
 static std::vector<EconetHost> Stations; // Individual stations we know about
 static std::vector<EconetNet> Networks; // AUN networks we know about
 
-static EconetGateway Gateway = { 0, 0 }; // No gateway address
+// See https://github.com/cr12925/PiEconetBridge/wiki/The-AUN%E2%80%90extended-gateway
+EconetGateway Gateway = { 0, 0 }; // No gateway address.
 
 static unsigned char IRQCause;  // Flag to indicate cause of IRQ (SR1 bit 7)
 static unsigned char S2RQCause; // Flag to indicate cause of S2RQ (SR1 bit 2)
@@ -818,8 +823,8 @@ static void AllocateNewAddress()
 									Stations.clear();
 									
 									// Forget any configured extended AUN gateway.
-									Gateway.inet_addr = 0;
-									Gateway.port = 0;
+									Gateway.IPAddress = 0;
+									Gateway.Port = 0;
 									
 									#ifdef DEBUG_ECONET
 									DebugTrace("Econet: Automatically assigned station %d.%d using AUNMap\n",
@@ -1136,8 +1141,18 @@ bool EconetReset()
 	// packet until a gateway replies. Or, if a gateway is configured,
 	// wake it up by sending a keepalive packet as soon as Econet is
 	// initialised.
-	if ((EconetConfig.FindGateways && Gateway.port == 0) ||
-	    Gateway.port != 0)
+
+	Gateway.IPAddress = 0;
+	Gateway.Port      = 0;
+
+	if (!EconetConfig.FindGateways)
+	{
+		Gateway.IPAddress = EconetConfig.GatewayIPAddress;
+		Gateway.Port      = EconetConfig.GatewayPort;
+	}
+
+	if ((EconetConfig.FindGateways && Gateway.IPAddress == 0) ||
+	    Gateway.IPAddress != 0)
 	{
 		time(&GatewayTimeout);
 	}
@@ -1230,16 +1245,16 @@ static bool ReadEconetConfigFile()
 			}
 			else if (Tokens.size() == 3 && StrCaseCmp(Tokens[0].c_str(), "GATEWAY") == 0)
 			{
-				if (Gateway.port == 0)
+				if (EconetConfig.GatewayIPAddress == 0)
 				{
 					// No gateway configured.
-					Gateway.inet_addr = ParseIPAddress("IP address", Tokens[1]);
-					Gateway.port = (unsigned short)ParseNumber("Port", Tokens[2], 0, 65535);
+					EconetConfig.GatewayIPAddress = ParseIPAddress("IP address", Tokens[1]);
+					EconetConfig.GatewayPort = (unsigned short)ParseNumber("Port", Tokens[2], 0, 65535);
 
 					#ifdef DEBUG_ECONET
-					DebugTrace("Econet: ConfigFile Gateway IP %s:%u",
-					           IpAddressStr(Gateway.inet_addr).c_str(),
-					           Gateway.port);
+					DebugTrace("Econet: ConfigFile Gateway IP %s:%u\n",
+					           IpAddressStr(EconetConfig.GatewayIPAddress).c_str(),
+					           EconetConfig.GatewayPort);
 					#endif
 				}
 				else
@@ -1434,14 +1449,16 @@ static void EconetResetState()
 	EconetConfig.MassageNetworks = DEFAULT_MASSAGE_NETWORKS;
 	EconetConfig.AutoConfigure = DEFAULT_AUTOCONFIGURE;
 	EconetConfig.FindGateways = DEFAULT_FINDGATEWAYS;
+	EconetConfig.GatewayIPAddress = DEFAULT_GATEWAY_IP_ADDRESS;
+	EconetConfig.GatewayPort = DEFAULT_GATEWAY_PORT;
 
 	// Clear tables.
 	Stations.clear();
 	Networks.clear();
 
 	// Clear the gateway address.
-	Gateway.inet_addr = 0;
-	Gateway.port = 0;
+	Gateway.IPAddress = 0;
+	Gateway.Port = 0;
 }
 
 /****************************************************************************/
@@ -1948,7 +1965,7 @@ bool EconetPollReal()
 		#endif
 	}
 
-	if (EconetConfig.FindGateways && Gateway.port == 0 && time(NULL) >= GatewayTimeout)
+	if (EconetConfig.FindGateways && Gateway.IPAddress == 0 && time(NULL) >= GatewayTimeout)
 	{
 		// Send a bridge discovery broadcast to learn of any
 		// Pi Econet Bridge gateways on the network.
@@ -1985,7 +2002,7 @@ bool EconetPollReal()
 	}
 
 	// Send Gateway keepalive if timeout value has been passed.
-	if (Gateway.port != 0 && time(NULL) >= GatewayTimeout)
+	if (Gateway.IPAddress != 0 && time(NULL) >= GatewayTimeout)
 	{
 		GatewayKeepAlivePacket Packet;
 		ZeroMemory(&Packet, sizeof(Packet));
@@ -2002,15 +2019,15 @@ bool EconetPollReal()
 		DebugDumpBytes("Econet: Gateway keepalive packet", (const unsigned char*)&Packet, sizeof(Packet));
 		#endif
 
-		if (!pSocket->Send(Gateway.inet_addr,
-		                   Gateway.port,
+		if (!pSocket->Send(Gateway.IPAddress,
+		                   Gateway.Port,
 		                   (const unsigned char*)&Packet,
 		                   sizeof(Packet)))
 		{
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Failed to send Gateway keepalive (%s:%u)\n",
-			           IpAddressStr(Gateway.inet_addr).c_str(),
-			           Gateway.port);
+			           IpAddressStr(Gateway.IPAddress).c_str(),
+			           Gateway.Port);
 			#endif
 		}
 
@@ -2490,10 +2507,10 @@ static void EconetSendPacket()
 
 		if (BeebTx.EconetHeader.DestNet != 0 && BeebTx.EconetHeader.DestNet != 255)
 		{
-			if (Gateway.port != 0)
+			if (Gateway.IPAddress != 0)
 			{
-				RecvIpAddress = Gateway.inet_addr;
-				RecvPort = Gateway.port;
+				RecvIpAddress = Gateway.IPAddress;
+				RecvPort = Gateway.Port;
 
 				// We need to send Extended AUN to this port.
 				ExtendedAUN = true;
@@ -2707,7 +2724,7 @@ static void EconetSendPacket()
 
 		ExtendedAUNPacket *tmp = (ExtendedAUNPacket*)&EconetTemp;
 
-		if (ExtendedAUN || (IsBroadcastStation(EconetTx.DestStn) && Gateway.port != 0))
+		if (ExtendedAUN || (IsBroadcastStation(EconetTx.DestStn) && Gateway.IPAddress != 0))
 		{
 			// We need to make a copy of the packet with additional addressing on the front.
 			tmp->EconetHeader.DestStn = BeebTx.EconetHeader.DestStn;
@@ -2781,11 +2798,11 @@ static void EconetSendPacket()
 			}
 		}
 
-		if (IsBroadcastStation(EconetTx.DestStn) && Gateway.port != 0)
+		if (IsBroadcastStation(EconetTx.DestStn) && Gateway.IPAddress != 0)
 		{
 			// We want to send a copy of the broadcast to the gateway.
-			RecvIpAddress = Gateway.inet_addr;
-			RecvPort = Gateway.port;
+			RecvIpAddress = Gateway.IPAddress;
+			RecvPort = Gateway.Port;
 
 			#ifdef DEBUG_ECONET
 			DebugDumpBytes("Econet: Gateway broadcast ethernet data:", (unsigned char *)p, SendLen + 4);
@@ -3026,8 +3043,8 @@ GetNewPacket:
 			if (!Found && BytesReceived > 4)
 			{
 				// Search to see if source is extended AUN gateway.
-				if (Packet.Src.sin_addr.s_addr == Gateway.inet_addr &&
-				    ntohs(Packet.Src.sin_port) == Gateway.port)
+				if (Packet.Src.sin_addr.s_addr == Gateway.IPAddress &&
+				    ntohs(Packet.Src.sin_port) == Gateway.Port)
 				{
 					// PiEconetBridge gateways use an extended AUN which contains
 					// the Econet addresses at the start of the packet.
@@ -3122,15 +3139,15 @@ GetNewPacket:
 						// rx->addr.destnet is our network number on the bridge
 
 						// Check we haven't got a gateway defined already.
-						if (Gateway.port == 0)
+						if (Gateway.IPAddress == 0)
 						{
-							Gateway.inet_addr = Packet.Src.sin_addr.s_addr;
-							Gateway.port = ntohs(Packet.Src.sin_port);
+							Gateway.IPAddress = Packet.Src.sin_addr.s_addr;
+							Gateway.Port = ntohs(Packet.Src.sin_port);
 
 							#ifdef DEBUG_ECONET
 							DebugTrace("Econet: Learned about gateway at %s:%u. Bridge sees us as station %d.%d\n",
-							           IpAddressStr(Gateway.inet_addr).c_str(),
-							           Gateway.port,
+							           IpAddressStr(Gateway.IPAddress).c_str(),
+							           Gateway.Port,
 							           rx->EconetHeader.DestNet,
 							           rx->EconetHeader.DestStn);
 							#endif
@@ -3138,13 +3155,13 @@ GetNewPacket:
 							// Start/reset keepalives.
 							time(&GatewayTimeout);
 						}
-						else if (Gateway.inet_addr != Packet.Src.sin_addr.s_addr ||
-						         Gateway.port != ntohs(Packet.Src.sin_port))
+						else if (Gateway.IPAddress != Packet.Src.sin_addr.s_addr ||
+						         Gateway.Port != ntohs(Packet.Src.sin_port))
 						{
 							// This response was from a different gateway
 							// to the one we already have configured!
 							#ifdef DEBUG_ECONET
-							DebugTrace("Econet: Ignored gateway response from %s:%u",
+							DebugTrace("Econet: Ignored gateway response from %s:%u\n",
 							           IpAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
 							           ntohs(Packet.Src.sin_port));
 							#endif
