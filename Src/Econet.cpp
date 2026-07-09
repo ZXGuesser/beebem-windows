@@ -539,6 +539,23 @@ static EconetHost* FindNetworkConfig(unsigned char Station, unsigned char Networ
 
 /****************************************************************************/
 
+static EconetHost* FindStation(unsigned long IPAddress, unsigned short Port)
+{
+	for (size_t i = 0; i < Stations.size(); ++i)
+	{
+		EconetHost& Station = Stations[i];
+
+		if (IPAddress == Station.inet_addr && Port == Station.port)
+		{
+			return &Station;
+		}
+	}
+
+	return nullptr;
+}
+
+/****************************************************************************/
+
 // Add or replace a station in stations list.
 
 static void AddStation(unsigned char Station,
@@ -2898,13 +2915,14 @@ static bool GetReceivedPacket(ReceivedPacket* pPacket)
 
 /****************************************************************************/
 
+// Returns true if a packet was received.
+
 static bool EconetReceivePacket()
 {
 	if (AUNState == FourWayStage::Idle ||
 	    AUNState == FourWayStage::ImmediateSent ||
 	    AUNState == FourWayStage::DataSent)
 	{
-GetNewPacket:
 		ReceivedPacket Packet;
 
 		bool Received = GetReceivedPacket(&Packet);
@@ -2960,32 +2978,28 @@ GetNewPacket:
 			bool Found = false;
 
 			// Search for source in known stations.
-			for (size_t i = 0; i < Stations.size(); ++i)
+			EconetHost* pStation = FindStation(Packet.Src.sin_addr.s_addr,
+			                                   ntohs(Packet.Src.sin_port));
+
+			if (pStation != nullptr)
 			{
-				EconetHost& Station = Stations[i];
+				Found = true;
 
-				if (ntohs(Packet.Src.sin_port) == Station.port &&
-				    Packet.Src.sin_addr.s_addr == Station.inet_addr)
+				BeebRx.EconetHeader.SrcNet = pStation->network;
+				BeebRx.EconetHeader.SrcStn = pStation->station;
+
+				if (EconetRx.AUNHeader.Type == AUNType::Broadcast)
 				{
-					Found = true;
-
-					BeebRx.EconetHeader.SrcNet = Station.network;
-					BeebRx.EconetHeader.SrcStn = Station.station;
-
-					if (EconetRx.AUNHeader.Type == AUNType::Broadcast)
+					// See if a gateway has already sent broadcasts from this station.
+					if (pStation->broadcasts == BroadcastSource::Gateway)
 					{
-						// See if a gateway has already sent broadcasts from this station.
-						if (Station.broadcasts == BroadcastSource::Gateway)
-						{
-							// Don't resolve this station.
-							Found = false;
-						}
-						else
-						{
-							Station.broadcasts = BroadcastSource::Local;
-						}
+						// Don't resolve this station.
+						Found = false;
 					}
-					break;
+					else
+					{
+						pStation->broadcasts = BroadcastSource::Local;
+					}
 				}
 			}
 
@@ -3126,7 +3140,7 @@ GetNewPacket:
 					// If it is then it will be Extended AUN so all the headers are moved.
 					ExtendedAUNPacket *rx = (ExtendedAUNPacket*)&EconetRx;
 
-					// Check it looks like a gateway reply should do.
+					// Check it looks like a gateway reply.
 					if (rx->EconetHeader.SrcStn == 0 &&
 					    rx->EconetHeader.SrcNet != 0 &&
 					    rx->AUNHeader.Type == AUNType::Unicast &&
@@ -3209,10 +3223,10 @@ GetNewPacket:
 						}
 						else
 						{
-							EconetHost* ptr = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
-							                                    BeebRx.EconetHeader.SrcNet);
+							pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
+							                             BeebRx.EconetHeader.SrcNet);
 
-							if (ptr == nullptr || time(NULL) >= ptr->timeout)
+							if (pStation == nullptr || time(NULL) >= pStation->timeout)
 							{
 								// Station is new or stale.
 								AddStation(BeebRx.EconetHeader.SrcStn,
@@ -3229,8 +3243,8 @@ GetNewPacket:
 				DebugTrace("Econet: Packet ignored\n");
 				#endif
 
-				// Go back and look for another packet.
-				goto GetNewPacket;
+				// Look for the next packet.
+				return false;
 			}
 			else
 			{
@@ -3283,8 +3297,8 @@ GetNewPacket:
 						         EconetRx.Buffer[1] != BeebRx.EconetHeader.SrcNet)
 						{
 							// Station number of this host has changed for some reason.
-							EconetHost* pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
-							                                         BeebRx.EconetHeader.SrcNet);
+							pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
+							                             BeebRx.EconetHeader.SrcNet);
 
 							if (pStation != nullptr)
 							{
@@ -3303,8 +3317,8 @@ GetNewPacket:
 						}
 						else
 						{
-							EconetHost* pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
-							                                         BeebRx.EconetHeader.SrcNet);
+							pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
+							                             BeebRx.EconetHeader.SrcNet);
 
 							if (pStation != nullptr)
 							{
@@ -3314,8 +3328,8 @@ GetNewPacket:
 						}
 					}
 
-					// Go back and look for a real Econet packet.
-					goto GetNewPacket;
+					// Look for the next packet.
+					return false;
 				}
 				else if (EconetRx.AUNHeader.Type == AUNType::Unicast &&
 				         BeebRx.BytesInBuffer == 0 &&
@@ -3331,8 +3345,8 @@ GetNewPacket:
 					           BeebRx.EconetHeader.DestStn);
 					#endif
 
-					// Go back and look for a real Econet packet.
-					goto GetNewPacket;
+					// Look for the next packet.
+					return false;
 				}
 
 				switch (AUNState)
