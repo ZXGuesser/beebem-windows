@@ -346,7 +346,7 @@ BEGIN
             MENUITEM "&Sprow ARM7TDMI Co-Processor", IDM_TUBE_SPROWARM
         END
         MENUITEM SEPARATOR
-        POPUP "&Allow SW RAM Write"
+        POPUP "Allow SW RAM &Write"
         BEGIN
             MENUITEM "Rom &0",                      IDM_ALLOWWRITES_ROM0, CHECKED
             MENUITEM "Rom &1",                      IDM_ALLOWWRITES_ROM1, CHECKED
@@ -366,25 +366,25 @@ BEGIN
             MENUITEM "Rom &F",                      IDM_ALLOWWRITES_ROMF, CHECKED
         END
         MENUITEM "Solidisk SW RAM Board On/Off", IDM_SOLIDISK_SWRAM_BOARD
-        MENUITEM "Edit ROM Configuration",      IDM_ROMCONFIG
+        MENUITEM "Edit &ROM Configuration",     IDM_ROMCONFIG
         MENUITEM SEPARATOR
         MENUITEM "Basic &Hardware Only",        IDM_BASIC_HARDWARE_ONLY
         MENUITEM "&Teletext Half Mode",         IDM_TELETEXTHALFMODE
         MENUITEM SEPARATOR
-        MENUITEM "Econet On/Off",               IDM_ECONET
-        MENUITEM "View Econet Network",         IDM_ECONET_NETWORK
+        MENUITEM "&Econet On/Off",              IDM_ECONET
+        MENUITEM "&View Econet Network",        IDM_ECONET_NETWORK
         MENUITEM SEPARATOR
-        MENUITEM "Teletext Adapter On/Off",     IDM_TELETEXT
+        MENUITEM "Teletext &Adapter On/Off",    IDM_TELETEXT
         MENUITEM "Select &Teletext Data Source", IDM_SELECT_TELETEXT_DATA_SOURCE
         MENUITEM SEPARATOR
         MENUITEM "Set &Keyboard Links...",      IDM_SET_KEYBOARD_LINKS
         MENUITEM SEPARATOR
         MENUITEM "Floppy Drive On/Off",         IDM_FLOPPY_DRIVE
         MENUITEM "SCSI Hard Drive On/Off",      IDM_SCSI_HARD_DRIVE
-        MENUITEM "IDE Hard Drive On/Off",       IDM_IDE_HARD_DRIVE
-        MENUITEM "Select Hard Drive Folder...", IDM_SELECT_HARD_DRIVE_FOLDER
+        MENUITEM "&IDE Hard Drive On/Off",      IDM_IDE_HARD_DRIVE
+        MENUITEM "Select &Hard Drive Folder...", IDM_SELECT_HARD_DRIVE_FOLDER
         MENUITEM SEPARATOR
-        MENUITEM "User Port Breakout Box",      IDM_BREAKOUT
+        MENUITEM "&User Port Breakout Box",     IDM_BREAKOUT
         MENUITEM "User Port RTC Module",        IDM_USER_PORT_RTC_MODULE
     END
     POPUP "&Options"
