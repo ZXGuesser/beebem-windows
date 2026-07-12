@@ -1012,6 +1012,8 @@ bool EconetReset()
 	// Stop here if not enabled.
 	if (!EconetEnabled)
 	{
+		EconetLog("Econet disabled");
+
 		AnnounceHandle = 0; // Clear announce packet sequence number.
 		return true;
 	}
@@ -1032,6 +1034,8 @@ bool EconetReset()
 		// Config didn't include a DEFAULTNET.
 		PreferredNetworkID = DEFAULT_PREFERRED_NET;
 	}
+
+	EconetLog("Starting socket server");
 
 	SocketServer.Start();
 
@@ -1101,6 +1105,9 @@ bool EconetReset()
 	DebugTrace("Econet: Station number set to %d, port %d\n",
 	           EconetStationID, EconetListenPort);
 	#endif
+
+	EconetLog("Station number set to %d, port %d",
+	          EconetStationID, EconetListenPort);
 
 	// On Master the station number is read from CMOS so update it.
 	if (MachineType == Model::Master128 || MachineType == Model::MasterET)
@@ -1184,6 +1191,8 @@ Fail:
 
 static bool ReadEconetConfigFile()
 {
+	EconetLog("Reading Econet config: %s", EconetCfgPath);
+
 	std::ifstream Input(EconetCfgPath);
 
 	if (!Input)
@@ -1374,6 +1383,8 @@ static bool ReadEconetConfigFile()
 
 static bool ReadAUNConfigFile()
 {
+	EconetLog("Reading AUN config: %s", AUNMapPath);
+
 	std::ifstream Input(AUNMapPath);
 
 	if (!Input)
@@ -1984,6 +1995,8 @@ bool EconetPollReal()
 		Packet.AUNHeader.CtrlByte = ECONET_CTRL_GATEWAY_QUERY & 0x7F;
 		Packet.Buffer[0] = ECONET_PORT_BEEBEM; // Where response is sent
 
+		EconetLog("Sending gateway discovery query");
+
 		// Send a copy of broadcast to each network interface.
 		for (size_t i = 0; i < BroadcastAddresses.size(); i++)
 		{
@@ -2026,6 +2039,8 @@ bool EconetPollReal()
 		DebugDumpBytes("Econet: Gateway keepalive packet", (const unsigned char*)&Packet, sizeof(Packet));
 		#endif
 
+		EconetLog("Sending gateway keepalive");
+
 		if (!pSocket->Send(Gateway.IPAddress,
 		                   Gateway.Port,
 		                   (const unsigned char*)&Packet,
@@ -2057,6 +2072,8 @@ bool EconetPollReal()
 		Packet.AUNHeader.Handle = AnnounceHandle++; // Sequence number
 		Packet.Buffer[0] = EconetStationID;
 		Packet.Buffer[1] = EconetNetworkID;
+
+		EconetLog("Sending broadcast announcement");
 
 		// Send a copy of broadcast to each network interface.
 		for (size_t i = 0; i < BroadcastAddresses.size(); i++)
@@ -2545,7 +2562,15 @@ static void EconetSendPacket()
 	DebugDumpBytes("Econet: Packet data:", BeebTx.Buffer, BeebTx.Pointer);
 	#endif
 
+	EconetLog("Send %d byte packet to station %d.%d (%s:%u)",
+	           BeebTx.Pointer,
+	           pBeebTxEconetHeader->DestNet,
+	           pBeebTxEconetHeader->DestStn,
+	           IPAddressStr(RecvIPAddress).c_str(),
+	           RecvPort);
+
 	unsigned int Offset = 0;
+
 	// OK. Lets do AUN ...
 	// The Beeb has given us a packet .. what is it?
 	bool SendMe = false;
@@ -2775,10 +2800,19 @@ static void EconetSendPacket()
 				DebugDumpBytes("Econet: Ethernet data:", pBufferToSend, SendLen);
 				#endif
 
-				if (!pSocket->Send(BroadcastAddresses[i],
-				                   RecvPort,
-				                   pBufferToSend,
-				                   SendLen))
+				if (pSocket->Send(BroadcastAddresses[i],
+				                  RecvPort,
+				                  pBufferToSend,
+				                  SendLen))
+				{
+					EconetLog("Sent %d byte packet to station %d.%d (%s:%u)",
+					          SendLen,
+					          EconetTx.DestNet,
+					          EconetTx.DestStn,
+					          IPAddressStr(RecvIPAddress).c_str(),
+					          RecvPort);
+				}
+				else
 				{
 					EconetError("Econet: Failed to send packet to station %d (%s:%u)",
 					            EconetTx.DestStn,
@@ -2806,10 +2840,19 @@ static void EconetSendPacket()
 				DebugDumpBytes("Econet: Ethernet data:", pBufferToSend, SendLen);
 				#endif
 
-				if (!pSocket->Send(RecvIPAddress,
-				                   RecvPort,
-				                   pBufferToSend,
-				                   SendLen))
+				if (pSocket->Send(RecvIPAddress,
+				                  RecvPort,
+				                  pBufferToSend,
+				                  SendLen))
+				{
+					EconetLog("Sent %d byte packet to station %d.%d (%s:%u)",
+					          SendLen,
+					          EconetTx.DestNet,
+					          EconetTx.DestStn,
+					          IPAddressStr(RecvIPAddress).c_str(),
+					          RecvPort);
+				}
+				else
 				{
 					EconetError("Econet: Failed to send packet to station %d (%s:%u)",
 					            EconetTx.DestStn,
@@ -2829,10 +2872,17 @@ static void EconetSendPacket()
 			DebugDumpBytes("Econet: Gateway broadcast ethernet data:", pBufferToSend, SendLen + 4);
 			#endif
 
-			if (!pSocket->Send(RecvIPAddress,
-			                   RecvPort,
-			                   ExtendedAUNTxBuffer.Buffer,
-			                   SendLen + 4))
+			if (pSocket->Send(Gateway.IPAddress,
+			                  Gateway.Port,
+			                  ExtendedAUNTxBuffer.Buffer,
+			                  SendLen + 4))
+			{
+				EconetLog("Sent %d byte broadcast to gateway (%s:%u)",
+				          SendLen + 4,
+				          IPAddressStr(Gateway.IPAddress).c_str(),
+				          Gateway.Port);
+			}
+			else
 			{
 				EconetError("Econet: Failed to send broadcast to gateway (%s:%u)",
 				            IPAddressStr(RecvIPAddress).c_str(),
@@ -3073,16 +3123,24 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 				Gateway.IPAddress = Packet.Src.sin_addr.s_addr;
 				Gateway.Port = ntohs(Packet.Src.sin_port);
 
-				#ifdef DEBUG_ECONET
 				// This is an Extended AUN packet so all the headers are moved.
 				ExtendedAUNPacket* pPacket = (ExtendedAUNPacket*)Packet.Data;
 
+				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: Learned about gateway at %s:%u. Bridge sees us as station %d.%d\n",
 				           IPAddressStr(Gateway.IPAddress).c_str(),
 				           Gateway.Port,
 				           pPacket->EconetHeader.DestNet,
 				           pPacket->EconetHeader.DestStn);
 				#endif
+
+				EconetLog("Gateway found at %s:%u",
+				          IPAddressStr(Gateway.IPAddress).c_str(),
+				          Gateway.Port);
+
+				EconetLog("Bridge sees us as station %d.%d",
+				          pPacket->EconetHeader.DestNet,
+				          pPacket->EconetHeader.DestStn);
 
 				// Start/reset keepalives.
 				time(&GatewayTimeout);
@@ -3097,6 +3155,10 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 				           IPAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
 				           ntohs(Packet.Src.sin_port));
 				#endif
+
+				EconetLog("Ignored gateway response from %s:%u",
+				          IPAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
+				          ntohs(Packet.Src.sin_port));
 			}
 		}
 
@@ -3121,12 +3183,16 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 			           SrcStn);
 			#endif
 
+			EconetLog("Received BeebEm ping from station %d.%d", SrcNet, SrcStn);
+
 			if (SrcStn == EconetStationID && SrcNet == EconetNetworkID)
 			{
 				// Address collision!
 				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: Address collision!\n");
 				#endif
+
+				EconetLog("Address collision detected");
 
 				if (pHeader->Handle >= AnnounceHandle)
 				{
@@ -3323,6 +3389,13 @@ static bool EconetReceivePacket()
 				pBeebRxEconetHeader->CtrlByte = pRxAUNHeader->CtrlByte | 0x80;
 				pBeebRxEconetHeader->Port     = pRxAUNHeader->Port;
 
+				EconetLog("Received %d byte packet from station %d.%d at %s:%u",
+				          BytesReceived,
+				          SrcNet,
+				          SrcStn,
+				          IPAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
+				          ntohs(Packet.Src.sin_port));
+
 				switch (AUNState)
 				{
 					case FourWayStage::Idle:
@@ -3466,6 +3539,8 @@ static bool EconetReceivePacket()
 							#ifdef DEBUG_ECONET
 							DebugTrace("Econet: Unexpected packet dropped\n");
 							#endif
+
+							EconetLog("Unexpected packet dropped");
 						}
 
 						BeebRx.Pointer = 0;
@@ -3496,6 +3571,8 @@ static bool EconetReceivePacket()
 							#ifdef DEBUG_ECONET
 							DebugTrace("Econet: Unexpected packet dropped\n");
 							#endif
+
+							EconetLog("Unexpected packet dropped");
 
 							BeebRx.BytesInBuffer = 0;
 						}
