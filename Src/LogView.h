@@ -26,7 +26,7 @@ Boston, MA  02110-1301, USA.
 class LogView
 {
 	public:
-		LogView(const std::deque<std::string>* pLogBuffer);
+		LogView(std::deque<std::string>* pLogBuffer);
 
 		static bool InitClass(HINSTANCE hInstance);
 
@@ -35,7 +35,6 @@ class LogView
 		            int id,
 		            const RECT& rc);
 
-		void SetLogBuffer(const std::deque<std::string>* pLogBuffer);
 		void AppendLog(bool BufferFull);
 		void Clear();
 
@@ -63,7 +62,7 @@ class LogView
 	private:
 		HWND m_hwnd;
 		HWND m_hwndParent;
-		const std::deque<std::string>* m_pLogBuffer;
+		std::deque<std::string>* m_pLogBuffer;
 		HFONT m_hFont;
 		int m_LineHeight;
 		int m_ScrollPos;

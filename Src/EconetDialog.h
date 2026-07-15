@@ -77,13 +77,17 @@ class EconetLogPage : public PropertySheetPage
 	public:
 		EconetLogPage(HINSTANCE hInstance,
 		              int DialogID,
-		              const std::deque<std::string>* pLogBuffer);
+		              std::deque<std::string>* pLogBuffer);
 
 	public:
 		void AppendLog(bool BufferFull);
 
 	private:
 		virtual void OnInitDialog();
+
+		virtual INT_PTR HandleMessage(UINT nMessage,
+		                              WPARAM wParam,
+		                              LPARAM lParam);
 
 	private:
 		LogView m_LogView;
@@ -94,7 +98,7 @@ class EconetDialog
 	public:
 		EconetDialog(HINSTANCE hInstance,
 		             HWND hwndParent,
-		             const std::deque<std::string>* pLogBuffer);
+		             std::deque<std::string>* pLogBuffer);
 
 	public:
 		bool Open();

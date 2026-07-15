@@ -41,7 +41,7 @@ EconetDialog* g_pEconetDialog = nullptr;
 /****************************************************************************/
 
 EconetDialog::EconetDialog(HINSTANCE hInstance, HWND hwndParent,
-                           const std::deque<std::string>* pLogBuffer) :
+                           std::deque<std::string>* pLogBuffer) :
 	m_hInstance(hInstance),
 	m_hwndParent(hwndParent),
 	m_hwnd(nullptr),
@@ -417,7 +417,7 @@ INT_PTR EconetSettingsPage::HandleMessage(UINT nMessage,
 
 EconetLogPage::EconetLogPage(HINSTANCE hInstance,
                              int DialogID,
-                             const std::deque<std::string>* pLogBuffer) :
+                             std::deque<std::string>* pLogBuffer) :
 	PropertySheetPage(hInstance, DialogID),
 	m_LogView(pLogBuffer)
 {
@@ -447,6 +447,26 @@ void EconetLogPage::OnInitDialog()
 void EconetLogPage::AppendLog(bool BufferFull)
 {
 	m_LogView.AppendLog(BufferFull);
+}
+
+/****************************************************************************/
+
+INT_PTR EconetLogPage::HandleMessage(UINT nMessage,
+                                     WPARAM wParam,
+                                     LPARAM /* lParam */)
+{
+	switch (nMessage)
+	{
+		case WM_COMMAND:
+			if (wParam == IDC_CLEAR)
+			{
+				m_LogView.Clear();
+				return 0;
+			}
+			break;
+	}
+
+	return 0;
 }
 
 /****************************************************************************/
