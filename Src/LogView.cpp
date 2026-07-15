@@ -28,7 +28,7 @@ Boston, MA  02110-1301, USA.
 
 /****************************************************************************/
 
-LogView::LogView(const std::deque<std::string>* pLogBuffer) :
+LogView::LogView(std::deque<std::string>* pLogBuffer) :
 	m_hwnd(nullptr),
 	m_hwndParent(nullptr),
 	m_pLogBuffer(pLogBuffer),
@@ -74,13 +74,6 @@ bool LogView::Create(HINSTANCE hInstance, HWND hwndParent, int id, const RECT& R
 	                      this);
 
 	return m_hwnd != nullptr;
-}
-
-/****************************************************************************/
-
-void LogView::SetLogBuffer(const std::deque<std::string>* pLogBuffer)
-{
-	m_pLogBuffer = pLogBuffer;
 }
 
 /****************************************************************************/
@@ -152,6 +145,15 @@ void LogView::AppendLog(bool BufferFull)
 
 void LogView::Clear()
 {
+	m_pLogBuffer->clear();
+
+	m_ScrollPos = 0;
+	m_SelectionStart = -1;
+	m_SelectionEnd = -1;
+
+	UpdateScrollBar();
+
+	InvalidateRect(m_hwnd, nullptr, TRUE);
 }
 
 /****************************************************************************/

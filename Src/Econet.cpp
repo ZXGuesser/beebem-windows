@@ -3837,7 +3837,7 @@ const EconetNet* GetEconetNetwork(int Index)
 
 /****************************************************************************/
 
-const std::deque<std::string>* GetEconetLogBuffer()
+std::deque<std::string>* GetEconetLogBuffer()
 {
 	return &EconetLogMessages;
 }

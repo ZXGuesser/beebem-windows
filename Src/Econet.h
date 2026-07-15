@@ -124,7 +124,7 @@ const EconetHost* GetEconetHost(int Index);
 int GetEconetNetworkCount();
 const EconetNet* GetEconetNetwork(int Index);
 
-const std::deque<std::string>* GetEconetLogBuffer();
+std::deque<std::string>* GetEconetLogBuffer();
 
 // #define DEBUG_ECONET
 // #define DEBUG_ECONET_ADLC
