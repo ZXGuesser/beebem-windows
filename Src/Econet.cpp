@@ -3767,35 +3767,33 @@ static void EconetLog(const char *Format, ...)
 
 	// 2026-07-11 11:45:00.123
 	// _vscprintf doesn't count terminating '\0'
+	#ifndef NDEBUG
 	int Length = _vscprintf(Format, Args) + 24 + 1;
+	assert(Length < 512 - 24 - 1);
+	#endif
 
-	char *pBuffer = (char*)malloc(Length * sizeof(char));
+	SYSTEMTIME Time;
+	GetLocalTime(&Time);
 
-	if (pBuffer != nullptr)
+	char Buffer[512];
+
+	sprintf(Buffer, "%04d-%02d-%02d %02d:%02d:%02d.%03d ",
+	        Time.wYear, Time.wMonth, Time.wDay,
+	        Time.wHour, Time.wMinute, Time.wSecond, Time.wMilliseconds);
+
+	vsprintf_s(Buffer + 24, (512 - 24) * sizeof(char), Format, Args);
+
+	bool BufferFull = EconetLogMessages.size() == MAX_LOG_MESSAGES;
+
+	if (BufferFull)
 	{
-		SYSTEMTIME Time;
-		GetLocalTime(&Time);
-
-		sprintf(pBuffer, "%04d-%02d-%02d %02d:%02d:%02d.%03d ",
-		        Time.wYear, Time.wMonth, Time.wDay,
-		        Time.wHour, Time.wMinute, Time.wSecond, Time.wMilliseconds);
-
-		vsprintf_s(pBuffer + 24, (Length - 24) * sizeof(char), Format, Args);
-
-		bool BufferFull = EconetLogMessages.size() == MAX_LOG_MESSAGES;
-
-		if (BufferFull)
-		{
-			// Discard oldest message.
-			EconetLogMessages.pop_front();
-		}
-
-		EconetLogMessages.push_back(pBuffer);
-
-		free(pBuffer);
-
-		PostMessage(mainWin->GethWnd(), WM_ECONET_APPEND_LOG, BufferFull, 0);
+		// Discard oldest message.
+		EconetLogMessages.pop_front();
 	}
+
+	EconetLogMessages.push_back(Buffer);
+
+	PostMessage(mainWin->GethWnd(), WM_ECONET_APPEND_LOG, BufferFull, 0);
 
 	va_end(Args);
 }
