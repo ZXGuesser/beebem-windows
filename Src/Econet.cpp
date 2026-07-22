@@ -613,12 +613,16 @@ static void EconetCloseSockets()
 	if (pSocket != nullptr)
 	{
 		pSocket->Close();
+
+		delete pSocket;
 		pSocket = nullptr;
 	}
 
 	if (pBroadcastListenSocket != nullptr)
 	{
 		pBroadcastListenSocket->Close();
+
+		delete pBroadcastListenSocket;
 		pBroadcastListenSocket = nullptr;
 	}
 
