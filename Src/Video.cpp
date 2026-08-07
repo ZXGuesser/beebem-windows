@@ -815,15 +815,20 @@ static void LowLevelDoScanLineWideNot4Bytes() {
 }
 
 /*-------------------------------------------------------------------------------------------------------------*/
-/* Do all the pixel rows for one row of teletext characters                                                    */
-static void DoMode7Row(void) {
-  const unsigned char *CurrentPtr = VideoState.DataPtr;
-  int CurrentChar;
-  unsigned char byte;
+
+// Do all the pixel rows for one row of teletext characters.
+
+static void DoMode7Row()
+{
+  if (CRTC_HorizontalDisplayed > 80)
+  {
+    // Not possible on Beeb - and would break the double height lookup array.
+    return;
+  }
 
   unsigned int Foreground = 7;
-  /* The foreground colour changes after the current character; only relevant for hold graphics */
-  unsigned int ForegroundPending=Foreground;
+  // The foreground colour changes after the current character; only relevant for hold graphics.
+  unsigned int ForegroundPending = Foreground;
   unsigned int ActualForeground;
   unsigned int Background = 0;
   bool Flash;
@@ -838,16 +843,21 @@ static void DoMode7Row(void) {
   unsigned char NextHoldGraphChar = 32; // the character to "hold" during control codes
   bool HoldSeparated;
   bool NextHoldSeparated = false; // Separated graphics mode in force when grapics held
-  unsigned int CurrentCol[20]={0xffffff,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff
-  ,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff,0xffffff};
-  int CurrentLen[20]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-  int CurrentStartX[20]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-  int CurrentScanLine;
-  int CurrentX=0;
-  int CurrentPixel;
-  int FontTypeIndex=0; /* 0=alpha, 1=contiguous graphics, 2=separated graphics */
-
-  if (CRTC_HorizontalDisplayed>80) return; // Not possible on Beeb - and would break the double height lookup array
+  unsigned int CurrentCol[20] = {
+    0xffffff, 0xffffff, 0xffffff, 0xffffff,
+    0xffffff, 0xffffff, 0xffffff, 0xffffff,
+    0xffffff, 0xffffff, 0xffffff, 0xffffff,
+    0xffffff, 0xffffff, 0xffffff, 0xffffff,
+    0xffffff, 0xffffff, 0xffffff, 0xffffff
+  };
+  int CurrentLen[20] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+  };
+  int CurrentStartX[20] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+  };
+  int CurrentX = 0;
+  int FontTypeIndex = 0; // 0=alpha, 1=contiguous graphics, 2=separated graphics
 
   // Reset double-height state for the first character row of the screen.
   if (VideoState.CharLine == 0)
@@ -856,144 +866,170 @@ static void DoMode7Row(void) {
     NextLineBottom = false;
   }
 
-  for (CurrentChar = 0; CurrentChar < CRTC_HorizontalDisplayed; CurrentChar++) {
-    HoldGraph=NextHoldGraph;
-    HoldGraphChar=NextHoldGraphChar;
-    HoldSeparated=NextHoldSeparated;
-    Graphics=NextGraphics;
-    Flash=NextFlash;
-    byte=CurrentPtr[CurrentChar];
-    if (byte<32) byte+=128; // fix for naughty programs that use 7-bit control codes - Richard Gellman
-    if ((byte & 32) && Graphics) {
-      NextHoldGraphChar=byte;
-      NextHoldSeparated=Separated;
+  const unsigned char *CurrentPtr = VideoState.DataPtr;
+
+  for (int CurrentChar = 0; CurrentChar < CRTC_HorizontalDisplayed; CurrentChar++)
+  {
+    HoldGraph = NextHoldGraph;
+    HoldGraphChar = NextHoldGraphChar;
+    HoldSeparated = NextHoldSeparated;
+    Graphics = NextGraphics;
+    Flash = NextFlash;
+
+    // The top bit never reaches the character generator.
+    unsigned char Data = CurrentPtr[CurrentChar] & 0x7F;
+
+    if ((Data & 32) && Graphics)
+    {
+      NextHoldGraphChar = Data;
+      NextHoldSeparated = Separated;
     }
-    if ((byte>=128) && (byte<=159)) {
-      if (!HoldGraph && byte != 158) NextHoldGraphChar = 32; // SAA5050 teletext rendering bug
-      switch (byte) {
-        case 129: // Alphanumeric red
-        case 130: // Alphanumeric green
-        case 131: // Alphanumeric yellow
-        case 132: // Alphanumeric blue
-        case 133: // Alphanumeric magenta
-        case 134: // Alphanumeric cyan
-        case 135: // Alphanumeric white
-          ForegroundPending = byte - 128;
+
+    if (Data <= 0x1F)
+    {
+      if (!HoldGraph && Data != 0x1E)
+      {
+        NextHoldGraphChar = 32; // SAA5050 teletext rendering bug
+      }
+
+      switch (Data)
+      {
+        case 0x01: // Alphanumeric red
+        case 0x02: // Alphanumeric green
+        case 0x03: // Alphanumeric yellow
+        case 0x04: // Alphanumeric blue
+        case 0x05: // Alphanumeric magenta
+        case 0x06: // Alphanumeric cyan
+        case 0x07: // Alphanumeric white
+          ForegroundPending = Data;
           NextGraphics = false;
-          NextHoldGraphChar=32;
+          NextHoldGraphChar = 32;
           break;
 
-        case 136: // Flash
+        case 0x08: // Flash
           NextFlash = true;
           break;
 
-        case 137: // Steady
+        case 0x09: // Steady
           NextFlash = false;
           Flash = false;
           break;
 
-        case 140: // Normal height
+        case 0x0C: // Normal height
           if (DoubleHeight)
           {
-              NextHoldGraphChar=32;
-              HoldGraphChar=NextHoldGraphChar;
+              NextHoldGraphChar = 32;
+              HoldGraphChar = NextHoldGraphChar;
           }
           DoubleHeight = false;
           break;
 
-        case 141: // Double height
+        case 0x0D: // Double height
           if (!CurrentLineBottom) NextLineBottom = true;
 
           // This is supposed to be set-after, but the SAA5050 seems to do
           // set-at, at least in terms of how it clears the HoldGraphChar.
           if (!DoubleHeight)
           {
-              NextHoldGraphChar=32;
-              HoldGraphChar=NextHoldGraphChar;
+              NextHoldGraphChar = 32;
+              HoldGraphChar = NextHoldGraphChar;
           }
           DoubleHeight = true;
           break;
 
-        case 145: // Graphics red
-        case 146: // Graphics green
-        case 147: // Graphics yellow
-        case 148: // Graphics blue
-        case 149: // Graphics magenta
-        case 150: // Graphics cyan
-        case 151: // Graphics white
-          ForegroundPending = byte - 144;
+        case 0x11: // Graphics red
+        case 0x12: // Graphics green
+        case 0x13: // Graphics yellow
+        case 0x14: // Graphics blue
+        case 0x15: // Graphics magenta
+        case 0x16: // Graphics cyan
+        case 0x17: // Graphics white
+          ForegroundPending = Data - 0x10;
           NextGraphics = true;
           break;
 
-        case 152: // Conceal display - not sure about this
+        case 0x18: // Conceal display - not sure about this
           Foreground=Background;
           ForegroundPending=Background;
           break;
 
-        case 153: // Contiguous graphics
+        case 0x19: // Contiguous graphics
           Separated = false;
           break;
 
-        case 154: // Separated graphics
+        case 0x1A: // Separated graphics
           Separated = true;
           break;
 
-        case 156: // Black background
+        case 0x1C: // Black background
           Background = 0;
           break;
 
-        case 157: // New background
+        case 0x1D: // New background
           Background = Foreground;
           break;
 
-        case 158: // Hold graphics
+        case 0x1E: // Hold graphics
           NextHoldGraph = true;
           HoldGraph = true;
           break;
 
-        case 159: // Release graphics
+        case 0x1F: // Release graphics
           NextHoldGraph = false;
           break;
       }
 
       // This next line hides any non double height characters on the bottom line
       // Fudge so that the special character is just displayed in background
-      if (HoldGraph && Graphics) {
-        byte=HoldGraphChar;
-        FontTypeIndex=HoldSeparated?2:1;
-      } else {
-        byte=32;
-        FontTypeIndex=Graphics?(Separated?2:1):0;
+      if (HoldGraph && Graphics)
+      {
+        Data = HoldGraphChar;
+        FontTypeIndex = HoldSeparated ? 2 : 1;
       }
-    } /* test for special character */
-    else {
+      else
+      {
+        Data = 32;
+        FontTypeIndex = Graphics ? (Separated ? 2 : 1) : 0;
+      }
+    }
+    else
+    {
       FontTypeIndex = Graphics ? (Separated ? 2 : 1) : 0;
     }
 
-    if (CurrentLineBottom && ((byte & 127) > 31) && !DoubleHeight) byte = 32;
-    TeletextStyle = (CRTC_ScanLinesPerChar <= 9 || TeletextHalfMode) ? 2 : 1;
-    /* Top bit never reaches character generator */
-    byte&=127;
-    /* Our font table goes from character 32 up */
-    if (byte < 32) byte = 0; else byte -= 32;
+    if (CurrentLineBottom && Data > 31 && !DoubleHeight)
+    {
+      Data = 32;
+    }
 
-    /* Conceal flashed text if necessary */
+    TeletextStyle = (CRTC_ScanLinesPerChar <= 9 || TeletextHalfMode) ? 2 : 1;
+
+    // Our font table goes from character 32 up.
+    if (Data < 32) Data = 0; else Data -= 32;
+
+    // Conceal flashed text if necessary.
     ActualForeground = (Flash && !Mode7FlashOn) ? Background : Foreground;
 
-    if (!DoubleHeight) {
+    if (!DoubleHeight)
+    {
       // Loop through each scanline in this character row
-      for (CurrentScanLine = 0 + (TeletextStyle - 1); CurrentScanLine < 20; CurrentScanLine += TeletextStyle) {
-        unsigned int Bitmap = Mode7Font[FontTypeIndex][byte][CurrentScanLine];
+      for (int CurrentScanLine = 0 + (TeletextStyle - 1); CurrentScanLine < 20; CurrentScanLine += TeletextStyle)
+      {
+        unsigned int Bitmap = Mode7Font[FontTypeIndex][Data][CurrentScanLine];
 
-        if (Bitmap == 0 || Bitmap == 0xfff) {
+        if (Bitmap == 0 || Bitmap == 0xfff)
+        {
           unsigned int col = Bitmap == 0 ? Background : ActualForeground;
 
-          if (col == CurrentCol[CurrentScanLine]) {
+          if (col == CurrentCol[CurrentScanLine])
+          {
             // Same colour, so increment run length
             CurrentLen[CurrentScanLine] += 12;
           }
-          else {
-            if (CurrentLen[CurrentScanLine] != 0) {
+          else
+          {
+            if (CurrentLen[CurrentScanLine] != 0)
+            {
               mainWin->doHorizLine(
                 CurrentCol[CurrentScanLine],             // Colour
                 VideoState.PixmapLine + CurrentScanLine, // y
@@ -1007,18 +1043,22 @@ static void DoMode7Row(void) {
             CurrentLen[CurrentScanLine] = 12;
           }
         }
-        else {
+        else
+        {
           // Loop through 12 pixels horizontally
-          for (CurrentPixel = 0x800; CurrentPixel != 0; CurrentPixel >>= 1) {
-            // Background or foreground ?
+          for (int CurrentPixel = 0x800; CurrentPixel != 0; CurrentPixel >>= 1)
+          {
+            // Background or foreground?
             unsigned int col = (Bitmap & CurrentPixel) ? ActualForeground : Background;
 
-            // Do we need to draw ?
-            if (col == CurrentCol[CurrentScanLine]) {
+            // Do we need to draw?
+            if (col == CurrentCol[CurrentScanLine])
+            {
               // Same colour, so increment run length
               CurrentLen[CurrentScanLine]++;
             }
-            else {
+            else
+            {
               if (CurrentLen[CurrentScanLine] != 0) {
                 mainWin->doHorizLine(
                   CurrentCol[CurrentScanLine],             // Colour
@@ -1042,27 +1082,34 @@ static void DoMode7Row(void) {
 
       CurrentX += 12;
 
-      Mode7DoubleHeightFlags[CurrentChar] = true; // Not double height - so if the next line is double height it will be top half
+      // Not double height - so if the next line is double height it will be top half
+      Mode7DoubleHeightFlags[CurrentChar] = true;
     }
-    else {
+    else
+    {
       // Double height!
 
       // Loop through 12 pixels horizontally
-      for (CurrentPixel = 0x800; CurrentPixel != 0; CurrentPixel >>= 1) {
+      for (int CurrentPixel = 0x800; CurrentPixel != 0; CurrentPixel >>= 1)
+      {
         // Loop through each scanline in this character row
-        for (CurrentScanLine = 0 + (TeletextStyle - 1); CurrentScanLine < 20; CurrentScanLine += TeletextStyle) {
+        for (int CurrentScanLine = 0 + (TeletextStyle - 1); CurrentScanLine < 20; CurrentScanLine += TeletextStyle)
+        {
           const int ActualScanLine = CurrentLineBottom ? 10 + (CurrentScanLine / 2) : (CurrentScanLine / 2);
 
-          // Background or foreground ?
-          unsigned int col = (Mode7Font[FontTypeIndex][byte][ActualScanLine] & CurrentPixel) ? ActualForeground : Background;
+          // Background or foreground?
+          unsigned int col = (Mode7Font[FontTypeIndex][Data][ActualScanLine] & CurrentPixel) ? ActualForeground : Background;
 
-          // Do we need to draw ?
-          if (col == CurrentCol[CurrentScanLine]) {
+          // Do we need to draw?
+          if (col == CurrentCol[CurrentScanLine])
+          {
             // Same colour, so increment run length
             CurrentLen[CurrentScanLine]++;
           }
-          else {
-            if (CurrentLen[CurrentScanLine] != 0) {
+          else
+          {
+            if (CurrentLen[CurrentScanLine] != 0)
+            {
               mainWin->doHorizLine(
                 CurrentCol[CurrentScanLine],             // Colour
                 VideoState.PixmapLine + CurrentScanLine, // y
@@ -1080,15 +1127,18 @@ static void DoMode7Row(void) {
         CurrentX++;
       }
 
-      Mode7DoubleHeightFlags[CurrentChar] = !Mode7DoubleHeightFlags[CurrentChar]; // Not double height - so if the next line is double height it will be top half
+      // Not double height - so if the next line is double height it will be top half
+      Mode7DoubleHeightFlags[CurrentChar] = !Mode7DoubleHeightFlags[CurrentChar];
     }
 
     Foreground = ForegroundPending;
   }
 
   // Finish off right bits of scan line
-  for (CurrentScanLine = 0 + (TeletextStyle - 1); CurrentScanLine < 20; CurrentScanLine += TeletextStyle) {
-    if (CurrentLen[CurrentScanLine] != 0) {
+  for (int CurrentScanLine = 0 + (TeletextStyle - 1); CurrentScanLine < 20; CurrentScanLine += TeletextStyle)
+  {
+    if (CurrentLen[CurrentScanLine] != 0)
+    {
       mainWin->doHorizLine(
         CurrentCol[CurrentScanLine],             // Colour
         VideoState.PixmapLine + CurrentScanLine, // y
@@ -1104,9 +1154,10 @@ static void DoMode7Row(void) {
 
 /*-------------------------------------------------------------------------------------------------------------*/
 
-// Actually does the work of decoding Beeb memory and plotting the line to X.
+// Actually does the work of decoding Beeb memory and plotting the line.
 
-static void LowLevelDoScanLine() {
+static void LowLevelDoScanLine()
+{
   if (!FastTable_Valid) {
     // Update acceleration tables
     DoFastTable();
