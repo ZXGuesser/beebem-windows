@@ -51,7 +51,7 @@ ReceiveQueue::~ReceiveQueue()
 
 /****************************************************************************/
 
-bool ReceiveQueue::Push(const char* pData,
+bool ReceiveQueue::Push(const unsigned char* pData,
                         int Length,
                         const sockaddr_in* pSrc)
 {
@@ -122,7 +122,7 @@ struct PerIoContext
 {
 	OVERLAPPED Overlapped;
 	WSABUF Buffer;
-	char Data[UDPSERVER_MAX_PACKET_SIZE];
+	unsigned char Data[UDPSERVER_MAX_PACKET_SIZE];
 	sockaddr_in Addr;
 	int AddrLen;
 	IoOperation Operation;
@@ -288,7 +288,7 @@ bool UdpSocket::Send(unsigned long IPAddress,
 
 /****************************************************************************/
 
-bool UdpSocket::Received(const char* pData,
+bool UdpSocket::Received(const unsigned char* pData,
                          int Length,
                          const sockaddr_in* pSrc)
 {
@@ -301,7 +301,7 @@ bool UdpSocket::PostReceive(PerIoContext* pIoContext)
 {
 	ZeroMemory(&pIoContext->Overlapped, sizeof(OVERLAPPED));
 
-	pIoContext->Buffer.buf = pIoContext->Data;
+	pIoContext->Buffer.buf = (char*)pIoContext->Data;
 	pIoContext->Buffer.len = UDPSERVER_MAX_PACKET_SIZE;
 	pIoContext->AddrLen = sizeof(sockaddr_in);
 	pIoContext->Operation = IoOperation::Receive;
@@ -463,7 +463,7 @@ bool UdpServer::Send(SOCKET Socket,
 
 	memcpy(pContext->Data, pData, Length);
 
-	pContext->Buffer.buf = pContext->Data;
+	pContext->Buffer.buf = (char*)pContext->Data;
 	pContext->Buffer.len = Length;
 
 	pContext->Addr.sin_family = AF_INET;

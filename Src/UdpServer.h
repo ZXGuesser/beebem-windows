@@ -36,7 +36,7 @@ class ReceiveQueue
 		ReceiveQueue();
 		~ReceiveQueue();
 
-		bool Push(const char* pData,
+		bool Push(const unsigned char* pData,
 		          int Length,
 		          const sockaddr_in* pSrc);
 
@@ -86,7 +86,7 @@ class UdpSocket
 		          const unsigned char* pData,
 		          int Length);
 
-		bool Received(const char* pData,
+		bool Received(const unsigned char* pData,
 		              int Length,
 		              const sockaddr_in* pSrc);
 
