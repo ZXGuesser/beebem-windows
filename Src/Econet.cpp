@@ -2741,7 +2741,7 @@ static void EconetSendPacket()
 
 	if (SendMe)
 	{
-		char *p = (char *)&EconetTx;
+		const unsigned char *p = (const unsigned char *)&EconetTx;
 
 		ExtendedAUNPacket *tmp = (ExtendedAUNPacket*)&EconetTemp;
 
@@ -2757,7 +2757,7 @@ static void EconetSendPacket()
 			if (ExtendedAUN)
 			{
 				SendLen += 4;
-				p = (char *)tmp; // Transmit this buffer instead of EconetTx.
+				p = (const unsigned char *)tmp; // Transmit this buffer instead of EconetTx.
 			}
 			// else a broadcast - we will send this extended AUN packet to the
 			// gateway after sending the original packet as a UDP broadcast.
@@ -2780,7 +2780,7 @@ static void EconetSendPacket()
 
 				if (!pSocket->Send(BroadcastAddresses[i],
 				                   RecvPort,
-				                   (const unsigned char*)p,
+				                   p,
 				                   SendLen))
 				{
 					EconetError("Econet: Failed to send packet to station %d (%s:%u)",
@@ -2806,10 +2806,10 @@ static void EconetSendPacket()
 				           IpAddressStr(RecvIpAddress).c_str(),
 				           RecvPort);
 
-				DebugDumpBytes("Econet: Ethernet data:", (const unsigned char*)p, SendLen);
+				DebugDumpBytes("Econet: Ethernet data:", p, SendLen);
 				#endif
 
-				if (!pSocket->Send(RecvIpAddress, RecvPort, (const unsigned char*)p, SendLen))
+				if (!pSocket->Send(RecvIpAddress, RecvPort, p, SendLen))
 				{
 					EconetError("Econet: Failed to send packet to station %d (%s:%u)",
 					            EconetTx.DestStn,
@@ -2826,7 +2826,7 @@ static void EconetSendPacket()
 			RecvPort = Gateway.Port;
 
 			#ifdef DEBUG_ECONET
-			DebugDumpBytes("Econet: Gateway broadcast ethernet data:", (unsigned char *)p, SendLen + 4);
+			DebugDumpBytes("Econet: Gateway broadcast ethernet data:", p, SendLen + 4);
 			#endif
 
 			if (!pSocket->Send(RecvIpAddress,
@@ -3166,8 +3166,8 @@ static bool EconetReceivePacket()
 							DebugTrace("Econet: Learned about gateway at %s:%u. Bridge sees us as station %d.%d\n",
 							           IpAddressStr(Gateway.IPAddress).c_str(),
 							           Gateway.Port,
-							           rx->EconetHeader.DestNet,
-							           rx->EconetHeader.DestStn);
+							           pExtendedAUNPacket->EconetHeader.DestNet,
+							           pExtendedAUNPacket->EconetHeader.DestStn);
 							#endif
 
 							// Start/reset keepalives.
