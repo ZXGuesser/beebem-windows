@@ -71,7 +71,7 @@ Boston, MA  02110-1301, USA.
 // | factory default settings                                                  |
 // |---------------------------------------------------------------------------|
 // | 14 | 0E |       Econet station number                *SetStation nnn      |
-// | 15 | 0F |       file server number                   *CO. FS nnn          |
+// | 15 | 0F |       File server number                   *CO. FS nnn          |
 // | 16 | 10 |       File server network                  *CO. FS nnn.sss      |
 // | 17 | 11 |       Printer server number                *CO. PS nnn          |
 // | 18 | 12 |       Printer server network               *CO. PS nnn.sss      |
