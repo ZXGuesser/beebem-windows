@@ -3622,31 +3622,27 @@ static bool EconetReceivePacket()
 			BeebRx.EconetHeader.SrcNet = EconetTx.DestNet;
 
 			const int DestOffset = sizeof(EconetHeaderType);
+			int SrcOffset;
 
 			if (EconetRx.AUNHeader.Port == 0 &&
 			    EconetRx.AUNHeader.CtrlByte == (ECONET_CTRL_POKE & 0x7F))
 			{
-				const int SrcOffset = 8;
-				const int Length = EconetRx.BytesInBuffer - sizeof(AUNHeaderType) - SrcOffset;
-				memcpy(BeebRx.Buffer + DestOffset, EconetRx.Buffer + SrcOffset, Length);
-				BeebRx.BytesInBuffer = DestOffset + Length;
+				SrcOffset = 8;
 			}
 			else if (EconetRx.AUNHeader.Port == 0 &&
 			         EconetRx.AUNHeader.CtrlByte >= (ECONET_CTRL_JSR & 0x7F) &&
 			         EconetRx.AUNHeader.CtrlByte <= (ECONET_CTRL_OSPROC & 0x7F))
 			{
-				const int SrcOffset = 4;
-				const int Length = EconetRx.BytesInBuffer - sizeof(AUNHeaderType) - SrcOffset;
-				memcpy(BeebRx.Buffer + DestOffset, EconetRx.Buffer + SrcOffset, Length);
-				BeebRx.BytesInBuffer = DestOffset + Length;
+				SrcOffset = 4;
 			}
 			else
 			{
-				const int Length = EconetRx.BytesInBuffer - sizeof(AUNHeaderType);
-				memcpy(BeebRx.Buffer + DestOffset, EconetRx.Buffer, Length);
-				BeebRx.BytesInBuffer = DestOffset + Length;
+				SrcOffset = 0;
 			}
 
+			const int Length = EconetRx.BytesInBuffer - sizeof(AUNHeaderType) - SrcOffset;
+			memcpy(BeebRx.Buffer + DestOffset, EconetRx.Buffer + SrcOffset, Length);
+			BeebRx.BytesInBuffer = DestOffset + Length;
 			BeebRx.Pointer = 0;
 
 			AUNState = FourWayStage::DataReceived;
