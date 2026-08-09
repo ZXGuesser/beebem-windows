@@ -1019,9 +1019,9 @@ static void DoMode7Row()
 
         if (Bitmap == 0 || Bitmap == 0xfff)
         {
-          unsigned int col = Bitmap == 0 ? Background : ActualForeground;
+          unsigned int Colour = Bitmap == 0 ? Background : ActualForeground;
 
-          if (col == CurrentCol[CurrentScanLine])
+          if (Colour == CurrentCol[CurrentScanLine])
           {
             // Same colour, so increment run length
             CurrentLen[CurrentScanLine] += 12;
@@ -1038,7 +1038,7 @@ static void DoMode7Row()
               );
             }
 
-            CurrentCol[CurrentScanLine] = col;
+            CurrentCol[CurrentScanLine] = Colour;
             CurrentStartX[CurrentScanLine] = CurrentX;
             CurrentLen[CurrentScanLine] = 12;
           }
@@ -1049,10 +1049,10 @@ static void DoMode7Row()
           for (int CurrentPixel = 0x800; CurrentPixel != 0; CurrentPixel >>= 1)
           {
             // Background or foreground?
-            unsigned int col = (Bitmap & CurrentPixel) ? ActualForeground : Background;
+            unsigned int Colour = (Bitmap & CurrentPixel) ? ActualForeground : Background;
 
             // Do we need to draw?
-            if (col == CurrentCol[CurrentScanLine])
+            if (Colour == CurrentCol[CurrentScanLine])
             {
               // Same colour, so increment run length
               CurrentLen[CurrentScanLine]++;
@@ -1068,7 +1068,7 @@ static void DoMode7Row()
                 );
               }
 
-              CurrentCol[CurrentScanLine] = col;
+              CurrentCol[CurrentScanLine] = Colour;
               CurrentStartX[CurrentScanLine] = CurrentX;
               CurrentLen[CurrentScanLine] = 1;
             }
@@ -1098,10 +1098,10 @@ static void DoMode7Row()
           const int ActualScanLine = CurrentLineBottom ? 10 + (CurrentScanLine / 2) : (CurrentScanLine / 2);
 
           // Background or foreground?
-          unsigned int col = (Mode7Font[FontTypeIndex][Data][ActualScanLine] & CurrentPixel) ? ActualForeground : Background;
+          unsigned int Colour = (Mode7Font[FontTypeIndex][Data][ActualScanLine] & CurrentPixel) ? ActualForeground : Background;
 
           // Do we need to draw?
-          if (col == CurrentCol[CurrentScanLine])
+          if (Colour == CurrentCol[CurrentScanLine])
           {
             // Same colour, so increment run length
             CurrentLen[CurrentScanLine]++;
@@ -1118,7 +1118,7 @@ static void DoMode7Row()
               );
             }
 
-            CurrentCol[CurrentScanLine] = col;
+            CurrentCol[CurrentScanLine] = Colour;
             CurrentStartX[CurrentScanLine] = CurrentX;
             CurrentLen[CurrentScanLine] = 1;
           }
