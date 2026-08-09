@@ -212,7 +212,8 @@ static UdpServer SocketServer;
 
 const unsigned short DEFAULT_AUN_PORT = 32768;
 
-const unsigned char ECONET_PORT_BEEBEM           = 0x9B; // where gateway replies and BeebEm Ping/Pong will be sent
+const unsigned char ECONET_PORT_IMMEDIATE        = 0x00; // Immediate operations
+const unsigned char ECONET_PORT_BEEBEM           = 0x9B; // Where gateway replies and BeebEm Ping/Pong will be sent
 const unsigned char ECONET_PORT_PI_ECONET_BRIDGE = 0x9C;
 
 // See https://mdfs.net/Docs/Comp/Econet/Specs/Packets
@@ -2595,7 +2596,7 @@ static void EconetSendPacket()
 			// It came in response to our ack of a scout.
 			// What we have /should/ be the data block.
 			// CLUDGE WARNING is this a scout sent again immediately?? TODO fix this?!?!
-			if (EconetTx.AUNHeader.Port == 0x00)
+			if (EconetTx.AUNHeader.Port == ECONET_PORT_IMMEDIATE)
 			{
 				if (EconetTx.AUNHeader.CtrlByte == (ECONET_CTRL_POKE & 0x7F))
 				{
@@ -2661,7 +2662,7 @@ static void EconetSendPacket()
 					#endif
 				}
 			}
-			else if (EconetTx.AUNHeader.Port == 0 &&
+			else if (EconetTx.AUNHeader.Port == ECONET_PORT_IMMEDIATE &&
 			         (EconetTx.AUNHeader.CtrlByte < (ECONET_CTRL_POKE & 0x7F) ||
 			          EconetTx.AUNHeader.CtrlByte > (ECONET_CTRL_OSPROC & 0x7F)))
 			{
@@ -3426,7 +3427,7 @@ static bool EconetReceivePacket()
 								BeebRx.EconetHeader.DestStn = EconetStationID; // must be for us.
 								BeebRx.EconetHeader.DestNet = 0;
 
-								if (EconetRx.AUNHeader.Port == 0 &&
+								if (EconetRx.AUNHeader.Port == ECONET_PORT_IMMEDIATE &&
 								    EconetRx.AUNHeader.CtrlByte == (ECONET_CTRL_POKE & 0x7F))
 								{
 									const int Offset = sizeof(LongEconetPacket);
@@ -3434,7 +3435,7 @@ static bool EconetReceivePacket()
 									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
 									BeebRx.BytesInBuffer = Offset + Length;
 								}
-								else if (EconetRx.AUNHeader.Port == 0 &&
+								else if (EconetRx.AUNHeader.Port == ECONET_PORT_IMMEDIATE &&
 								         EconetRx.AUNHeader.CtrlByte >= (ECONET_CTRL_JSR & 0x7F) &&
 								         EconetRx.AUNHeader.CtrlByte <= (ECONET_CTRL_OSPROC & 0x7F))
 								{
@@ -3619,12 +3620,12 @@ static bool EconetReceivePacket()
 			const int DestOffset = sizeof(EconetHeaderType);
 			int SrcOffset;
 
-			if (EconetRx.AUNHeader.Port == 0 &&
+			if (EconetRx.AUNHeader.Port == ECONET_PORT_IMMEDIATE &&
 			    EconetRx.AUNHeader.CtrlByte == (ECONET_CTRL_POKE & 0x7F))
 			{
 				SrcOffset = 8;
 			}
-			else if (EconetRx.AUNHeader.Port == 0 &&
+			else if (EconetRx.AUNHeader.Port == ECONET_PORT_IMMEDIATE &&
 			         EconetRx.AUNHeader.CtrlByte >= (ECONET_CTRL_JSR & 0x7F) &&
 			         EconetRx.AUNHeader.CtrlByte <= (ECONET_CTRL_OSPROC & 0x7F))
 			{
