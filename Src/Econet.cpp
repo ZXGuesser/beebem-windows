@@ -1041,7 +1041,7 @@ bool EconetReset()
 	ClearTrigger(EconetTrigger);
 	ClearTrigger(EconetFlagFillTimeoutTrigger);
 	ClearTrigger(EconetScoutAckTrigger);
-	ClearTrigger(EconetFourWayTrigger)
+	ClearTrigger(EconetFourWayTrigger);
 
 	EconetCloseSockets();
 
@@ -1120,7 +1120,8 @@ bool EconetReset()
 		PreferredNetworkID = EconetNetworkID;
 	}
 
-	unsigned char LastEconetStationID = EconetStationID;
+	const unsigned char LastEconetStationID = EconetStationID;
+
 	AllocateNewAddress();
 
 	if (EconetStationID != LastEconetStationID)
@@ -2470,9 +2471,7 @@ static void EconetSendPacket()
 	unsigned long RecvIpAddress = 0;
 	unsigned short RecvPort = 0;
 
-	bool SendMe = false;
 	bool ExtendedAUN = false;
-	int SendLen = 0;
 
 	// First two bytes of BeebTx.Buffer contain the destination address
 	// (or one zero byte for broadcast).
@@ -2484,13 +2483,12 @@ static void EconetSendPacket()
 		// see this so we will send unicast copies to those that need them later.
 		RecvIpAddress = INADDR_BROADCAST;
 		RecvPort = DEFAULT_AUN_PORT;
-		SendMe = true;
 	}
 
 	// Match AUN nets for Econet network numbers if MassageNetworks is enabled.
 	const unsigned int mask = EconetConfig.MassageNetworks ? 0x7F : 0xFF;
 
-	if (!SendMe)
+	if (RecvIpAddress == 0)
 	{
 		// Search for the destination host in the Stations table.
 
@@ -2503,13 +2501,12 @@ static void EconetSendPacket()
 			{
 				RecvIpAddress = Station.inet_addr;
 				RecvPort = Station.port;
-				SendMe = true;
 				break;
 			}
 		}
 	}
 
-	if (!SendMe)
+	if (RecvIpAddress == 0)
 	{
 		// Station not found. Search to see if the destination network
 		// is defined in the Networks table.
@@ -2526,7 +2523,6 @@ static void EconetSendPacket()
 					// Last octet is zero so this is true AUN.
 					RecvIpAddress = (Network.inet_addr & 0x00FFFFFF) | (BeebTx.EconetHeader.DestStn << 24);
 					RecvPort = Network.port; // TODO this should always be DEFAULT_AUN_PORT - should we override this?
-					SendMe = true;
 					break;
 				}
 				else
@@ -2535,14 +2531,13 @@ static void EconetSendPacket()
 					// Treat port as the base port number for a PiEconetBridge exposed network.
 					RecvIpAddress = Network.inet_addr;
 					RecvPort = Network.port + BeebTx.EconetHeader.DestStn;
-					SendMe = true;
 					break;
 				}
 			}
 		}
 	}
 
-	if (!SendMe)
+	if (RecvIpAddress == 0)
 	{
 		// Network not found in the Networks table. If the packet is not for
 		// net 0 or 255, use the gateway to get packets to this network.
@@ -2556,12 +2551,11 @@ static void EconetSendPacket()
 
 				// We need to send Extended AUN to this port.
 				ExtendedAUN = true;
-				SendMe = true;
 			}
 		}
 	}
 
-	if (!SendMe)
+	if (RecvIpAddress == 0)
 	{
 		#ifdef DEBUG_ECONET
 		DebugTrace("Econet: Unable to resolve station %d.%d\n",
@@ -2589,7 +2583,8 @@ static void EconetSendPacket()
 	unsigned int j = 0;
 	// OK. Lets do AUN ...
 	// The Beeb has given us a packet .. what is it?
-	SendMe = false;
+	bool SendMe = false;
+	int SendLen = 0;
 
 	EconetTx.DestNet = BeebTx.EconetHeader.DestNet;
 	EconetTx.DestStn = BeebTx.EconetHeader.DestStn;
@@ -3157,7 +3152,7 @@ static bool EconetReceivePacket()
 
 			if (!Found)
 			{
-				// Couldn't resolve Econet source address
+				// Couldn't resolve Econet source address.
 
 				// It might be a bridge gateway response.
 				if (BytesReceived == 12 && EconetConfig.FindGateways)
