@@ -2925,7 +2925,19 @@ static bool GetReceivedPacket(ReceivedPacket* pPacket)
 		// Check the broadcast listen socket.
 		Received = pBroadcastListenSocket->GetReceivedPacket(pPacket);
 
-		if (IgnoreReceivedBroadcastPacket(pPacket->Src, (const unsigned char*)pPacket->Data))
+		if (IgnoreReceivedBroadcastPacket(pPacket->Src, pPacket->Data))
+		{
+			Received = false;
+		}
+	}
+
+	if (Received)
+	{
+		// Ignore packets that we sent coming back to our listen socket.
+		// This will occur when configured with a single AUN port.
+
+		if (pPacket->Src.sin_addr.s_addr == EconetListenIP &&
+		    ntohs(pPacket->Src.sin_port) == EconetListenPort)
 		{
 			Received = false;
 		}
@@ -2947,17 +2959,6 @@ static bool EconetReceivePacket()
 		ReceivedPacket Packet;
 
 		bool Received = GetReceivedPacket(&Packet);
-
-		if (Received)
-		{
-			if (Packet.Src.sin_addr.s_addr == EconetListenIP &&
-			    ntohs(Packet.Src.sin_port) == EconetListenPort)
-			{
-				// Ignore packets that we sent coming back to our listen socket
-				// (this will occur when configured with a single AUN port)
-				Received = false;
-			}
-		}
 
 		int BytesReceived = Received ? Packet.Length : 0;
 
