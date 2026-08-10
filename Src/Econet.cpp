@@ -2948,6 +2948,23 @@ static bool GetReceivedPacket(ReceivedPacket* pPacket)
 
 /****************************************************************************/
 
+// Returns true if the packet looks like a Pi Econet Bridge gateway reply.
+
+static bool IsGatewayReplyPacket(const unsigned char* pData, int Length)
+{
+	const ExtendedAUNPacket* pPacket = (ExtendedAUNPacket*)pData;
+
+	return Length == 12 &&
+	       pPacket->EconetHeader.SrcStn == 0 &&
+	       pPacket->EconetHeader.SrcNet != 0 &&
+	       pPacket->AUNHeader.Type == AUNType::Unicast &&
+	       pPacket->AUNHeader.Port == ECONET_PORT_BEEBEM &&
+	       (pPacket->AUNHeader.CtrlByte | 0x80) == ECONET_CTRL_GATEWAY_REPLY &&
+	       pPacket->AUNHeader.Pad == 0;
+}
+
+/****************************************************************************/
+
 // Returns true if a packet was received.
 
 static bool EconetReceivePacket()
@@ -3156,52 +3173,40 @@ static bool EconetReceivePacket()
 			{
 				// Couldn't resolve Econet source address.
 
-				// It might be a bridge gateway response.
-				if (BytesReceived == 12 && EconetConfig.FindGateways)
+				// Check for a Pi Econet Bridge gateway reply.
+				if (EconetConfig.FindGateways &&
+				    IsGatewayReplyPacket(EconetRx.raw, BytesReceived))
 				{
-					// If it is then it will be Extended AUN so all the headers are moved.
-					ExtendedAUNPacket *rx = (ExtendedAUNPacket*)&EconetRx;
-
-					// Check it looks like a gateway reply.
-					if (rx->EconetHeader.SrcStn == 0 &&
-					    rx->EconetHeader.SrcNet != 0 &&
-					    rx->AUNHeader.Type == AUNType::Unicast &&
-					    rx->AUNHeader.Port == ECONET_PORT_BEEBEM &&
-					    (rx->AUNHeader.CtrlByte | 0x80) == ECONET_CTRL_GATEWAY_REPLY &&
-					    rx->AUNHeader.Pad == 0)
+					// Check we haven't got a gateway defined already.
+					if (Gateway.IPAddress == 0)
 					{
-						// It does!
-						// rx->addr.deststn is our station number on the bridge
-						// rx->addr.destnet is our network number on the bridge
+						Gateway.IPAddress = Packet.Src.sin_addr.s_addr;
+						Gateway.Port = ntohs(Packet.Src.sin_port);
 
-						// Check we haven't got a gateway defined already.
-						if (Gateway.IPAddress == 0)
-						{
-							Gateway.IPAddress = Packet.Src.sin_addr.s_addr;
-							Gateway.Port = ntohs(Packet.Src.sin_port);
+						#ifdef DEBUG_ECONET
+						// This is an Extended AUN packet so all the headers are moved.
+						ExtendedAUNPacket* pPacket = (ExtendedAUNPacket*)&EconetRx;
 
-							#ifdef DEBUG_ECONET
-							DebugTrace("Econet: Learned about gateway at %s:%u. Bridge sees us as station %d.%d\n",
-							           IpAddressStr(Gateway.IPAddress).c_str(),
-							           Gateway.Port,
-							           pExtendedAUNPacket->EconetHeader.DestNet,
-							           pExtendedAUNPacket->EconetHeader.DestStn);
-							#endif
+						DebugTrace("Econet: Learned about gateway at %s:%u. Bridge sees us as station %d.%d\n",
+						           IpAddressStr(Gateway.IPAddress).c_str(),
+						           Gateway.Port,
+						           pPacket->EconetHeader.DestNet,
+						           pPacket->EconetHeader.DestStn);
+						#endif
 
-							// Start/reset keepalives.
-							time(&GatewayTimeout);
-						}
-						else if (Gateway.IPAddress != Packet.Src.sin_addr.s_addr ||
-						         Gateway.Port != ntohs(Packet.Src.sin_port))
-						{
-							// This response was from a different gateway
-							// to the one we already have configured!
-							#ifdef DEBUG_ECONET
-							DebugTrace("Econet: Ignored gateway response from %s:%u\n",
-							           IpAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
-							           ntohs(Packet.Src.sin_port));
-							#endif
-						}
+						// Start/reset keepalives.
+						time(&GatewayTimeout);
+					}
+					else if (Gateway.IPAddress != Packet.Src.sin_addr.s_addr ||
+					         Gateway.Port != ntohs(Packet.Src.sin_port))
+					{
+						// This response was from a different gateway
+						// to the one we already have configured!
+						#ifdef DEBUG_ECONET
+						DebugTrace("Econet: Ignored gateway response from %s:%u\n",
+						           IpAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
+						           ntohs(Packet.Src.sin_port));
+						#endif
 					}
 				}
 
