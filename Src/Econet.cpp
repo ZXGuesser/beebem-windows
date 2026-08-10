@@ -2965,6 +2965,20 @@ static bool IsGatewayReplyPacket(const unsigned char* pData, int Length)
 
 /****************************************************************************/
 
+// Returns true if the packet looks like a BeebEm announcement.
+
+static bool IsBeebEmAnnouncePacket(const unsigned char* pData, int Length)
+{
+	const AUNHeaderType* pAUNHeader = (const AUNHeaderType*)pData;
+
+	return Length == 16 &&
+	       pAUNHeader->Port == ECONET_PORT_BEEBEM &&
+	       pAUNHeader->Type == AUNType::BeebEm &&
+	       (pAUNHeader->CtrlByte | 0x80) == ECONET_CTRL_BEEBEM_PING;
+}
+
+/****************************************************************************/
+
 // Returns true if a packet was received.
 
 static bool EconetReceivePacket()
@@ -3211,57 +3225,52 @@ static bool EconetReceivePacket()
 				}
 
 				// It might be an address announce packet from an unknown station.
-				if (BytesReceived == 16 &&
-				    EconetRx.AUNHeader.Port == ECONET_PORT_BEEBEM &&
-				    EconetRx.AUNHeader.Type == AUNType::BeebEm &&
-				    EconetConfig.AutoConfigure)
+				if (EconetConfig.AutoConfigure &&
+				    IsBeebEmAnnouncePacket(EconetRx.raw, BytesReceived))
 				{
-					if ((EconetRx.AUNHeader.CtrlByte | 0x80) == ECONET_CTRL_BEEBEM_PING)
-					{
-						// This is a BeebEm ping used for host discovery.
-						BeebRx.EconetHeader.SrcStn = EconetRx.Buffer[0];
-						BeebRx.EconetHeader.SrcNet = EconetRx.Buffer[1];
+					// This is a BeebEm ping used for host discovery.
+					BeebRx.EconetHeader.SrcStn = EconetRx.Buffer[0];
+					BeebRx.EconetHeader.SrcNet = EconetRx.Buffer[1];
 
+					#ifdef DEBUG_ECONET
+					DebugTrace("Econet: Received BeebEm ping from station %d.%d\n",
+					           BeebRx.EconetHeader.SrcNet,
+					           BeebRx.EconetHeader.SrcStn);
+					#endif
+
+					if (BeebRx.EconetHeader.SrcStn == EconetStationID &&
+					    BeebRx.EconetHeader.SrcNet == EconetNetworkID)
+					{
+						// Address collision!
 						#ifdef DEBUG_ECONET
-						DebugTrace("Econet: Received BeebEm ping from station %d.%d\n",
-						           BeebRx.EconetHeader.SrcNet,
-						           BeebRx.EconetHeader.SrcStn);
+						DebugTrace("Econet: Address collision!\n");
 						#endif
 
-						if (BeebRx.EconetHeader.SrcStn == EconetStationID &&
-						    BeebRx.EconetHeader.SrcNet == EconetNetworkID)
+						if (EconetRx.AUNHeader.Handle >= AnnounceHandle)
 						{
-							// Address collision!
-							#ifdef DEBUG_ECONET
-							DebugTrace("Econet: Address collision!\n");
-							#endif
+							// They have had the address longer than us.
+							// Relinquish the address.
+							PreferredStationID = (rand() % 253) + 1;
+							EconetStationID = 0;
 
-							if (EconetRx.AUNHeader.Handle >= AnnounceHandle)
-							{
-								// They have had the address longer than us.
-								// Relinquish the address.
-								PreferredStationID = (rand() % 253) + 1;
-								EconetStationID = 0;
-
-								EconetError("Econet: Address collision detected.");
-								mainWin->ToggleEconet(); // Turn Econet off entirely.
-								return false;
-							}
+							EconetError("Econet: Address collision detected.");
+							mainWin->ToggleEconet(); // Turn Econet off entirely.
+							return false;
 						}
-						else
-						{
-							pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
-							                             BeebRx.EconetHeader.SrcNet);
+					}
+					else
+					{
+						pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
+						                             BeebRx.EconetHeader.SrcNet);
 
-							if (pStation == nullptr || time(NULL) >= pStation->timeout)
-							{
-								// Station is new or stale.
-								AddStation(BeebRx.EconetHeader.SrcStn,
-								           BeebRx.EconetHeader.SrcNet,
-								           Packet.Src.sin_addr.s_addr,
-								           ntohs(Packet.Src.sin_port),
-								           BroadcastSource::Local); // Must be in the broadcast domain to have received this ping.
-							}
+						if (pStation == nullptr || time(NULL) >= pStation->timeout)
+						{
+							// Station is new or stale.
+							AddStation(BeebRx.EconetHeader.SrcStn,
+							           BeebRx.EconetHeader.SrcNet,
+							           Packet.Src.sin_addr.s_addr,
+							           ntohs(Packet.Src.sin_port),
+							           BroadcastSource::Local); // Must be in the broadcast domain to have received this ping.
 						}
 					}
 				}
