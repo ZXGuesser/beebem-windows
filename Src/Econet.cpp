@@ -2979,6 +2979,17 @@ static bool IsBeebEmAnnouncePacket(const unsigned char* pData, int Length)
 
 /****************************************************************************/
 
+static bool IsBeebEmPingPacket(const unsigned char* pData, int /* Length */)
+{
+	const AUNHeaderType* pAUNHeader = (const AUNHeaderType*)pData;
+
+	return pAUNHeader->Type == AUNType::BeebEm &&
+	       pAUNHeader->Port == ECONET_PORT_BEEBEM &&
+	       pAUNHeader->CtrlByte == ECONET_CTRL_BEEBEM_PING;
+}
+
+/****************************************************************************/
+
 // Returns true if a packet was received.
 
 static bool EconetReceivePacket()
@@ -3293,75 +3304,72 @@ static bool EconetReceivePacket()
 				BeebRx.EconetHeader.CtrlByte = EconetRx.AUNHeader.CtrlByte | 0x80;
 				BeebRx.EconetHeader.Port = EconetRx.AUNHeader.Port;
 
-				if (EconetRx.AUNHeader.Type == AUNType::BeebEm)
+				// Catch proprietary packets used for network discovery.
+				// This has no effect on the FourWayStage state, so can
+				// be handled at any time.
+				if (EconetConfig.AutoConfigure &&
+				    IsBeebEmPingPacket(EconetRx.raw, BytesReceived))
 				{
-					// Catch proprietary packets used for network discovery.
-					// This has no effect on the FourWayStage state, so can
-					// be handled at any time.
-					if (EconetRx.AUNHeader.Port == ECONET_PORT_BEEBEM &&
-					    EconetRx.AUNHeader.CtrlByte == ECONET_CTRL_BEEBEM_PING &&
-					    EconetConfig.AutoConfigure)
-					{
-						// This is a BeebEm ping used for host discovery
-						// from an address we think we know already.
+					// This is a BeebEm ping used for host discovery
+					// from an address we think we know already.
 
+					#ifdef DEBUG_ECONET
+					DebugTrace("Econet: Received BeebEm ping from station %d.%d\n",
+					           EconetRx.Buffer[1],
+					           EconetRx.Buffer[0]);
+					#endif
+
+					if (EconetRx.Buffer[0] == EconetStationID &&
+					    EconetRx.Buffer[1] == EconetNetworkID)
+					{
+						// Address collision!
 						#ifdef DEBUG_ECONET
-						DebugTrace("Econet: Received BeebEm ping from station %d.%d\n",
-						           EconetRx.Buffer[1],
-						           EconetRx.Buffer[0]);
+						DebugTrace("Econet: Address collision!\n");
 						#endif
 
-						if (EconetRx.Buffer[0] == EconetStationID && EconetRx.Buffer[1] == EconetNetworkID)
+						if (EconetRx.AUNHeader.Handle >= AnnounceHandle)
 						{
-							// Address collision!
-							#ifdef DEBUG_ECONET
-							DebugTrace("Econet: Address collision!\n");
-							#endif
+							// They have had the address longer than us.
+							// Relinquish the address.
+							PreferredStationID = (rand() % 253) + 1;
+							EconetStationID = 0;
 
-							if (EconetRx.AUNHeader.Handle >= AnnounceHandle)
-							{
-								// They have had the address longer than us.
-								// Relinquish the address.
-								PreferredStationID = (rand() % 253) + 1;
-								EconetStationID = 0;
-
-								EconetError("Econet: Address collision detected.");
-								mainWin->ToggleEconet(); // Turn Econet off entirely.
-								return false;
-							}
+							EconetError("Econet: Address collision detected.");
+							mainWin->ToggleEconet(); // Turn Econet off entirely.
+							return false;
 						}
-						else if (EconetRx.Buffer[0] != BeebRx.EconetHeader.SrcStn ||
-						         EconetRx.Buffer[1] != BeebRx.EconetHeader.SrcNet)
+					}
+					else if (EconetRx.Buffer[0] != BeebRx.EconetHeader.SrcStn ||
+					         EconetRx.Buffer[1] != BeebRx.EconetHeader.SrcNet)
+					{
+						// Station number of this host has changed for some reason.
+						pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
+						                             BeebRx.EconetHeader.SrcNet);
+
+						if (pStation != nullptr)
 						{
-							// Station number of this host has changed for some reason.
-							pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
-							                             BeebRx.EconetHeader.SrcNet);
-
-							if (pStation != nullptr)
+							if (time(NULL) >= pStation->timeout)
 							{
-								if (time(NULL) >= pStation->timeout)
-								{
-									// Host is stale - replace it.
-									pStation->station = EconetRx.Buffer[0];
-									pStation->network = EconetRx.Buffer[1];
-									pStation->timeout = time(NULL) + HOST_TIMEOUT;
-
-									#ifdef DEBUG_ECONET
-									DebugTrace("Econet: updated station number\n");
-									#endif
-								}
-							}
-						}
-						else
-						{
-							pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
-							                             BeebRx.EconetHeader.SrcNet);
-
-							if (pStation != nullptr)
-							{
-								// update timeout
+								// Host is stale - replace it.
+								pStation->station = EconetRx.Buffer[0];
+								pStation->network = EconetRx.Buffer[1];
 								pStation->timeout = time(NULL) + HOST_TIMEOUT;
+
+								#ifdef DEBUG_ECONET
+								DebugTrace("Econet: updated station number\n");
+								#endif
 							}
+						}
+					}
+					else
+					{
+						pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
+						                             BeebRx.EconetHeader.SrcNet);
+
+						if (pStation != nullptr)
+						{
+							// update timeout
+							pStation->timeout = time(NULL) + HOST_TIMEOUT;
 						}
 					}
 
