@@ -2990,6 +2990,57 @@ static bool IsBeebEmPingPacket(const unsigned char* pData, int /* Length */)
 
 /****************************************************************************/
 
+// Handle "special" packets (e.g., gateway discovery and pings, and BeebEm
+// announcements). Returns true if a packet was handled.
+
+static bool EconetHandleSpecialPacket(const ReceivedPacket& Packet)
+{
+	// Check for a Pi Econet Bridge gateway reply.
+	if (IsGatewayReplyPacket(Packet.Data, Packet.Length))
+	{
+		if (EconetConfig.FindGateways)
+		{
+			// Check we haven't got a gateway defined already.
+			if (Gateway.IPAddress == 0)
+			{
+				Gateway.IPAddress = Packet.Src.sin_addr.s_addr;
+				Gateway.Port = ntohs(Packet.Src.sin_port);
+
+				#ifdef DEBUG_ECONET
+				// This is an Extended AUN packet so all the headers are moved.
+				ExtendedAUNPacket* pPacket = (ExtendedAUNPacket*)Packet.Data;
+
+				DebugTrace("Econet: Learned about gateway at %s:%u. Bridge sees us as station %d.%d\n",
+				           IpAddressStr(Gateway.IPAddress).c_str(),
+				           Gateway.Port,
+				           pPacket->EconetHeader.DestNet,
+				           pPacket->EconetHeader.DestStn);
+				#endif
+
+				// Start/reset keepalives.
+				time(&GatewayTimeout);
+			}
+			else if (Gateway.IPAddress != Packet.Src.sin_addr.s_addr ||
+			         Gateway.Port != ntohs(Packet.Src.sin_port))
+			{
+				// This response was from a different gateway
+				// to the one we already have configured!
+				#ifdef DEBUG_ECONET
+				DebugTrace("Econet: Ignored gateway response from %s:%u\n",
+				           IpAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
+				           ntohs(Packet.Src.sin_port));
+				#endif
+			}
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+/****************************************************************************/
+
 // Returns true if a packet was received.
 
 static bool EconetReceivePacket()
@@ -3001,6 +3052,11 @@ static bool EconetReceivePacket()
 		ReceivedPacket Packet;
 
 		bool Received = GetReceivedPacket(&Packet);
+
+		if (EconetHandleSpecialPacket(Packet))
+		{
+			return false;
+		}
 
 		int BytesReceived = Received ? Packet.Length : 0;
 
@@ -3197,43 +3253,6 @@ static bool EconetReceivePacket()
 			if (!Found)
 			{
 				// Couldn't resolve Econet source address.
-
-				// Check for a Pi Econet Bridge gateway reply.
-				if (EconetConfig.FindGateways &&
-				    IsGatewayReplyPacket(EconetRx.raw, BytesReceived))
-				{
-					// Check we haven't got a gateway defined already.
-					if (Gateway.IPAddress == 0)
-					{
-						Gateway.IPAddress = Packet.Src.sin_addr.s_addr;
-						Gateway.Port = ntohs(Packet.Src.sin_port);
-
-						#ifdef DEBUG_ECONET
-						// This is an Extended AUN packet so all the headers are moved.
-						ExtendedAUNPacket* pPacket = (ExtendedAUNPacket*)&EconetRx;
-
-						DebugTrace("Econet: Learned about gateway at %s:%u. Bridge sees us as station %d.%d\n",
-						           IpAddressStr(Gateway.IPAddress).c_str(),
-						           Gateway.Port,
-						           pPacket->EconetHeader.DestNet,
-						           pPacket->EconetHeader.DestStn);
-						#endif
-
-						// Start/reset keepalives.
-						time(&GatewayTimeout);
-					}
-					else if (Gateway.IPAddress != Packet.Src.sin_addr.s_addr ||
-					         Gateway.Port != ntohs(Packet.Src.sin_port))
-					{
-						// This response was from a different gateway
-						// to the one we already have configured!
-						#ifdef DEBUG_ECONET
-						DebugTrace("Econet: Ignored gateway response from %s:%u\n",
-						           IpAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
-						           ntohs(Packet.Src.sin_port));
-						#endif
-					}
-				}
 
 				// It might be an address announce packet from an unknown station.
 				if (EconetConfig.AutoConfigure &&
