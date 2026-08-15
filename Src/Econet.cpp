@@ -3346,10 +3346,9 @@ static bool EconetReceivePacket()
 				if (Packet.Src.sin_addr.s_addr == Gateway.IPAddress &&
 				    ntohs(Packet.Src.sin_port) == Gateway.Port)
 				{
-					// Pi Econet Bridge gateways use an extended AUN which
-					// contains the Econet addresses at the start of the packet.
-					// This means the AUN data we want starts four bytes later
-					// than usual.
+					// Extended AUN packets contain the Econet addresses at
+					// the start of the packet. This means the AUN data we want
+					// starts four bytes later than usual.
 					//
 					// https://github.com/cr12925/PiEconetBridge/wiki/The-AUN%E2%80%90extended-gateway
 
