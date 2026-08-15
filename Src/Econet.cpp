@@ -3265,22 +3265,6 @@ static bool EconetHandleSpecialPacket(const ReceivedPacket& Packet)
 			return true;
         }
 	}
-	/* else if (EconetRx.AUNHeader.Type == AUNType::Unicast &&
-	         BeebRx.BytesInBuffer == 0 &&
-	         BeebRx.EconetHeader.Port == ECONET_PORT_BEEBEM &&
-	         BeebRx.EconetHeader.CtrlByte == ECONET_CTRL_GATEWAY_REPLY &&
-	         EconetRx.AUNHeader.Handle == 0)
-	{
-		// This is a bridge gateway response for a gateway
-		// we already know about.
-		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: Gateway response received. Bridge sees us as station %d.%d\n",
-		           BeebRx.EconetHeader.DestNet,
-		           BeebRx.EconetHeader.DestStn);
-		#endif
-
-		return true;
-	} */
 
 	return false;
 }
