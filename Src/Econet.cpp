@@ -3306,8 +3306,6 @@ static bool EconetReceivePacket()
 
 		int BytesReceived = Received ? Packet.Length : 0;
 
-		EconetRx.BytesInBuffer = BytesReceived;
-
 		#ifdef DEBUG_ECONET
 
 		if (BytesReceived >= ETHERNET_BUFFER_SIZE)
@@ -3326,8 +3324,6 @@ static bool EconetReceivePacket()
 
 		if (BytesReceived > 0 && BytesReceived < ETHERNET_BUFFER_SIZE)
 		{
-			memcpy(EconetRx.raw, Packet.Data, Packet.Length);
-
 			#ifdef DEBUG_ECONET
 			DebugTrace("EconetPoll: Received packet from %s:%u (%d bytes)\n",
 			           IpAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
@@ -3350,13 +3346,17 @@ static bool EconetReceivePacket()
 
 			if (Found)
 			{
+				memcpy(EconetRx.raw, Packet.Data, Packet.Length);
+
+				EconetRx.BytesInBuffer = BytesReceived;
+
 				if (EconetConfig.MassageNetworks)
 				{
 					// Make AUN nets > 127 appear to be Econet.
 					SrcNet &= 0x7F;
 				}
 			}
-			else if (BytesReceived > 4)
+			else if (BytesReceived > sizeof(EconetHeaderType))
 			{
 				// Search to see if source is extended AUN gateway.
 				if (Packet.Src.sin_addr.s_addr == Gateway.IPAddress &&
@@ -3376,7 +3376,9 @@ static bool EconetReceivePacket()
 					SrcStn  = Packet.Data[2];
 					SrcNet  = Packet.Data[3];
 
-					memmove(EconetRx.raw, EconetRx.raw + sizeof(EconetHeaderType), BytesReceived - sizeof(EconetHeaderType));
+					memcpy(EconetRx.raw,
+					       Packet.Data + sizeof(EconetHeaderType),
+					       Packet.Length - sizeof(EconetHeaderType));
 
 					// Adjust the length.
 					BytesReceived -= sizeof(EconetHeaderType);
