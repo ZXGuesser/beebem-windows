@@ -2948,6 +2948,99 @@ static bool GetReceivedPacket(ReceivedPacket* pPacket)
 
 /****************************************************************************/
 
+static bool ResolveEconetHost(const ReceivedPacket& Packet,
+                              unsigned char* pNetwork,
+                              unsigned char* pStation)
+{
+	bool Found = false;
+
+	// Search for source IP address in the list of known stations.
+	EconetHost* pEconetHost = FindStation(Packet.Src.sin_addr.s_addr,
+	                                      ntohs(Packet.Src.sin_port));
+
+	if (pEconetHost != nullptr)
+	{
+		Found = true;
+
+		*pNetwork = pEconetHost->network;
+		*pStation = pEconetHost->station;
+
+		const AUNHeaderType* pAUNHeader = (const AUNHeaderType*)Packet.Data;
+
+		if (pAUNHeader->Type == AUNType::Broadcast)
+		{
+			// See if a gateway has already sent broadcasts from this station.
+			if (pEconetHost->broadcasts == BroadcastSource::Gateway)
+			{
+				// Don't resolve this station.
+				Found = false;
+			}
+			else
+			{
+				pEconetHost->broadcasts = BroadcastSource::Local;
+			}
+		}
+	}
+
+	if (!Found)
+	{
+		// Search for the source IP address in our list of networks.
+
+		for (size_t i = 0; i < Networks.size(); ++i)
+		{
+			EconetNet& Network = Networks[i];
+
+			if (Packet.Src.sin_addr.s_addr == Network.inet_addr)
+			{
+				// A single address using sequential ports.
+				int Station = ntohs(Packet.Src.sin_port) - Network.port;
+
+				// Check whether result is in range.
+				if (Station > 0 && Station < 255)
+				{
+					Found = true;
+
+					*pNetwork = Network.network;
+					*pStation = (unsigned char)Station;
+				}
+				// else must be a different net on the same host
+			}
+			else if ((Packet.Src.sin_addr.s_addr & 0x00FFFFFF) == Network.inet_addr &&
+			         ntohs(Packet.Src.sin_port) == DEFAULT_AUN_PORT)
+			{
+				// True AUN addressing.
+				Found = true;
+
+				*pNetwork = Network.network;
+				*pStation = (Packet.Src.sin_addr.s_addr & 0xFF000000) >> 24;
+			}
+
+			if (Found)
+			{
+				if (EconetRx.AUNHeader.Type == AUNType::Broadcast)
+				{
+					// See if a gateway has already sent broadcasts from this network.
+					if (Network.broadcasts == BroadcastSource::Gateway)
+					{
+						// Don't resolve this network.
+						Found = false;
+					}
+					else
+					{
+						Network.broadcasts = BroadcastSource::Local;
+					}
+				}
+
+				break;
+			}
+		}
+	}
+
+	return Found;
+}
+
+/****************************************************************************/
+
 // Returns true if the packet looks like a Pi Econet Bridge gateway reply.
 
 static bool IsGatewayReplyPacket(const unsigned char* pData, int Length)
@@ -3091,6 +3184,104 @@ static bool EconetHandleSpecialPacket(const ReceivedPacket& Packet)
 		return true;
 	}
 
+	if (IsBeebEmPingPacket(Packet.Data, Packet.Length))
+	{
+		// This is a BeebEm ping used for host discovery
+		// from an address we think we know already.
+		const AUNHeaderType* pHeader = (const AUNHeaderType*)Packet.Data;
+		const unsigned char* pData   = Packet.Data + sizeof(AUNHeaderType);
+
+		if (EconetConfig.AutoConfigure)
+		{
+			unsigned char SrcStn = pData[0];
+			unsigned char SrcNet = pData[1];
+
+			#ifdef DEBUG_ECONET
+			DebugTrace("Econet: Received BeebEm ping from station %d.%d\n",
+			            SrcNet,
+			            SrcStn);
+			#endif
+
+			if (SrcStn == EconetStationID && SrcNet == EconetNetworkID)
+			{
+				// Address collision!
+				#ifdef DEBUG_ECONET
+				DebugTrace("Econet: Address collision!\n");
+				#endif
+
+				if (pHeader->Handle >= AnnounceHandle)
+				{
+					// They have had the address longer than us.
+					// Relinquish the address.
+					PreferredStationID = (rand() % 253) + 1;
+					EconetStationID = 0;
+
+					EconetError("Econet: Address collision detected.");
+					mainWin->ToggleEconet(); // Turn Econet off entirely.
+				}
+			}
+			else
+			{
+				unsigned char Network;
+				unsigned char Station;
+
+				bool Found = ResolveEconetHost(Packet, &Network, &Station);
+
+				if (Found)
+				{
+					if (SrcStn != Station || SrcNet != Network)
+					{
+						// Station number of this host has changed for some reason.
+						EconetHost* pStation = FindNetworkConfig(Station, Network);
+
+						if (pStation != nullptr)
+						{
+							if (time(NULL) >= pStation->timeout)
+							{
+								// Host is stale - replace it.
+								pStation->station = SrcStn;
+								pStation->network = SrcNet;
+								pStation->timeout = time(NULL) + HOST_TIMEOUT;
+
+								#ifdef DEBUG_ECONET
+								DebugTrace("Econet: updated station number\n");
+								#endif
+							}
+						}
+					}
+					else
+					{
+						EconetHost* pStation = FindNetworkConfig(Station, Network);
+
+						if (pStation != nullptr)
+						{
+							// Update timeout.
+							pStation->timeout = time(NULL) + HOST_TIMEOUT;
+						}
+					}
+				}
+			}
+
+			return true;
+        }
+	}
+	/* else if (EconetRx.AUNHeader.Type == AUNType::Unicast &&
+	         BeebRx.BytesInBuffer == 0 &&
+	         BeebRx.EconetHeader.Port == ECONET_PORT_BEEBEM &&
+	         BeebRx.EconetHeader.CtrlByte == ECONET_CTRL_GATEWAY_REPLY &&
+	         EconetRx.AUNHeader.Handle == 0)
+	{
+		// This is a bridge gateway response for a gateway
+		// we already know about.
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: Gateway response received. Bridge sees us as station %d.%d\n",
+		           BeebRx.EconetHeader.DestNet,
+		           BeebRx.EconetHeader.DestStn);
+		#endif
+
+		return true;
+	} */
+
 	return false;
 }
 
@@ -3149,87 +3340,23 @@ static bool EconetReceivePacket()
 			#endif
 
 			// Convert from AUN format.
+			unsigned char DestStn;
+			unsigned char DestNet;
+			unsigned char SrcStn;
+			unsigned char SrcNet;
+
 			// Find network and station number of sender.
-			bool Found = false;
+			bool Found = ResolveEconetHost(Packet, &SrcNet, &SrcStn);
 
-			// Search for source in known stations.
-			EconetHost* pStation = FindStation(Packet.Src.sin_addr.s_addr,
-			                                   ntohs(Packet.Src.sin_port));
-
-			if (pStation != nullptr)
+			if (Found)
 			{
-				Found = true;
-
-				BeebRx.EconetHeader.SrcNet = pStation->network;
-				BeebRx.EconetHeader.SrcStn = pStation->station;
-
-				if (EconetRx.AUNHeader.Type == AUNType::Broadcast)
+				if (EconetConfig.MassageNetworks)
 				{
-					// See if a gateway has already sent broadcasts from this station.
-					if (pStation->broadcasts == BroadcastSource::Gateway)
-					{
-						// Don't resolve this station.
-						Found = false;
-					}
-					else
-					{
-						pStation->broadcasts = BroadcastSource::Local;
-					}
+					// Make AUN nets > 127 appear to be Econet.
+					SrcNet &= 0x7F;
 				}
 			}
-
-			if (!Found)
-			{
-				// Search source in networks.
-				for (size_t i = 0; i < Networks.size(); ++i)
-				{
-					EconetNet& Network = Networks[i];
-
-					if (Packet.Src.sin_addr.s_addr == Network.inet_addr)
-					{
-						// A single address using sequential ports.
-						int Station = ntohs(Packet.Src.sin_port) - Network.port;
-
-						// Check whether result is in range.
-						if (Station > 0 && Station < 255)
-						{
-							BeebRx.EconetHeader.SrcNet = Network.network;
-							BeebRx.EconetHeader.SrcStn = (unsigned char)Station;
-							Found = true;
-						}
-						// else must be a different net on the same host
-					}
-					else if ((Packet.Src.sin_addr.s_addr & 0x00FFFFFF) == Network.inet_addr &&
-					         ntohs(Packet.Src.sin_port) == DEFAULT_AUN_PORT)
-					{
-						// True AUN addressing.
-						BeebRx.EconetHeader.SrcNet = Network.network;
-						BeebRx.EconetHeader.SrcStn = (Packet.Src.sin_addr.s_addr & 0xFF000000) >> 24;
-						Found = true;
-					}
-
-					if (Found)
-					{
-						if (EconetRx.AUNHeader.Type == AUNType::Broadcast)
-						{
-							// See if a gateway has already sent broadcasts from this network.
-							if (Network.broadcasts == BroadcastSource::Gateway)
-							{
-								// Don't resolve this network.
-								Found = false;
-							}
-							else
-							{
-								Network.broadcasts = BroadcastSource::Local;
-							}
-						}
-
-						break;
-					}
-				}
-			}
-
-			if (!Found && BytesReceived > 4)
+			else if (BytesReceived > 4)
 			{
 				// Search to see if source is extended AUN gateway.
 				if (Packet.Src.sin_addr.s_addr == Gateway.IPAddress &&
@@ -3241,15 +3368,23 @@ static bool EconetReceivePacket()
 					// than usual. This seems terribly inefficient, but let's
 					// remove those bytes from the buffer rather than trying
 					// to keep track of an offset through all the rest of the code.
+					//
+					// https://github.com/cr12925/PiEconetBridge/wiki/The-AUN%E2%80%90extended-gateway
 
-					memcpy(&BeebRx.EconetHeader, &EconetRx, sizeof(BeebRx.EconetHeader));
-					memmove(EconetRx.raw, EconetRx.raw + 4, BytesReceived - 4);
-					BytesReceived -= 4; // adjust the length
-					EconetRx.BytesInBuffer = BytesReceived; // must update this too!
+					DestStn = Packet.Data[0];
+					DestNet = Packet.Data[1];
+					SrcStn  = Packet.Data[2];
+					SrcNet  = Packet.Data[3];
+
+					memmove(EconetRx.raw, EconetRx.raw + sizeof(EconetHeaderType), BytesReceived - sizeof(EconetHeaderType));
+
+					// Adjust the length.
+					BytesReceived -= sizeof(EconetHeaderType);
+					EconetRx.BytesInBuffer = BytesReceived;
 
 					Found = true;
 
-					if (IsBroadcastStation(BeebRx.EconetHeader.DestStn))
+					if (IsBroadcastStation(DestStn))
 					{
 						// We want to ignore any broadcasts via the gateway
 						// if we will also receive them directly.
@@ -3277,8 +3412,7 @@ static bool EconetReceivePacket()
 						{
 							EconetHost& Station = Stations[i];
 
-							if (Station.network == BeebRx.EconetHeader.SrcNet &&
-							    Station.station == BeebRx.EconetHeader.SrcStn)
+							if (Station.network == SrcNet && Station.station == SrcStn)
 							{
 								if (Station.broadcasts == BroadcastSource::Local)
 								{
@@ -3296,126 +3430,19 @@ static bool EconetReceivePacket()
 					}
 				}
 			}
-			else
-			{
-				if (EconetConfig.MassageNetworks)
-				{
-					// Make AUN nets > 127 appear to be Econet.
-					BeebRx.EconetHeader.SrcNet &= 0x7F;
-				}
-			}
 
-			if (!Found)
-			{
-				// Couldn't resolve Econet source address.
-
-				#ifdef DEBUG_ECONET
-				DebugTrace("Econet: Packet ignored\n");
-				#endif
-
-				// Look for the next packet.
-				return false;
-			}
-			else
+			if (Found)
 			{
 				#ifdef DEBUG_ECONET
-				DebugTrace("Econet: Packet was from station %d.%d\n",
-				           BeebRx.EconetHeader.SrcNet,
-				           BeebRx.EconetHeader.SrcStn);
+				DebugTrace("Econet: Packet was from station %d.%d\n", SrcNet, SrcStn);
 				#endif
 
+				BeebRx.EconetHeader.DestNet  = DestNet;
+				BeebRx.EconetHeader.DestStn  = DestStn;
+				BeebRx.EconetHeader.SrcNet   = SrcNet;
+				BeebRx.EconetHeader.SrcStn   = SrcStn;
 				BeebRx.EconetHeader.CtrlByte = EconetRx.AUNHeader.CtrlByte | 0x80;
-				BeebRx.EconetHeader.Port = EconetRx.AUNHeader.Port;
-
-				// Catch proprietary packets used for network discovery.
-				// This has no effect on the FourWayStage state, so can
-				// be handled at any time.
-				if (EconetConfig.AutoConfigure &&
-				    IsBeebEmPingPacket(EconetRx.raw, BytesReceived))
-				{
-					// This is a BeebEm ping used for host discovery
-					// from an address we think we know already.
-
-					#ifdef DEBUG_ECONET
-					DebugTrace("Econet: Received BeebEm ping from station %d.%d\n",
-					           EconetRx.Buffer[1],
-					           EconetRx.Buffer[0]);
-					#endif
-
-					if (EconetRx.Buffer[0] == EconetStationID &&
-					    EconetRx.Buffer[1] == EconetNetworkID)
-					{
-						// Address collision!
-						#ifdef DEBUG_ECONET
-						DebugTrace("Econet: Address collision!\n");
-						#endif
-
-						if (EconetRx.AUNHeader.Handle >= AnnounceHandle)
-						{
-							// They have had the address longer than us.
-							// Relinquish the address.
-							PreferredStationID = (rand() % 253) + 1;
-							EconetStationID = 0;
-
-							EconetError("Econet: Address collision detected.");
-							mainWin->ToggleEconet(); // Turn Econet off entirely.
-							return false;
-						}
-					}
-					else if (EconetRx.Buffer[0] != BeebRx.EconetHeader.SrcStn ||
-					         EconetRx.Buffer[1] != BeebRx.EconetHeader.SrcNet)
-					{
-						// Station number of this host has changed for some reason.
-						pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
-						                             BeebRx.EconetHeader.SrcNet);
-
-						if (pStation != nullptr)
-						{
-							if (time(NULL) >= pStation->timeout)
-							{
-								// Host is stale - replace it.
-								pStation->station = EconetRx.Buffer[0];
-								pStation->network = EconetRx.Buffer[1];
-								pStation->timeout = time(NULL) + HOST_TIMEOUT;
-
-								#ifdef DEBUG_ECONET
-								DebugTrace("Econet: updated station number\n");
-								#endif
-							}
-						}
-					}
-					else
-					{
-						pStation = FindNetworkConfig(BeebRx.EconetHeader.SrcStn,
-						                             BeebRx.EconetHeader.SrcNet);
-
-						if (pStation != nullptr)
-						{
-							// update timeout
-							pStation->timeout = time(NULL) + HOST_TIMEOUT;
-						}
-					}
-
-					// Look for the next packet.
-					return false;
-				}
-				else if (EconetRx.AUNHeader.Type == AUNType::Unicast &&
-				         BeebRx.BytesInBuffer == 0 &&
-				         BeebRx.EconetHeader.Port == ECONET_PORT_BEEBEM &&
-				         BeebRx.EconetHeader.CtrlByte == ECONET_CTRL_GATEWAY_REPLY &&
-				         EconetRx.AUNHeader.Handle == 0)
-				{
-					// This is a bridge gateway response for a gateway
-					// we already know about.
-					#ifdef DEBUG_ECONET
-					DebugTrace("Econet: Gateway response received. Bridge sees us as station %d.%d\n",
-					           BeebRx.EconetHeader.DestNet,
-					           BeebRx.EconetHeader.DestStn);
-					#endif
-
-					// Look for the next packet.
-					return false;
-				}
+				BeebRx.EconetHeader.Port     = EconetRx.AUNHeader.Port;
 
 				switch (AUNState)
 				{
@@ -3627,6 +3654,17 @@ static bool EconetReceivePacket()
 					DebugTrace("Econet: FlagFill set - other station comms\n");
 					#endif
 				}
+			}
+			else
+			{
+				// Couldn't resolve Econet source address.
+
+				#ifdef DEBUG_ECONET
+				DebugTrace("Econet: Packet ignored\n");
+				#endif
+
+				// Look for the next packet.
+				return false;
 			}
 		}
 	}
