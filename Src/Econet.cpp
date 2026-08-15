@@ -3299,7 +3299,7 @@ static bool EconetReceivePacket()
 
 		bool Received = GetReceivedPacket(&Packet);
 
-		if (EconetHandleSpecialPacket(Packet))
+		if (Received && EconetHandleSpecialPacket(Packet))
 		{
 			return false;
 		}
