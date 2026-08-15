@@ -3392,7 +3392,7 @@ static bool EconetReceivePacket()
 						{
 							EconetNet& Network = Networks[i];
 
-							if (Network.network == BeebRx.EconetHeader.SrcNet)
+							if (Network.network == SrcNet)
 							{
 								if (Network.broadcasts == BroadcastSource::Local)
 								{
