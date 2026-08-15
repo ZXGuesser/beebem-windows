@@ -3342,16 +3342,14 @@ static bool EconetReceivePacket()
 			}
 			else if (BytesReceived > sizeof(EconetHeaderType))
 			{
-				// Search to see if source is extended AUN gateway.
+				// Check if source is a Pi Econet Bridge extended AUN gateway.
 				if (Packet.Src.sin_addr.s_addr == Gateway.IPAddress &&
 				    ntohs(Packet.Src.sin_port) == Gateway.Port)
 				{
-					// PiEconetBridge gateways use an extended AUN which contains
-					// the Econet addresses at the start of the packet.
+					// Pi Econet Bridge gateways use an extended AUN which
+					// contains the Econet addresses at the start of the packet.
 					// This means the AUN data we want starts four bytes later
-					// than usual. This seems terribly inefficient, but let's
-					// remove those bytes from the buffer rather than trying
-					// to keep track of an offset through all the rest of the code.
+					// than usual.
 					//
 					// https://github.com/cr12925/PiEconetBridge/wiki/The-AUN%E2%80%90extended-gateway
 
