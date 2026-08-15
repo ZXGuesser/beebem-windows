@@ -3084,9 +3084,9 @@ static bool IsBeebEmPingPacket(const unsigned char* pData, int /* Length */)
 /****************************************************************************/
 
 // Handle "special" packets (e.g., gateway discovery and pings, and BeebEm
-// announcements). Returns true if a packet was handled.
+// announcements). Returns true if such a packet was handled.
 
-static bool EconetHandleSpecialPacket(const ReceivedPacket& Packet)
+static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 {
 	// Check for a Pi Econet Bridge gateway reply.
 	if (IsGatewayReplyPacket(Packet.Data, Packet.Length))
@@ -3283,7 +3283,7 @@ static bool EconetReceivePacket()
 
 		bool Received = GetReceivedPacket(&Packet);
 
-		if (Received && EconetHandleSpecialPacket(Packet))
+		if (Received && HandleSpecialPacket(Packet))
 		{
 			return false;
 		}
