@@ -3320,8 +3320,8 @@ static bool EconetReceivePacket()
 			#endif
 
 			// Convert from AUN format.
-			unsigned char DestStn;
-			unsigned char DestNet;
+			unsigned char DestStn = 0;
+			unsigned char DestNet = 0;
 			unsigned char SrcStn;
 			unsigned char SrcNet;
 
