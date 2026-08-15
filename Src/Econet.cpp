@@ -3072,6 +3072,8 @@ static bool IsBeebEmAnnouncePacket(const unsigned char* pData, int Length)
 
 /****************************************************************************/
 
+// Returns true if the packet is a BeebEm ping used for host discovery.
+
 static bool IsBeebEmPingPacket(const unsigned char* pData, int /* Length */)
 {
 	const AUNHeaderType* pAUNHeader = (const AUNHeaderType*)pData;
