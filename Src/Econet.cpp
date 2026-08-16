@@ -363,16 +363,7 @@ static unsigned char BeebTxCopy[sizeof(LongEconetPacket)];
 
 struct EthernetPacket
 {
-	union {
-		unsigned char raw[sizeof(AUNHeaderType)];
-		AUNHeaderType AUNHeader;
-	};
-
-	union {
-		unsigned char Buffer[ETHERNET_BUFFER_SIZE];
-		EconetHeaderType EconetHeader;
-	};
-
+	unsigned char Buffer[ETHERNET_BUFFER_SIZE];
 	unsigned int Pointer;
 	unsigned int BytesInBuffer;
 
@@ -2581,7 +2572,7 @@ static void EconetSendPacket()
 	DebugDumpBytes("Econet: Packet data:", BeebTx.Buffer, BeebTx.Pointer);
 	#endif
 
-	unsigned int j = 0;
+	unsigned int Offset = sizeof(AUNHeaderType);
 	// OK. Lets do AUN ...
 	// The Beeb has given us a packet .. what is it?
 	bool SendMe = false;
@@ -2590,35 +2581,35 @@ static void EconetSendPacket()
 	EconetTx.DestNet = BeebTx.EconetHeader.DestNet;
 	EconetTx.DestStn = BeebTx.EconetHeader.DestStn;
 
+	AUNHeaderType* pTxAUNHeader = (AUNHeaderType*)EconetTx.Buffer;
+
 	switch (AUNState)
 	{
 		case FourWayStage::ScoutAckReceived:
 			// It came in response to our ack of a scout.
 			// What we have /should/ be the data block.
 			// CLUDGE WARNING is this a scout sent again immediately?? TODO fix this?!?!
-			if (EconetTx.AUNHeader.Port == ECONET_PORT_IMMEDIATE)
+			if (pTxAUNHeader->Port == ECONET_PORT_IMMEDIATE)
 			{
-				if (EconetTx.AUNHeader.CtrlByte == (ECONET_CTRL_POKE & 0x7F))
+				if (pTxAUNHeader->CtrlByte == (ECONET_CTRL_POKE & 0x7F))
 				{
-					j = 8;
+					Offset += 8;
 				}
-				else if (EconetTx.AUNHeader.CtrlByte >= (ECONET_CTRL_JSR & 0x7F) &&
-				         EconetTx.AUNHeader.CtrlByte <= (ECONET_CTRL_OSPROC & 0x7F))
+				else if (pTxAUNHeader->CtrlByte >= (ECONET_CTRL_JSR & 0x7F) &&
+				         pTxAUNHeader->CtrlByte <= (ECONET_CTRL_OSPROC & 0x7F))
 				{
-					j = 4;
+					Offset += 4;
 				}
 			}
 
-			if (BeebTx.Pointer != sizeof(EconetHeaderType) + j ||
-			    memcmp(BeebTx.Buffer, BeebTxCopy, sizeof(EconetHeaderType) + j) != 0) // nope
+			if (BeebTx.Pointer != sizeof(EconetHeaderType) + Offset ||
+			    memcmp(BeebTx.Buffer, BeebTxCopy, sizeof(EconetHeaderType) + Offset) != 0) // nope
 			{
-				for (unsigned int k = 4; k < BeebTx.Pointer; k++, j++) {
-					EconetTx.Buffer[j] = BeebTx.Buffer[k];
-				}
-				EconetTx.Pointer = j;
+				memcpy(EconetTx.Buffer + Offset, BeebTx.Buffer + 4, BeebTx.Pointer - 4);
+				EconetTx.Pointer = Offset + BeebTx.Pointer - 4;
 
+				SendLen = EconetTx.Pointer;
 				SendMe = true;
-				SendLen = sizeof(AUNHeaderType) + EconetTx.Pointer;
 
 				AUNState = FourWayStage::DataSent;
 
@@ -2632,46 +2623,43 @@ static void EconetSendPacket()
 			// Not currently doing anything, so this will be a scout,
 			// maybe a long scout or a broadcast.
 			memcpy(BeebTxCopy, BeebTx.Buffer, sizeof(EconetHeaderType));
-			EconetTx.AUNHeader.CtrlByte = BeebTx.EconetHeader.CtrlByte & 0x7F;
-			EconetTx.AUNHeader.Port = BeebTx.EconetHeader.Port;
-			EconetTx.AUNHeader.Pad = 0;
-			EconetTx.AUNHeader.Handle = (ec_sequence += 4);
+			pTxAUNHeader->CtrlByte = BeebTx.EconetHeader.CtrlByte & 0x7F;
+			pTxAUNHeader->Port = BeebTx.EconetHeader.Port;
+			pTxAUNHeader->Pad = 0;
+			pTxAUNHeader->Handle = (ec_sequence += 4);
 
-			for (unsigned int k = 6; k < BeebTx.Pointer; k++, j++) {
-				EconetTx.Buffer[j] = BeebTx.Buffer[k];
-			}
-
-			EconetTx.Pointer = j;
+			memcpy(EconetTx.Buffer + Offset, BeebTx.Buffer + 6, BeebTx.Pointer - 6);
+			EconetTx.Pointer = Offset + BeebTx.Pointer - 6;
 
 			if (IsBroadcastStation(EconetTx.DestStn))
 			{
-				EconetTx.AUNHeader.Type = AUNType::Broadcast;
+				pTxAUNHeader->Type = AUNType::Broadcast;
 
 				AUNState = FourWayStage::WaitForIdle; // no response to broadcasts...
 
-				SendMe = true; // send packet ...
 				SendLen = sizeof(AUNHeaderType) + 8;
+				SendMe = true;
 
-				if (EconetTx.AUNHeader.Port == ECONET_PORT_PI_ECONET_BRIDGE &&
-				    EconetTx.AUNHeader.CtrlByte == (ECONET_CTRL_POKE & 0x7F))
+				if (pTxAUNHeader->Port == ECONET_PORT_PI_ECONET_BRIDGE &&
+				    pTxAUNHeader->CtrlByte == (ECONET_CTRL_POKE & 0x7F))
 				{
-					WhatNetPort = EconetTx.Buffer[6]; // where the reply will be sent
+					WhatNetPort = EconetTx.Buffer[sizeof(AUNHeaderType) + 6]; // Where the reply will be sent
 
 					#ifdef DEBUG_ECONET
 					DebugTrace("Econet: Sent WhatNet query with port &%x\n", WhatNetPort);
 					#endif
 				}
 			}
-			else if (EconetTx.AUNHeader.Port == ECONET_PORT_IMMEDIATE &&
-			         (EconetTx.AUNHeader.CtrlByte < (ECONET_CTRL_POKE & 0x7F) ||
-			          EconetTx.AUNHeader.CtrlByte > (ECONET_CTRL_OSPROC & 0x7F)))
+			else if (pTxAUNHeader->Port == ECONET_PORT_IMMEDIATE &&
+			         (pTxAUNHeader->CtrlByte < (ECONET_CTRL_POKE & 0x7F) ||
+			          pTxAUNHeader->CtrlByte > (ECONET_CTRL_OSPROC & 0x7F)))
 			{
-				EconetTx.AUNHeader.Type = AUNType::Immediate;
+				pTxAUNHeader->Type = AUNType::Immediate;
 
 				AUNState = FourWayStage::ImmediateSent;
 
-				SendMe = true; // send packet ...
 				SendLen = sizeof(AUNHeaderType) + EconetTx.Pointer;
+				SendMe = true;
 
 				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: Set FourWayStage::ImmediateSent\n");
@@ -2679,7 +2667,7 @@ static void EconetSendPacket()
 			}
 			else
 			{
-				EconetTx.AUNHeader.Type = AUNType::Unicast;
+				pTxAUNHeader->Type = AUNType::Unicast;
 
 				AUNState = FourWayStage::ScoutSent;
 
@@ -2712,8 +2700,8 @@ static void EconetSendPacket()
 			// Send header of last block received straight back.
 			// This ought to work, but only because the Beeb can only
 			// talk to one machine at any time.
-			EconetTx.AUNHeader = EconetRx.AUNHeader;
-			EconetTx.AUNHeader.Type = AUNType::Ack;
+			memcpy(EconetTx.Buffer, EconetRx.Buffer, sizeof(AUNHeaderType));
+			pTxAUNHeader->Type = AUNType::Ack;
 
 			SendLen = sizeof(AUNHeaderType);
 			SendMe = true;
@@ -2727,17 +2715,15 @@ static void EconetSendPacket()
 
 		case FourWayStage::ImmediateReceived:
 			// It's a reply to an immediate command we just had.
-			for (unsigned int k = 4; k < BeebTx.Pointer; k++, j++) {
-				EconetTx.Buffer[j] = BeebTx.Buffer[k];
-			}
+			memcpy(EconetTx.Buffer, EconetRx.Buffer, sizeof(AUNHeaderType));
+			pTxAUNHeader->Type = AUNType::ImmReply;
 
-			EconetTx.Pointer = j;
+			memcpy(EconetTx.Buffer + sizeof(AUNHeaderType),
+			       BeebTx.Buffer + 4,
+			       BeebTx.Pointer - 4);
 
-			EconetTx.AUNHeader = EconetRx.AUNHeader;
-			EconetTx.AUNHeader.Type = AUNType::ImmReply;
-
+			SendLen = sizeof(AUNHeaderType) + BeebTx.Pointer - 4;
 			SendMe = true;
-			SendLen = sizeof(AUNHeaderType) + EconetTx.Pointer;
 
 			AUNState = FourWayStage::WaitForIdle;
 
@@ -2769,7 +2755,7 @@ static void EconetSendPacket()
 			tmp->EconetHeader.DestNet = BeebTx.EconetHeader.DestNet;
 			tmp->EconetHeader.SrcStn = 0; // source (left blank)
 			tmp->EconetHeader.SrcNet = 0;
-			memcpy(&tmp->AUNHeader, &EconetTx.raw, SendLen); // Copy original AUN data.
+			memcpy(&tmp->AUNHeader, EconetTx.Buffer, SendLen); // Copy original AUN data.
 
 			if (ExtendedAUN)
 			{
@@ -3017,7 +3003,9 @@ static bool ResolveEconetHost(const ReceivedPacket& Packet,
 
 			if (Found)
 			{
-				if (EconetRx.AUNHeader.Type == AUNType::Broadcast)
+				const AUNHeaderType* pAUNHeader = (const AUNHeaderType*)EconetRx.Buffer;
+
+				if (pAUNHeader->Type == AUNType::Broadcast)
 				{
 					// See if a gateway has already sent broadcasts from this network.
 					if (Network.broadcasts == BroadcastSource::Gateway)
@@ -3332,9 +3320,9 @@ static bool EconetReceivePacket()
 
 			if (Found)
 			{
-				memcpy(EconetRx.raw, Packet.Data, Packet.Length);
+				memcpy(EconetRx.Buffer, Packet.Data, Packet.Length);
 
-				EconetRx.BytesInBuffer = BytesReceived;
+				EconetRx.BytesInBuffer = Packet.Length;
 
 				if (EconetConfig.MassageNetworks)
 				{
@@ -3359,7 +3347,7 @@ static bool EconetReceivePacket()
 					SrcStn  = Packet.Data[2];
 					SrcNet  = Packet.Data[3];
 
-					memcpy(EconetRx.raw,
+					memcpy(EconetRx.Buffer,
 					       Packet.Data + sizeof(EconetHeaderType),
 					       Packet.Length - sizeof(EconetHeaderType));
 
@@ -3422,22 +3410,24 @@ static bool EconetReceivePacket()
 				DebugTrace("Econet: Packet was from station %d.%d\n", SrcNet, SrcStn);
 				#endif
 
+				const AUNHeaderType* pRxAUNHeader = (const AUNHeaderType*)EconetRx.Buffer;
+
 				BeebRx.EconetHeader.DestNet  = DestNet;
 				BeebRx.EconetHeader.DestStn  = DestStn;
 				BeebRx.EconetHeader.SrcNet   = SrcNet;
 				BeebRx.EconetHeader.SrcStn   = SrcStn;
-				BeebRx.EconetHeader.CtrlByte = EconetRx.AUNHeader.CtrlByte | 0x80;
-				BeebRx.EconetHeader.Port     = EconetRx.AUNHeader.Port;
+				BeebRx.EconetHeader.CtrlByte = pRxAUNHeader->CtrlByte | 0x80;
+				BeebRx.EconetHeader.Port     = pRxAUNHeader->Port;
 
 				switch (AUNState)
 				{
 					case FourWayStage::Idle:
 						// We weren't doing anything when this packet came in.
-						switch (EconetRx.AUNHeader.Type)
+						switch (pRxAUNHeader->Type)
 						{
 							case AUNType::Broadcast:
 								if (BeebRx.EconetHeader.Port == ECONET_PORT_PI_ECONET_BRIDGE &&
-								    EconetRx.AUNHeader.Handle == 0)
+								    pRxAUNHeader->Handle == 0)
 								{
 									// This is a gateway discovery broadcast
 									// from another BeebEm instance so ignore it.
@@ -3451,8 +3441,8 @@ static bool EconetReceivePacket()
 									BeebRx.EconetHeader.DestNet = 255;
 
 									const int Offset = sizeof(LongEconetPacket);
-									const int Length = BytesReceived - sizeof(EconetRx.AUNHeader);
-									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
+									const int Length = BytesReceived - sizeof(AUNHeaderType);
+									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer + sizeof(AUNHeaderType), Length);
 									BeebRx.BytesInBuffer = Offset + Length;
 
 									AUNState = FourWayStage::WaitForIdle;
@@ -3470,7 +3460,7 @@ static bool EconetReceivePacket()
 
 								const int Offset = sizeof(LongEconetPacket);
 								const int Length = BytesReceived - sizeof(AUNHeaderType);
-								memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
+								memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer + sizeof(AUNHeaderType), Length);
 								BeebRx.BytesInBuffer = Offset + Length;
 
 								AUNState = FourWayStage::ImmediateReceived;
@@ -3485,27 +3475,27 @@ static bool EconetReceivePacket()
 								BeebRx.EconetHeader.DestStn = EconetStationID; // must be for us.
 								BeebRx.EconetHeader.DestNet = 0;
 
-								if (EconetRx.AUNHeader.Port == ECONET_PORT_IMMEDIATE &&
-								    EconetRx.AUNHeader.CtrlByte == (ECONET_CTRL_POKE & 0x7F))
+								if (pRxAUNHeader->Port == ECONET_PORT_IMMEDIATE &&
+								    pRxAUNHeader->CtrlByte == (ECONET_CTRL_POKE & 0x7F))
 								{
 									const int Offset = sizeof(LongEconetPacket);
 									const int Length = 8;
-									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
+									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer + sizeof(AUNHeaderType), Length);
 									BeebRx.BytesInBuffer = Offset + Length;
 								}
-								else if (EconetRx.AUNHeader.Port == ECONET_PORT_IMMEDIATE &&
-								         EconetRx.AUNHeader.CtrlByte >= (ECONET_CTRL_JSR & 0x7F) &&
-								         EconetRx.AUNHeader.CtrlByte <= (ECONET_CTRL_OSPROC & 0x7F))
+								else if (pRxAUNHeader->Port == ECONET_PORT_IMMEDIATE &&
+								         pRxAUNHeader->CtrlByte >= (ECONET_CTRL_JSR & 0x7F) &&
+								         pRxAUNHeader->CtrlByte <= (ECONET_CTRL_OSPROC & 0x7F))
 								{
 									const int Offset = sizeof(LongEconetPacket);
 									const int Length = 4;
-									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
+									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer + sizeof(AUNHeaderType), Length);
 									BeebRx.BytesInBuffer = Offset + Length;
 								}
 								else
 								{
-									if (EconetRx.AUNHeader.Port == WhatNetPort &&
-									    EconetRx.AUNHeader.CtrlByte == ECONET_CTRL_WHATNET) // TODO: & 0x7F?
+									if (pRxAUNHeader->Port == WhatNetPort &&
+									    pRxAUNHeader->CtrlByte == ECONET_CTRL_WHATNET) // TODO: & 0x7F?
 									{
 										#ifdef DEBUG_ECONET
 										DebugTrace("Econet: Got WhatNet reply\n");
@@ -3513,7 +3503,7 @@ static bool EconetReceivePacket()
 
 										WhatNetPort = -1;
 
-										EconetRx.Buffer[0] = EconetNetworkID; // fudge whatnet reply
+										EconetRx.Buffer[sizeof(AUNHeaderType)] = EconetNetworkID; // Fudge whatnet reply.
 									}
 
 									BeebRx.BytesInBuffer = sizeof(LongEconetPacket);
@@ -3549,11 +3539,11 @@ static bool EconetReceivePacket()
 						BeebRx.EconetHeader.DestStn = EconetStationID;
 						BeebRx.EconetHeader.DestNet = 0;
 
-						if (EconetRx.AUNHeader.Type == AUNType::ImmReply)
+						if (pRxAUNHeader->Type == AUNType::ImmReply)
 						{
 							const int Offset = 4;
 							const int Length = BytesReceived - sizeof(AUNHeaderType);
-							memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer, Length);
+							memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer + sizeof(AUNHeaderType), Length);
 							BeebRx.BytesInBuffer = Offset + Length;
 							BeebRx.Pointer = 0;
 
@@ -3582,8 +3572,8 @@ static bool EconetReceivePacket()
 						BeebRx.EconetHeader.DestNet = 0;
 
 						// We sent block of data, awaiting final ack.
-						if (EconetRx.AUNHeader.Type == AUNType::Ack ||
-						    EconetRx.AUNHeader.Type == AUNType::NAck)
+						if (pRxAUNHeader->Type == AUNType::Ack ||
+						    pRxAUNHeader->Type == AUNType::NAck)
 						{
 							// Are we expecting a (N)ACK?
 							// TODO check it is a (n)ack for the packet we just sent. Deal with nacks!
@@ -3679,6 +3669,8 @@ static bool EconetReceivePacket()
 			break;
 
 		case FourWayStage::ScoutAckSent: {
+			const AUNHeaderType* pRxAUNHeader = (const AUNHeaderType*)EconetRx.Buffer;
+
 			// Beeb acked the scout we gave it, so give it the data AUN sent us earlier.
 			BeebRx.EconetHeader.DestStn = EconetStationID; // As it is data it must be for us.
 			BeebRx.EconetHeader.DestNet = 0;
@@ -3687,25 +3679,25 @@ static bool EconetReceivePacket()
 			BeebRx.EconetHeader.SrcNet = EconetTx.DestNet;
 
 			const int DestOffset = sizeof(EconetHeaderType);
-			int SrcOffset;
+			int SrcOffset = sizeof(AUNHeaderType);
 
-			if (EconetRx.AUNHeader.Port == ECONET_PORT_IMMEDIATE &&
-			    EconetRx.AUNHeader.CtrlByte == (ECONET_CTRL_POKE & 0x7F))
+			if (pRxAUNHeader->Port == ECONET_PORT_IMMEDIATE &&
+			    pRxAUNHeader->CtrlByte == (ECONET_CTRL_POKE & 0x7F))
 			{
-				SrcOffset = 8;
+				SrcOffset += 8;
 			}
-			else if (EconetRx.AUNHeader.Port == ECONET_PORT_IMMEDIATE &&
-			         EconetRx.AUNHeader.CtrlByte >= (ECONET_CTRL_JSR & 0x7F) &&
-			         EconetRx.AUNHeader.CtrlByte <= (ECONET_CTRL_OSPROC & 0x7F))
+			else if (pRxAUNHeader->Port == ECONET_PORT_IMMEDIATE &&
+			         pRxAUNHeader->CtrlByte >= (ECONET_CTRL_JSR & 0x7F) &&
+			         pRxAUNHeader->CtrlByte <= (ECONET_CTRL_OSPROC & 0x7F))
 			{
-				SrcOffset = 4;
+				SrcOffset += 4;
 			}
 			else
 			{
-				SrcOffset = 0;
+				SrcOffset += 0;
 			}
 
-			const int Length = EconetRx.BytesInBuffer - sizeof(AUNHeaderType) - SrcOffset;
+			const int Length = EconetRx.BytesInBuffer - SrcOffset;
 			memcpy(BeebRx.Buffer + DestOffset, EconetRx.Buffer + SrcOffset, Length);
 			BeebRx.BytesInBuffer = DestOffset + Length;
 			BeebRx.Pointer = 0;
