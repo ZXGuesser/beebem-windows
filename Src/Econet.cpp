@@ -342,7 +342,6 @@ struct EconetPacketBuffer
 };
 
 // Buffers used to construct packets sent to/received from the BBC micro.
-
 static EconetPacketBuffer BeebTx;
 static EconetPacketBuffer BeebRx;
 
@@ -363,7 +362,7 @@ static EthernetPacketBuffer EconetRx;
 static EthernetPacketBuffer EconetTx;
 
 // Temporary packet for discovery and gateway messages.
-static EthernetPacketBuffer EconetTemp;
+static EthernetPacketBuffer ExtendedAUNTxBuffer;
 
 struct AnnouncePacket
 {
@@ -2733,23 +2732,27 @@ static void EconetSendPacket()
 
 	if (SendMe)
 	{
-		const unsigned char *p = EconetTx.Buffer;
-
-		ExtendedAUNPacket *tmp = (ExtendedAUNPacket*)&EconetTemp;
+		const unsigned char* pBufferToSend = EconetTx.Buffer;
 
 		if (ExtendedAUN || (IsBroadcastStation(EconetTx.DestStn) && Gateway.IPAddress != 0))
 		{
+			EconetHeaderType* pTxEconetHeader = (EconetHeaderType*)ExtendedAUNTxBuffer.Buffer;
+
 			// We need to make a copy of the packet with additional addressing on the front.
-			tmp->EconetHeader.DestStn = pBeebTxEconetHeader->DestStn;
-			tmp->EconetHeader.DestNet = pBeebTxEconetHeader->DestNet;
-			tmp->EconetHeader.SrcStn = 0; // source (left blank)
-			tmp->EconetHeader.SrcNet = 0;
-			memcpy(&tmp->AUNHeader, EconetTx.Buffer, SendLen); // Copy original AUN data.
+			pTxEconetHeader->DestStn = pBeebTxEconetHeader->DestStn;
+			pTxEconetHeader->DestNet = pBeebTxEconetHeader->DestNet;
+			pTxEconetHeader->SrcStn  = 0; // source (left blank)
+			pTxEconetHeader->SrcNet  = 0;
+
+			// Copy original AUN data.
+			memcpy(ExtendedAUNTxBuffer.Buffer + sizeof(EconetHeaderType),
+			       EconetTx.Buffer,
+			       SendLen);
 
 			if (ExtendedAUN)
 			{
-				SendLen += 4;
-				p = (const unsigned char *)tmp; // Transmit this buffer instead of EconetTx.
+				SendLen += sizeof(EconetHeaderType);
+				pBufferToSend = ExtendedAUNTxBuffer.Buffer; // Transmit this buffer instead of EconetTx.
 			}
 			// else a broadcast - we will send this extended AUN packet to the
 			// gateway after sending the original packet as a UDP broadcast.
@@ -2767,12 +2770,12 @@ static void EconetSendPacket()
 				           IpAddressStr(RecvIpAddress).c_str(),
 				           RecvPort);
 
-				DebugDumpBytes("Econet: Ethernet data:", (const unsigned char*)p, SendLen);
+				DebugDumpBytes("Econet: Ethernet data:", pBufferToSend, SendLen);
 				#endif
 
 				if (!pSocket->Send(BroadcastAddresses[i],
 				                   RecvPort,
-				                   p,
+				                   pBufferToSend,
 				                   SendLen))
 				{
 					EconetError("Econet: Failed to send packet to station %d (%s:%u)",
@@ -2798,10 +2801,13 @@ static void EconetSendPacket()
 				           IpAddressStr(RecvIpAddress).c_str(),
 				           RecvPort);
 
-				DebugDumpBytes("Econet: Ethernet data:", p, SendLen);
+				DebugDumpBytes("Econet: Ethernet data:", pBufferToSend, SendLen);
 				#endif
 
-				if (!pSocket->Send(RecvIpAddress, RecvPort, p, SendLen))
+				if (!pSocket->Send(RecvIpAddress,
+				                   RecvPort,
+				                   pBufferToSend,
+				                   SendLen))
 				{
 					EconetError("Econet: Failed to send packet to station %d (%s:%u)",
 					            EconetTx.DestStn,
@@ -2813,17 +2819,17 @@ static void EconetSendPacket()
 
 		if (IsBroadcastStation(EconetTx.DestStn) && Gateway.IPAddress != 0)
 		{
-			// We want to send a copy of the broadcast to the gateway.
+			// Send a copy of the broadcast to the gateway.
 			RecvIpAddress = Gateway.IPAddress;
 			RecvPort = Gateway.Port;
 
 			#ifdef DEBUG_ECONET
-			DebugDumpBytes("Econet: Gateway broadcast ethernet data:", p, SendLen + 4);
+			DebugDumpBytes("Econet: Gateway broadcast ethernet data:", pBufferToSend, SendLen + 4);
 			#endif
 
 			if (!pSocket->Send(RecvIpAddress,
 			                   RecvPort,
-			                   (const unsigned char*)tmp,
+			                   ExtendedAUNTxBuffer.Buffer,
 			                   SendLen + 4))
 			{
 				EconetError("Econet: Failed to send broadcast to gateway (%s:%u)",
