@@ -334,14 +334,14 @@ const int ETHERNET_BUFFER_SIZE = 65536;
 // Transmit: Beeb -> ADLC.txfifo -> BeebTx -> EconetTX -> sendto()
 // Receive:  recvfrom() -> EconetRX -> BeebRx -> ADLC.rxfifo -> Beeb
 
-// Buffers used to construct packets sent to/received from BBC micro
-
 struct EconetPacketBuffer
 {
 	unsigned char Buffer[ETHERNET_BUFFER_SIZE + 12];
 	unsigned int Pointer;
 	unsigned int BytesInBuffer;
 };
+
+// Buffers used to construct packets sent to/received from the BBC micro.
 
 static EconetPacketBuffer BeebTx;
 static EconetPacketBuffer BeebRx;
@@ -357,6 +357,13 @@ struct EthernetPacketBuffer
 	unsigned char DestStn;
 	unsigned char DestNet;
 };
+
+// Buffers used to construct packets for sending out via UDP.
+static EthernetPacketBuffer EconetRx;
+static EthernetPacketBuffer EconetTx;
+
+// Temporary packet for discovery and gateway messages.
+static EthernetPacketBuffer EconetTemp;
 
 struct AnnouncePacket
 {
@@ -383,13 +390,6 @@ struct ExtendedAUNPacket
 	AUNHeaderType AUNHeader;
 	unsigned char Buffer[ETHERNET_BUFFER_SIZE];
 };
-
-// Buffers used to construct packets for sending out via UDP.
-static EthernetPacketBuffer EconetRx;
-static EthernetPacketBuffer EconetTx;
-
-// Temporary packet for discovery and gateway messages.
-static EthernetPacketBuffer EconetTemp;
 
 // Holds data from Econet.cfg file or a host we have discovered.
 struct EconetHost
