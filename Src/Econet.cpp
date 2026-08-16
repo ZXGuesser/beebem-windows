@@ -299,7 +299,7 @@ struct EconetHeaderType
 	unsigned char SrcNet;
 };
 
-struct LongEconetPacket
+struct LongEconetHeader
 {
 	unsigned char DestStn;
 	unsigned char DestNet;
@@ -331,37 +331,24 @@ const int ETHERNET_BUFFER_SIZE = 65536;
 // Buffers
 // =======
 //
-// Non-AUN Mode
-// ------------
-//
-// Transmit: Beeb -> ADLC.txfifo -> BeebTx -> sendto()
-// Receive:  recvfrom() -> BeebRx -> ADLC.rxfifo -> Beeb
-//
-// AUN Mode
-// --------
-//
 // Transmit: Beeb -> ADLC.txfifo -> BeebTx -> EconetTX -> sendto()
 // Receive:  recvfrom() -> EconetRX -> BeebRx -> ADLC.rxfifo -> Beeb
 
 // Buffers used to construct packets sent to/received from BBC micro
 
-struct EconetPacket
+struct EconetPacketBuffer
 {
-	union {
-		LongEconetPacket EconetHeader;
-		unsigned char Buffer[ETHERNET_BUFFER_SIZE + 12];
-	};
-
+	unsigned char Buffer[ETHERNET_BUFFER_SIZE + 12];
 	unsigned int Pointer;
 	unsigned int BytesInBuffer;
 };
 
-static EconetPacket BeebTx;
-static EconetPacket BeebRx;
+static EconetPacketBuffer BeebTx;
+static EconetPacketBuffer BeebRx;
 
-static unsigned char BeebTxCopy[sizeof(LongEconetPacket)];
+static unsigned char BeebTxCopy[sizeof(LongEconetHeader)];
 
-struct EthernetPacket
+struct EthernetPacketBuffer
 {
 	unsigned char Buffer[ETHERNET_BUFFER_SIZE];
 	unsigned int Pointer;
@@ -397,21 +384,21 @@ struct ExtendedAUNPacket
 	unsigned char Buffer[ETHERNET_BUFFER_SIZE];
 };
 
-// Buffers used to construct packets for sending out via UDP
-static EthernetPacket EconetRx;
-static EthernetPacket EconetTx;
+// Buffers used to construct packets for sending out via UDP.
+static EthernetPacketBuffer EconetRx;
+static EthernetPacketBuffer EconetTx;
 
 // Temporary packet for discovery and gateway messages.
-static EthernetPacket EconetTemp;
+static EthernetPacketBuffer EconetTemp;
 
-// Holds data from Econet.cfg file or a host we have discovered
+// Holds data from Econet.cfg file or a host we have discovered.
 struct EconetHost
 {
 	unsigned char station;
 	unsigned char network;
 	unsigned long inet_addr;
 	unsigned short port;
-	BroadcastSource broadcasts; // where to accept broadcasts from
+	BroadcastSource broadcasts; // Where to accept broadcasts from.
 	time_t timeout;
 };
 
@@ -420,7 +407,7 @@ struct EconetNet
 	unsigned long inet_addr;
 	unsigned char network;
 	unsigned short port; // AUN port or base port from which sequential ports are calculated
-	BroadcastSource broadcasts; // where to accept broadcasts from
+	BroadcastSource broadcasts; // Where to accept broadcasts from.
 };
 
 struct EconetGateway
@@ -2454,10 +2441,12 @@ bool EconetPollReal()
 
 static void EconetSendPacket()
 {
+	LongEconetHeader* pBeebTxEconetHeader = (LongEconetHeader*)BeebTx.Buffer;
+
 	// Translate destination network for local packets.
-	if (BeebTx.EconetHeader.DestNet == 0)
+	if (pBeebTxEconetHeader->DestNet == 0)
 	{
-		BeebTx.EconetHeader.DestNet = EconetNetworkID;
+		pBeebTxEconetHeader->DestNet = EconetNetworkID;
 	}
 
 	unsigned long RecvIpAddress = 0;
@@ -2468,7 +2457,7 @@ static void EconetSendPacket()
 	// First two bytes of BeebTx.Buffer contain the destination address
 	// (or one zero byte for broadcast).
 
-	if (IsBroadcastStation(BeebTx.EconetHeader.DestStn))
+	if (IsBroadcastStation(pBeebTxEconetHeader->DestStn))
 	{
 		// Set address to the local broadcast address and port to the default
 		// AUN port to do an AUN broadcast. Some BeebEm instances might not
@@ -2488,8 +2477,8 @@ static void EconetSendPacket()
 		{
 			const EconetHost& Station = Stations[i];
 
-			if ((Station.network & mask) == (BeebTx.EconetHeader.DestNet & mask) &&
-			    Station.station == BeebTx.EconetHeader.DestStn)
+			if ((Station.network & mask) == (pBeebTxEconetHeader->DestNet & mask) &&
+			    Station.station == pBeebTxEconetHeader->DestStn)
 			{
 				RecvIpAddress = Station.inet_addr;
 				RecvPort = Station.port;
@@ -2507,13 +2496,13 @@ static void EconetSendPacket()
 		{
 			const EconetNet& Network = Networks[i];
 
-			if ((Network.network & mask) == (BeebTx.EconetHeader.DestNet & mask))
+			if ((Network.network & mask) == (pBeebTxEconetHeader->DestNet & mask))
 			{
 				// Located the network.
 				if ((Network.inet_addr & 0xFF000000) == 0)
 				{
 					// Last octet is zero so this is true AUN.
-					RecvIpAddress = (Network.inet_addr & 0x00FFFFFF) | (BeebTx.EconetHeader.DestStn << 24);
+					RecvIpAddress = (Network.inet_addr & 0x00FFFFFF) | (pBeebTxEconetHeader->DestStn << 24);
 					RecvPort = Network.port; // TODO this should always be DEFAULT_AUN_PORT - should we override this?
 					break;
 				}
@@ -2522,7 +2511,7 @@ static void EconetSendPacket()
 					// Whole network defined with a single address.
 					// Treat port as the base port number for a PiEconetBridge exposed network.
 					RecvIpAddress = Network.inet_addr;
-					RecvPort = Network.port + BeebTx.EconetHeader.DestStn;
+					RecvPort = Network.port + pBeebTxEconetHeader->DestStn;
 					break;
 				}
 			}
@@ -2534,7 +2523,7 @@ static void EconetSendPacket()
 		// Network not found in the Networks table. If the packet is not for
 		// net 0 or 255, use the gateway to get packets to this network.
 
-		if (BeebTx.EconetHeader.DestNet != 0 && BeebTx.EconetHeader.DestNet != 255)
+		if (pBeebTxEconetHeader->DestNet != 0 && pBeebTxEconetHeader->DestNet != 255)
 		{
 			if (Gateway.IPAddress != 0)
 			{
@@ -2551,8 +2540,8 @@ static void EconetSendPacket()
 	{
 		#ifdef DEBUG_ECONET
 		DebugTrace("Econet: Unable to resolve station %d.%d\n",
-		           (int)BeebTx.EconetHeader.DestNet,
-		           (int)BeebTx.EconetHeader.DestStn);
+		           (int)pBeebTxEconetHeader->DestNet,
+		           (int)pBeebTxEconetHeader->DestStn);
 		#endif
 
 		return;
@@ -2563,8 +2552,8 @@ static void EconetSendPacket()
 	#ifdef DEBUG_ECONET
 	DebugTrace("Econet: TXLast set: Send %d byte packet to station %d.%d (%s:%u) AUNState=%s\n",
 	           BeebTx.Pointer,
-	           BeebTx.EconetHeader.DestNet,
-	           BeebTx.EconetHeader.DestStn,
+	           pBeebTxEconetHeader->DestNet,
+	           pBeebTxEconetHeader->DestStn,
 	           IpAddressStr(RecvIpAddress).c_str(),
 	           RecvPort,
 	           AUNStateStr(AUNState));
@@ -2578,8 +2567,8 @@ static void EconetSendPacket()
 	bool SendMe = false;
 	int SendLen = 0;
 
-	EconetTx.DestNet = BeebTx.EconetHeader.DestNet;
-	EconetTx.DestStn = BeebTx.EconetHeader.DestStn;
+	EconetTx.DestNet = pBeebTxEconetHeader->DestNet;
+	EconetTx.DestStn = pBeebTxEconetHeader->DestStn;
 
 	AUNHeaderType* pTxAUNHeader = (AUNHeaderType*)EconetTx.Buffer;
 
@@ -2623,8 +2612,8 @@ static void EconetSendPacket()
 			// Not currently doing anything, so this will be a scout,
 			// maybe a long scout or a broadcast.
 			memcpy(BeebTxCopy, BeebTx.Buffer, sizeof(EconetHeaderType));
-			pTxAUNHeader->CtrlByte = BeebTx.EconetHeader.CtrlByte & 0x7F;
-			pTxAUNHeader->Port = BeebTx.EconetHeader.Port;
+			pTxAUNHeader->CtrlByte = pBeebTxEconetHeader->CtrlByte & 0x7F;
+			pTxAUNHeader->Port = pBeebTxEconetHeader->Port;
 			pTxAUNHeader->Pad = 0;
 			pTxAUNHeader->Handle = (ec_sequence += 4);
 
@@ -2744,15 +2733,15 @@ static void EconetSendPacket()
 
 	if (SendMe)
 	{
-		const unsigned char *p = (const unsigned char *)&EconetTx;
+		const unsigned char *p = EconetTx.Buffer;
 
 		ExtendedAUNPacket *tmp = (ExtendedAUNPacket*)&EconetTemp;
 
 		if (ExtendedAUN || (IsBroadcastStation(EconetTx.DestStn) && Gateway.IPAddress != 0))
 		{
 			// We need to make a copy of the packet with additional addressing on the front.
-			tmp->EconetHeader.DestStn = BeebTx.EconetHeader.DestStn;
-			tmp->EconetHeader.DestNet = BeebTx.EconetHeader.DestNet;
+			tmp->EconetHeader.DestStn = pBeebTxEconetHeader->DestStn;
+			tmp->EconetHeader.DestNet = pBeebTxEconetHeader->DestNet;
 			tmp->EconetHeader.SrcStn = 0; // source (left blank)
 			tmp->EconetHeader.SrcNet = 0;
 			memcpy(&tmp->AUNHeader, EconetTx.Buffer, SendLen); // Copy original AUN data.
@@ -3305,7 +3294,7 @@ static bool EconetReceivePacket()
 			           BytesReceived);
 
 			DebugDumpBytes("EconetPoll: Packet data:",
-			               EconetRx.raw,
+			               EconetRx.Buffer,
 			               BytesReceived);
 			#endif
 
@@ -3411,13 +3400,14 @@ static bool EconetReceivePacket()
 				#endif
 
 				const AUNHeaderType* pRxAUNHeader = (const AUNHeaderType*)EconetRx.Buffer;
+				LongEconetHeader* pBeebRxEconetHeader = (LongEconetHeader*)BeebRx.Buffer;
 
-				BeebRx.EconetHeader.DestNet  = DestNet;
-				BeebRx.EconetHeader.DestStn  = DestStn;
-				BeebRx.EconetHeader.SrcNet   = SrcNet;
-				BeebRx.EconetHeader.SrcStn   = SrcStn;
-				BeebRx.EconetHeader.CtrlByte = pRxAUNHeader->CtrlByte | 0x80;
-				BeebRx.EconetHeader.Port     = pRxAUNHeader->Port;
+				pBeebRxEconetHeader->DestNet  = DestNet;
+				pBeebRxEconetHeader->DestStn  = DestStn;
+				pBeebRxEconetHeader->SrcNet   = SrcNet;
+				pBeebRxEconetHeader->SrcStn   = SrcStn;
+				pBeebRxEconetHeader->CtrlByte = pRxAUNHeader->CtrlByte | 0x80;
+				pBeebRxEconetHeader->Port     = pRxAUNHeader->Port;
 
 				switch (AUNState)
 				{
@@ -3426,7 +3416,7 @@ static bool EconetReceivePacket()
 						switch (pRxAUNHeader->Type)
 						{
 							case AUNType::Broadcast:
-								if (BeebRx.EconetHeader.Port == ECONET_PORT_PI_ECONET_BRIDGE &&
+								if (pBeebRxEconetHeader->Port == ECONET_PORT_PI_ECONET_BRIDGE &&
 								    pRxAUNHeader->Handle == 0)
 								{
 									// This is a gateway discovery broadcast
@@ -3437,10 +3427,10 @@ static bool EconetReceivePacket()
 								else
 								{
 									// It is a real Econet broadcast.
-									BeebRx.EconetHeader.DestStn = 255; // Not just for us.
-									BeebRx.EconetHeader.DestNet = 255;
+									pBeebRxEconetHeader->DestStn = 255; // Not just for us.
+									pBeebRxEconetHeader->DestNet = 255;
 
-									const int Offset = sizeof(LongEconetPacket);
+									const int Offset = sizeof(LongEconetHeader);
 									const int Length = BytesReceived - sizeof(AUNHeaderType);
 									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer + sizeof(AUNHeaderType), Length);
 									BeebRx.BytesInBuffer = Offset + Length;
@@ -3455,10 +3445,10 @@ static bool EconetReceivePacket()
 
 							case AUNType::Immediate: {
 								// Must be for us.
-								BeebRx.EconetHeader.DestStn = EconetStationID;
-								BeebRx.EconetHeader.DestNet = 0;
+								pBeebRxEconetHeader->DestStn = EconetStationID;
+								pBeebRxEconetHeader->DestNet = 0;
 
-								const int Offset = sizeof(LongEconetPacket);
+								const int Offset = sizeof(LongEconetHeader);
 								const int Length = BytesReceived - sizeof(AUNHeaderType);
 								memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer + sizeof(AUNHeaderType), Length);
 								BeebRx.BytesInBuffer = Offset + Length;
@@ -3472,13 +3462,13 @@ static bool EconetReceivePacket()
 							}
 
 							case AUNType::Unicast:
-								BeebRx.EconetHeader.DestStn = EconetStationID; // must be for us.
-								BeebRx.EconetHeader.DestNet = 0;
+								pBeebRxEconetHeader->DestStn = EconetStationID; // must be for us.
+								pBeebRxEconetHeader->DestNet = 0;
 
 								if (pRxAUNHeader->Port == ECONET_PORT_IMMEDIATE &&
 								    pRxAUNHeader->CtrlByte == (ECONET_CTRL_POKE & 0x7F))
 								{
-									const int Offset = sizeof(LongEconetPacket);
+									const int Offset = sizeof(LongEconetHeader);
 									const int Length = 8;
 									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer + sizeof(AUNHeaderType), Length);
 									BeebRx.BytesInBuffer = Offset + Length;
@@ -3487,7 +3477,7 @@ static bool EconetReceivePacket()
 								         pRxAUNHeader->CtrlByte >= (ECONET_CTRL_JSR & 0x7F) &&
 								         pRxAUNHeader->CtrlByte <= (ECONET_CTRL_OSPROC & 0x7F))
 								{
-									const int Offset = sizeof(LongEconetPacket);
+									const int Offset = sizeof(LongEconetHeader);
 									const int Length = 4;
 									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer + sizeof(AUNHeaderType), Length);
 									BeebRx.BytesInBuffer = Offset + Length;
@@ -3506,7 +3496,7 @@ static bool EconetReceivePacket()
 										EconetRx.Buffer[sizeof(AUNHeaderType)] = EconetNetworkID; // Fudge whatnet reply.
 									}
 
-									BeebRx.BytesInBuffer = sizeof(LongEconetPacket);
+									BeebRx.BytesInBuffer = sizeof(LongEconetHeader);
 								}
 
 								AUNState = FourWayStage::ScoutReceived;
@@ -3536,8 +3526,8 @@ static bool EconetReceivePacket()
 						// I'm pretty sure that real Econet can't send to itself.
 
 						// Must be for us.
-						BeebRx.EconetHeader.DestStn = EconetStationID;
-						BeebRx.EconetHeader.DestNet = 0;
+						pBeebRxEconetHeader->DestStn = EconetStationID;
+						pBeebRxEconetHeader->DestNet = 0;
 
 						if (pRxAUNHeader->Type == AUNType::ImmReply)
 						{
@@ -3568,8 +3558,8 @@ static bool EconetReceivePacket()
 
 					case FourWayStage::DataSent:
 						// Must be for us.
-						BeebRx.EconetHeader.DestStn = EconetStationID;
-						BeebRx.EconetHeader.DestNet = 0;
+						pBeebRxEconetHeader->DestStn = EconetStationID;
+						pBeebRxEconetHeader->DestNet = 0;
 
 						// We sent block of data, awaiting final ack.
 						if (pRxAUNHeader->Type == AUNType::Ack ||
@@ -3608,8 +3598,8 @@ static bool EconetReceivePacket()
 						break;
 				}
 
-				if ((BeebRx.EconetHeader.DestStn == EconetStationID ||
-				     IsBroadcastStation(BeebRx.EconetHeader.DestStn)) &&
+				if ((pBeebRxEconetHeader->DestStn == EconetStationID ||
+				     IsBroadcastStation(pBeebRxEconetHeader->DestStn)) &&
 				    BeebRx.BytesInBuffer > 0)
 				{
 					// Peer sent us packet - no longer in flag fill.
@@ -3644,6 +3634,8 @@ static bool EconetReceivePacket()
 		}
 	}
 
+	EconetHeaderType* pBeebRxEconetHeader = (EconetHeaderType*)BeebRx.Buffer;
+
 	// This bit fakes the bits of the 4-way handshake that AUN doesn't do.
 
 	if (EconetScoutAckTrigger > TotalCycles)
@@ -3652,11 +3644,11 @@ static bool EconetReceivePacket()
 		{
 		case FourWayStage::ScoutSent:
 			// Just got a scout from the Beeb, fake an acknowledgement.
-			BeebRx.EconetHeader.DestStn = EconetStationID;
-			BeebRx.EconetHeader.DestNet = 0;
+			pBeebRxEconetHeader->DestStn = EconetStationID;
+			pBeebRxEconetHeader->DestNet = 0;
 
-			BeebRx.EconetHeader.SrcStn = EconetTx.DestStn; // Use scout's dest as source of ack.
-			BeebRx.EconetHeader.SrcNet = EconetTx.DestNet;
+			pBeebRxEconetHeader->SrcStn = EconetTx.DestStn; // Use scout's dest as source of ack.
+			pBeebRxEconetHeader->SrcNet = EconetTx.DestNet;
 
 			BeebRx.BytesInBuffer = 4;
 			BeebRx.Pointer = 0;
@@ -3672,11 +3664,11 @@ static bool EconetReceivePacket()
 			const AUNHeaderType* pRxAUNHeader = (const AUNHeaderType*)EconetRx.Buffer;
 
 			// Beeb acked the scout we gave it, so give it the data AUN sent us earlier.
-			BeebRx.EconetHeader.DestStn = EconetStationID; // As it is data it must be for us.
-			BeebRx.EconetHeader.DestNet = 0;
+			pBeebRxEconetHeader->DestStn = EconetStationID; // As it is data it must be for us.
+			pBeebRxEconetHeader->DestNet = 0;
 
-			BeebRx.EconetHeader.SrcStn = EconetTx.DestStn; //30jun don't think this is right..
-			BeebRx.EconetHeader.SrcNet = EconetTx.DestNet;
+			pBeebRxEconetHeader->SrcStn = EconetTx.DestStn; //30jun don't think this is right..
+			pBeebRxEconetHeader->SrcNet = EconetTx.DestNet;
 
 			const int DestOffset = sizeof(EconetHeaderType);
 			int SrcOffset = sizeof(AUNHeaderType);
@@ -3716,9 +3708,9 @@ static bool EconetReceivePacket()
 	}
 
 	// Translate packets from the same net number to look local.
-	if (BeebRx.EconetHeader.SrcNet == EconetNetworkID)
+	if (pBeebRxEconetHeader->SrcNet == EconetNetworkID)
 	{
-		BeebRx.EconetHeader.SrcNet = 0;
+		pBeebRxEconetHeader->SrcNet = 0;
 	}
 
 	return true;
