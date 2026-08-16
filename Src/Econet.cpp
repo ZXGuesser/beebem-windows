@@ -44,7 +44,6 @@ Boston, MA  02110-1301, USA.
 
 #include <algorithm>
 #include <ctime>
-#include <deque>
 #include <fstream>
 #include <memory>
 #include <string>
@@ -55,8 +54,8 @@ Boston, MA  02110-1301, USA.
 #include "BeebWin.h"
 #include "Debug.h"
 #include "DebugTrace.h"
+#include "EconetLog.h"
 #include "Main.h"
-#include "Messages.h"
 #include "Rtc.h"
 #include "Socket.h"
 #include "StringUtils.h"
@@ -440,9 +439,6 @@ static MC6854 ADLC;
 // query requested the response be sent to.
 int WhatNetPort = -1; // invalid value when not expecting a WhatNet response
 
-static const size_t MAX_LOG_MESSAGES = 2000;
-static std::deque<std::string> EconetLogMessages;
-
 /****************************************************************************/
 
 static void EconetResetState();
@@ -452,7 +448,6 @@ static bool EconetPollReal();
 static void EconetSendPacket();
 static bool EconetReceivePacket();
 static void EconetError(const char *Format, ...);
-static void EconetLog(const char *Format, ...);
 
 /****************************************************************************/
 
@@ -1995,7 +1990,9 @@ bool EconetPollReal()
 		Packet.AUNHeader.CtrlByte = ECONET_CTRL_GATEWAY_QUERY & 0x7F;
 		Packet.Buffer[0] = ECONET_PORT_BEEBEM; // Where response is sent
 
-		EconetLog("Sending gateway discovery query");
+		EconetLogData((const unsigned char*)&Packet,
+		              sizeof(Packet),
+		              "Sending gateway discovery query");
 
 		// Send a copy of broadcast to each network interface.
 		for (size_t i = 0; i < BroadcastAddresses.size(); i++)
@@ -2039,7 +2036,9 @@ bool EconetPollReal()
 		DebugDumpBytes("Econet: Gateway keepalive packet", (const unsigned char*)&Packet, sizeof(Packet));
 		#endif
 
-		EconetLog("Sending gateway keepalive");
+		EconetLogData((const unsigned char*)&Packet,
+		              sizeof(Packet),
+		              "Sending gateway keepalive");
 
 		if (!pSocket->Send(Gateway.IPAddress,
 		                   Gateway.Port,
@@ -2073,7 +2072,9 @@ bool EconetPollReal()
 		Packet.Buffer[0] = EconetStationID;
 		Packet.Buffer[1] = EconetNetworkID;
 
-		EconetLog("Sending broadcast announcement");
+		EconetLogData((const unsigned char*)&Packet,
+		              sizeof(Packet),
+		              "Sending broadcast announcement");
 
 		// Send a copy of broadcast to each network interface.
 		for (size_t i = 0; i < BroadcastAddresses.size(); i++)
@@ -2562,13 +2563,6 @@ static void EconetSendPacket()
 	DebugDumpBytes("Econet: Packet data:", BeebTx.Buffer, BeebTx.Pointer);
 	#endif
 
-	EconetLog("Send %d byte packet to station %d.%d (%s:%u)",
-	           BeebTx.Pointer,
-	           pBeebTxEconetHeader->DestNet,
-	           pBeebTxEconetHeader->DestStn,
-	           IPAddressStr(RecvIPAddress).c_str(),
-	           RecvPort);
-
 	unsigned int Offset = 0;
 
 	// OK. Lets do AUN ...
@@ -2805,12 +2799,14 @@ static void EconetSendPacket()
 				                  pBufferToSend,
 				                  SendLen))
 				{
-					EconetLog("Sent %d byte packet to station %d.%d (%s:%u)",
-					          SendLen,
-					          EconetTx.DestNet,
-					          EconetTx.DestStn,
-					          IPAddressStr(RecvIPAddress).c_str(),
-					          RecvPort);
+					EconetLogData(pBufferToSend,
+					              SendLen,
+					              "Sent %d byte packet to station %d.%d (%s:%u)",
+					              SendLen,
+					              EconetTx.DestNet,
+					              EconetTx.DestStn,
+					              IPAddressStr(RecvIPAddress).c_str(),
+					              RecvPort);
 				}
 				else
 				{
@@ -2845,12 +2841,14 @@ static void EconetSendPacket()
 				                  pBufferToSend,
 				                  SendLen))
 				{
-					EconetLog("Sent %d byte packet to station %d.%d (%s:%u)",
-					          SendLen,
-					          EconetTx.DestNet,
-					          EconetTx.DestStn,
-					          IPAddressStr(RecvIPAddress).c_str(),
-					          RecvPort);
+					EconetLogData(pBufferToSend,
+					              SendLen,
+					              "Sent %d byte packet to station %d.%d (%s:%u)",
+					              SendLen,
+					              EconetTx.DestNet,
+					              EconetTx.DestStn,
+					              IPAddressStr(RecvIPAddress).c_str(),
+					              RecvPort);
 				}
 				else
 				{
@@ -2877,10 +2875,12 @@ static void EconetSendPacket()
 			                  ExtendedAUNTxBuffer.Buffer,
 			                  SendLen + 4))
 			{
-				EconetLog("Sent %d byte broadcast to gateway (%s:%u)",
-				          SendLen + 4,
-				          IPAddressStr(Gateway.IPAddress).c_str(),
-				          Gateway.Port);
+				EconetLogData(ExtendedAUNTxBuffer.Buffer,
+				              SendLen + 4,
+				              "Sent %d byte broadcast to gateway (%s:%u)",
+				              SendLen + 4,
+				              IPAddressStr(Gateway.IPAddress).c_str(),
+				              Gateway.Port);
 			}
 			else
 			{
@@ -3115,6 +3115,8 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 	// Check for a Pi Econet Bridge gateway reply.
 	if (IsGatewayReplyPacket(Packet.Data, Packet.Length))
 	{
+		bool Ignored = false;
+
 		if (EconetConfig.FindGateways)
 		{
 			// Check we haven't got a gateway defined already.
@@ -3134,9 +3136,11 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 				           pPacket->EconetHeader.DestStn);
 				#endif
 
-				EconetLog("Gateway found at %s:%u",
-				          IPAddressStr(Gateway.IPAddress).c_str(),
-				          Gateway.Port);
+				EconetLogData(Packet.Data,
+				              Packet.Length,
+				              "Gateway found at %s:%u",
+				              IPAddressStr(Gateway.IPAddress).c_str(),
+				              Gateway.Port);
 
 				EconetLog("Bridge sees us as station %d.%d",
 				          pPacket->EconetHeader.DestNet,
@@ -3150,16 +3154,27 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 			{
 				// This response was from a different gateway
 				// to the one we already have configured!
-				#ifdef DEBUG_ECONET
-				DebugTrace("Econet: Ignored gateway response from %s:%u\n",
-				           IPAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
-				           ntohs(Packet.Src.sin_port));
-				#endif
-
-				EconetLog("Ignored gateway response from %s:%u",
-				          IPAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
-				          ntohs(Packet.Src.sin_port));
+				Ignored = true;
 			}
+		}
+		else
+		{
+			Ignored = true;
+		}
+
+		if (Ignored)
+		{
+			#ifdef DEBUG_ECONET
+			DebugTrace("Econet: Ignored gateway response from %s:%u\n",
+			           IpAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
+			           ntohs(Packet.Src.sin_port));
+			#endif
+
+			EconetLogData(Packet.Data,
+			              Packet.Length,
+			              "Ignored gateway response from %s:%u",
+			              IPAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
+			              ntohs(Packet.Src.sin_port));
 		}
 
 		return true;
@@ -3172,18 +3187,22 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 		const AUNHeaderType* pHeader = (const AUNHeaderType*)Packet.Data;
 		const unsigned char* pData   = Packet.Data + sizeof(AUNHeaderType);
 
+		unsigned char SrcStn = pData[0];
+		unsigned char SrcNet = pData[1];
+
 		if (EconetConfig.AutoConfigure)
 		{
-			unsigned char SrcStn = pData[0];
-			unsigned char SrcNet = pData[1];
-
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Received BeebEm announcement from station %d.%d\n",
 			           SrcNet,
 			           SrcStn);
 			#endif
 
-			EconetLog("Received BeebEm ping from station %d.%d", SrcNet, SrcStn);
+			EconetLogData(Packet.Data,
+			              Packet.Length,
+			              "Received BeebEm ping from station %d.%d",
+			              SrcNet,
+			              SrcStn);
 
 			if (SrcStn == EconetStationID && SrcNet == EconetNetworkID)
 			{
@@ -3220,6 +3239,14 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 					           BroadcastSource::Local); // Must be in the broadcast domain to have received this announcement.
 				}
 			}
+		}
+		else
+		{
+			EconetLogData(Packet.Data,
+			              Packet.Length,
+			              "Ignored BeebEm ping from station %d.%d",
+			              SrcNet,
+			              SrcStn);
 		}
 
 		return true;
@@ -3389,12 +3416,14 @@ static bool EconetReceivePacket()
 				pBeebRxEconetHeader->CtrlByte = pRxAUNHeader->CtrlByte | 0x80;
 				pBeebRxEconetHeader->Port     = pRxAUNHeader->Port;
 
-				EconetLog("Received %d byte packet from station %d.%d at %s:%u",
-				          BytesReceived,
-				          SrcNet,
-				          SrcStn,
-				          IPAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
-				          ntohs(Packet.Src.sin_port));
+				EconetLogData(EconetRx.Buffer,
+				              BytesReceived,
+				              "Received %d byte packet from station %d.%d at %s:%u",
+				              BytesReceived,
+				              SrcNet,
+				              SrcStn,
+				              IPAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
+				              ntohs(Packet.Src.sin_port));
 
 				switch (AUNState)
 				{
@@ -3760,46 +3789,6 @@ static void EconetError(const char *Format, ...)
 
 /****************************************************************************/
 
-static void EconetLog(const char *Format, ...)
-{
-	va_list Args;
-	va_start(Args, Format);
-
-	// 2026-07-11 11:45:00.123
-	// _vscprintf doesn't count terminating '\0'
-	#ifndef NDEBUG
-	int Length = _vscprintf(Format, Args) + 24 + 1;
-	assert(Length < 512 - 24 - 1);
-	#endif
-
-	SYSTEMTIME Time;
-	GetLocalTime(&Time);
-
-	char Buffer[512];
-
-	sprintf(Buffer, "%04d-%02d-%02d %02d:%02d:%02d.%03d ",
-	        Time.wYear, Time.wMonth, Time.wDay,
-	        Time.wHour, Time.wMinute, Time.wSecond, Time.wMilliseconds);
-
-	vsprintf_s(Buffer + 24, (512 - 24) * sizeof(char), Format, Args);
-
-	bool BufferFull = EconetLogMessages.size() == MAX_LOG_MESSAGES;
-
-	if (BufferFull)
-	{
-		// Discard oldest message.
-		EconetLogMessages.pop_front();
-	}
-
-	EconetLogMessages.push_back(Buffer);
-
-	PostMessage(mainWin->GethWnd(), WM_ECONET_APPEND_LOG, BufferFull, 0);
-
-	va_end(Args);
-}
-
-/****************************************************************************/
-
 const EconetGateway* GetEconetGateway()
 {
 	return &Gateway;
@@ -3831,13 +3820,6 @@ int GetEconetNetworkCount()
 const EconetNet* GetEconetNetwork(int Index)
 {
 	return &Networks[Index];
-}
-
-/****************************************************************************/
-
-std::deque<std::string>* GetEconetLogBuffer()
-{
-	return &EconetLogMessages;
 }
 
 /****************************************************************************/

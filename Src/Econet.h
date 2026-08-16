@@ -26,9 +26,6 @@ Boston, MA  02110-1301, USA.
 #ifndef ECONET_HEADER
 #define ECONET_HEADER
 
-#include <deque>
-#include <string>
-
 bool EconetReset();
 unsigned char EconetRead(unsigned char Register);
 void EconetWrite(unsigned char Register, unsigned char Value);
@@ -123,8 +120,6 @@ const EconetHost* GetEconetHost(int Index);
 
 int GetEconetNetworkCount();
 const EconetNet* GetEconetNetwork(int Index);
-
-std::deque<std::string>* GetEconetLogBuffer();
 
 // #define DEBUG_ECONET
 // #define DEBUG_ECONET_ADLC

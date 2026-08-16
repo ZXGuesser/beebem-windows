@@ -23,10 +23,12 @@ Boston, MA  02110-1301, USA.
 
 #include <deque>
 
+#include "EconetLog.h"
+
 class LogView
 {
 	public:
-		LogView(std::deque<std::string>* pLogBuffer);
+		LogView(std::deque<EconetLogMessage>* pLogBuffer);
 
 		static bool InitClass(HINSTANCE hInstance);
 
@@ -62,7 +64,7 @@ class LogView
 	private:
 		HWND m_hwnd;
 		HWND m_hwndParent;
-		std::deque<std::string>* m_pLogBuffer;
+		std::deque<EconetLogMessage>* m_pLogBuffer;
 		HFONT m_hFont;
 		int m_LineHeight;
 		int m_ScrollPos;

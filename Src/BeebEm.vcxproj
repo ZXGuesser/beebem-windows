@@ -196,6 +196,7 @@
     <ClCompile Include="DiscInfo.cpp" />
     <ClCompile Include="Econet.cpp" />
     <ClCompile Include="EconetDialog.cpp" />
+    <ClCompile Include="EconetLog.cpp" />
     <ClCompile Include="ExportFileDialog.cpp" />
     <ClCompile Include="Ext1770.cpp" />
     <ClCompile Include="FileDialog.cpp" />
@@ -372,6 +373,7 @@
     <ClInclude Include="DiscType.h" />
     <ClInclude Include="Econet.h" />
     <ClInclude Include="EconetDialog.h" />
+    <ClInclude Include="EconetLog.h" />
     <ClInclude Include="ExportFileDialog.h" />
     <ClInclude Include="Ext1770.h" />
     <ClInclude Include="FileDialog.h" />
