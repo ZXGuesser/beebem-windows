@@ -33,6 +33,7 @@ constexpr UINT WM_SET_WINDOW_CLIENT_SIZE           = WM_APP + 6;
 constexpr UINT WM_REPORT_ERROR                     = WM_APP + 7;
 constexpr UINT WM_INIT_JOYSTICK                    = WM_APP + 8;
 constexpr UINT WM_ECONET_APPEND_LOG                = WM_APP + 9;
+constexpr UINT WM_ECONET_LOG_SELECT_MESSAGE        = WM_APP + 10;
 
 // Menu item IDs
 constexpr UINT IDM_TEXT_TO_SPEECH_VOICE_BASE = 50000;

@@ -30,6 +30,7 @@ Boston, MA  02110-1301, USA.
 #include "BeebWin.h"
 #include "Econet.h"
 #include "Main.h"
+#include "Messages.h"
 #include "Resource.h"
 #include "Socket.h"
 #include "WindowUtils.h"
@@ -41,7 +42,7 @@ EconetDialog* g_pEconetDialog = nullptr;
 /****************************************************************************/
 
 EconetDialog::EconetDialog(HINSTANCE hInstance, HWND hwndParent,
-                           std::deque<std::string>* pLogBuffer) :
+                           std::deque<EconetLogMessage>* pLogBuffer) :
 	m_hInstance(hInstance),
 	m_hwndParent(hwndParent),
 	m_hwnd(nullptr),
@@ -417,7 +418,7 @@ INT_PTR EconetSettingsPage::HandleMessage(UINT nMessage,
 
 EconetLogPage::EconetLogPage(HINSTANCE hInstance,
                              int DialogID,
-                             std::deque<std::string>* pLogBuffer) :
+                             std::deque<EconetLogMessage>* pLogBuffer) :
 	PropertySheetPage(hInstance, DialogID),
 	m_LogView(pLogBuffer)
 {
@@ -440,6 +441,11 @@ void EconetLogPage::OnInitDialog()
 	DestroyWindow(hwndPlaceholder);
 
 	m_LogView.Create(hInst, m_hwnd, IDC_LOG, rc);
+
+	SendDlgItemMessage(IDC_DETAIL,
+	                   WM_SETFONT,
+	                   (WPARAM)GetStockObject(ANSI_FIXED_FONT),
+	                   MAKELPARAM(FALSE, 0));
 }
 
 /****************************************************************************/
@@ -453,7 +459,7 @@ void EconetLogPage::AppendLog(bool BufferFull)
 
 INT_PTR EconetLogPage::HandleMessage(UINT nMessage,
                                      WPARAM wParam,
-                                     LPARAM /* lParam */)
+                                     LPARAM lParam)
 {
 	switch (nMessage)
 	{
@@ -464,9 +470,87 @@ INT_PTR EconetLogPage::HandleMessage(UINT nMessage,
 				return 0;
 			}
 			break;
+
+		case WM_ECONET_LOG_SELECT_MESSAGE:
+			OnSelectMessage((const EconetLogMessage*)lParam);
+			break;
 	}
 
 	return 0;
+}
+
+/****************************************************************************/
+
+void EconetLogPage::OnCommand(UINT MenuID)
+{
+	switch (MenuID)
+	{
+		case IDC_CLEAR:
+			m_LogView.Clear();
+			break;
+
+		default:
+			break;
+	}
+}
+
+/****************************************************************************/
+
+void EconetLogPage::OnSelectMessage(const EconetLogMessage* pMessage)
+{
+	SendDlgItemMessage(IDC_DETAIL, LB_RESETCONTENT, 0, 0);
+
+	if (pMessage == nullptr)
+	{
+		return;
+	}
+
+	const unsigned char* pData = pMessage->GetData();
+
+	if (pData == nullptr)
+	{
+		return;
+	}
+
+	int Length = pMessage->GetDataLength();
+
+	const int BytesPerLine = 16;
+
+	int Offset = 0;
+
+	std::string str;
+
+	while (Length > 0)
+	{
+		int i;
+
+		for (i = 0; i < BytesPerLine && i < Length; i++)
+		{
+			char sz[5];
+			sprintf(sz, "%02X ", pData[Offset + i]);
+
+			str += sz;
+		}
+
+		for (; i < BytesPerLine; i++)
+		{
+			str += "   ";
+		}
+
+		str += "| ";
+
+		for (i = 0; i < BytesPerLine && i < Length; i++)
+		{
+			str += isprint(pData[Offset + i]) ? pData[Offset + i] : '.';
+		}
+
+		SendDlgItemMessage(IDC_DETAIL, LB_ADDSTRING, 0, (LPARAM)str.c_str());
+
+		str.clear();
+
+		Length -= BytesPerLine;
+		Offset += BytesPerLine;
+	}
 }
 
 /****************************************************************************/

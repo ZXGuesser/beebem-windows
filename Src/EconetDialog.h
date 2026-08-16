@@ -21,6 +21,7 @@ Boston, MA  02110-1301, USA.
 #ifndef ECONET_DIALOG_HEADER
 #define ECONET_DIALOG_HEADER
 
+#include "Econet.h"
 #include "ListView.h"
 #include "LogView.h"
 #include "PropertySheetPage.h"
@@ -72,12 +73,14 @@ class EconetSettingsPage : public PropertySheetPage
 		ListView m_NetworksListView;
 };
 
+class EconetLogMessage;
+
 class EconetLogPage : public PropertySheetPage
 {
 	public:
 		EconetLogPage(HINSTANCE hInstance,
 		              int DialogID,
-		              std::deque<std::string>* pLogBuffer);
+		              std::deque<EconetLogMessage>* pLogBuffer);
 
 	public:
 		void AppendLog(bool BufferFull);
@@ -89,6 +92,9 @@ class EconetLogPage : public PropertySheetPage
 		                              WPARAM wParam,
 		                              LPARAM lParam);
 
+		void OnCommand(UINT MenuID);
+		void OnSelectMessage(const EconetLogMessage* pMessage);
+
 	private:
 		LogView m_LogView;
 };
@@ -98,7 +104,7 @@ class EconetDialog
 	public:
 		EconetDialog(HINSTANCE hInstance,
 		             HWND hwndParent,
-		             std::deque<std::string>* pLogBuffer);
+		             std::deque<EconetLogMessage>* pLogBuffer);
 
 	public:
 		bool Open();

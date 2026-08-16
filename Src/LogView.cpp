@@ -25,10 +25,11 @@ Boston, MA  02110-1301, USA.
 #include <utility>
 
 #include "LogView.h"
+#include "Messages.h"
 
 /****************************************************************************/
 
-LogView::LogView(std::deque<std::string>* pLogBuffer) :
+LogView::LogView(std::deque<EconetLogMessage>* pLogBuffer) :
 	m_hwnd(nullptr),
 	m_hwndParent(nullptr),
 	m_pLogBuffer(pLogBuffer),
@@ -61,6 +62,8 @@ bool LogView::InitClass(HINSTANCE hInstance)
 
 bool LogView::Create(HINSTANCE hInstance, HWND hwndParent, int id, const RECT& Rect)
 {
+	m_hwndParent = hwndParent;
+
 	m_hwnd = CreateWindow("LogView",
 	                      nullptr,
 	                      WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_BORDER,
@@ -133,6 +136,11 @@ void LogView::AppendLog(bool BufferFull)
 			{
 				m_SelectionStart = 0;
 			}
+
+			if (m_SelectionStart == -1)
+			{
+				SendMessage(m_hwndParent, WM_ECONET_LOG_SELECT_MESSAGE, 0, (LPARAM)nullptr);
+			}
 		}
 
 		UpdateScrollBar();
@@ -154,6 +162,8 @@ void LogView::Clear()
 	UpdateScrollBar();
 
 	InvalidateRect(m_hwnd, nullptr, TRUE);
+
+	SendMessage(m_hwndParent, WM_ECONET_LOG_SELECT_MESSAGE, 0, (LPARAM)nullptr);
 }
 
 /****************************************************************************/
@@ -173,7 +183,6 @@ LRESULT CALLBACK LogView::WndProcCallback(HWND hwnd,
 			pLogView = (LogView*)pCreateStruct->lpCreateParams;
 
 			pLogView->m_hwnd = hwnd;
-			pLogView->m_hwndParent = pCreateStruct->hwndParent;
 
 			SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)pLogView);
 			break;
@@ -288,7 +297,7 @@ void LogView::OnPaint()
 
 	for (int i = m_ScrollPos; i < Last; i++)
 	{
-		const std::string& Message = (*m_pLogBuffer)[i];
+		const EconetLogMessage& Message = (*m_pLogBuffer)[i];
 
 		bool Selected = m_SelectionStart >= 0 &&
 		                i >= std::min(m_SelectionStart, m_SelectionEnd) &&
@@ -431,6 +440,20 @@ void LogView::OnLButtonUp(int YPos)
 		ReleaseCapture();
 
 		InvalidateRect(m_hwnd, nullptr, FALSE);
+
+		// If a single message is selected, show that message's
+		// data bytes.
+		if (m_SelectionStart == m_SelectionEnd)
+		{
+			const EconetLogMessage* pMessage = nullptr;
+
+			if (m_SelectionStart >= 0 && m_SelectionStart < m_pLogBuffer->size())
+			{
+				pMessage = &(*m_pLogBuffer)[m_SelectionStart];
+			}
+
+			SendMessage(m_hwndParent, WM_ECONET_LOG_SELECT_MESSAGE, 0, (LPARAM)pMessage);
+		}
 	}
 }
 
