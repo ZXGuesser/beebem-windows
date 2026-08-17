@@ -427,6 +427,7 @@ public:
 
 	// Econet
 	void ToggleEconet();
+	void ResetEconet();
 	void UpdateEconetMenu();
 
 	void DisableWindowsKeys();
@@ -896,11 +897,12 @@ public:
 	char m_TextViewScreen[MAX_TEXTVIEW_SCREEN_LEN + 1];
 
 	// Timers
-	static const UINT_PTR TIMER_KEYBOARD       = 1;
-	static const UINT_PTR TIMER_AUTOBOOT_DELAY = 2;
-	static const UINT_PTR TIMER_PRINTER        = 3;
-	static const UINT_PTR TIMER_DEVICE_LOST    = 4;
-	static const UINT_PTR TIMER_FDC_CHANGED    = 5;
+	static const UINT_PTR TIMER_KEYBOARD            = 1;
+	static const UINT_PTR TIMER_AUTOBOOT_DELAY      = 2;
+	static const UINT_PTR TIMER_PRINTER             = 3;
+	static const UINT_PTR TIMER_DEVICE_LOST         = 4;
+	static const UINT_PTR TIMER_FDC_CHANGED         = 5;
+	static const UINT_PTR TIMER_ECONET_EXPIRE_HOSTS = 6;
 
 	// Debug
 	bool m_WriteInstructionCounts;

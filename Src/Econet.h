@@ -32,6 +32,7 @@ void EconetWrite(unsigned char Register, unsigned char Value);
 unsigned char EconetReadStationID();
 bool EconetInterruptRequest();
 bool EconetPoll();
+void EconetExpireStations();
 void DebugEconetState();
 
 // Config settings
