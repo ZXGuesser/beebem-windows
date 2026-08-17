@@ -216,7 +216,7 @@ int ParseIPAddress(int Family, const char* pszName, void* pAddr)
 
 // Similar to inet_ntop, which isn't available on Windows XP.
 
-bool IpAddressToString(int Family, const void* pAddress, std::string& Dest)
+bool IPAddressToString(int Family, const void* pAddress, std::string& Dest)
 {
 	SOCKADDR_STORAGE_XP Addr;
 	ZeroMemory(&Addr, sizeof(Addr));
@@ -257,10 +257,11 @@ bool IpAddressToString(int Family, const void* pAddress, std::string& Dest)
 
 /****************************************************************************/
 
-std::string IpAddressStr(unsigned long IpAddress)
+std::string IPAddressStr(unsigned long IPAddress)
 {
 	std::string str;
-	IpAddressToString(AF_INET, &IpAddress, str);
+
+	IPAddressToString(AF_INET, &IPAddress, str);
 
 	return str;
 }

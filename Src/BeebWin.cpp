@@ -725,7 +725,7 @@ void BeebWin::Shutdown()
 	CloseTape();
 
 	EconetEnabled = false;
-	EconetReset();
+	ResetEconet();
 
 	WSACleanup();
 
@@ -866,7 +866,7 @@ void BeebWin::ResetBeebSystem(Model NewModelType, bool LoadRoms)
 	SetDiscWriteProtects();
 	Disc8271Reset();
 
-	EconetReset();
+	ResetEconet();
 	UpdateEconetMenu();
 
 	Reset1770();
@@ -1031,7 +1031,7 @@ void BeebWin::Break()
 		Reset1770();
 	}
 
-	EconetReset();
+	ResetEconet();
 	UpdateEconetMenu();
 
 	if (MachineType != Model::MasterET)
@@ -4010,13 +4010,31 @@ void BeebWin::ToggleEconet()
 	}
 	else
 	{
-		EconetReset();
+		ResetEconet();
 	}
 
 	UpdateWindowTitle();
 
 	UpdateEconetMenu();
 }
+
+/****************************************************************************/
+
+void BeebWin::ResetEconet()
+{
+	EconetReset();
+
+	if (EconetEnabled)
+	{
+		SetTimer(m_hWnd, TIMER_ECONET_EXPIRE_HOSTS, 60 * 1000, nullptr);
+	}
+	else
+	{
+		KillTimer(m_hWnd, TIMER_ECONET_EXPIRE_HOSTS);
+	}
+}
+
+/****************************************************************************/
 
 void BeebWin::UpdateEconetMenu()
 {
@@ -6010,6 +6028,10 @@ void BeebWin::OnTimer(UINT_PTR TimerID)
 		case TIMER_FDC_CHANGED:
 			KillTimer(m_hWnd, TIMER_FDC_CHANGED);
 			m_DisplayFDCBoardInfo = false;
+			break;
+
+		case TIMER_ECONET_EXPIRE_HOSTS:
+			EconetExpireStations();
 			break;
 	}
 }
