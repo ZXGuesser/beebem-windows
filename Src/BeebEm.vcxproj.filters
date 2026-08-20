@@ -404,6 +404,9 @@
     <ClInclude Include="BeebWinPrefs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ClipBoard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="ComboBox.h">
       <Filter>Header Files</Filter>
     </ClInclude>

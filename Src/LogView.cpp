@@ -25,6 +25,7 @@ Boston, MA  02110-1301, USA.
 #include <utility>
 
 #include "LogView.h"
+#include "Clipboard.h"
 #include "Messages.h"
 
 /****************************************************************************/
@@ -175,13 +176,6 @@ void LogView::CopyToClipboard()
 		return;
 	}
 
-	if (!OpenClipboard(m_hwnd))
-	{
-		return;
-	}
-
-	EmptyClipboard();
-
 	size_t Size = 0;
 
 	for (int i = m_SelectionStart; i <= m_SelectionEnd; i++)
@@ -189,36 +183,23 @@ void LogView::CopyToClipboard()
 		Size += (*m_pLogBuffer)[i].length() + 2;
 	}
 
-	HGLOBAL hClipboardData = GlobalAlloc(GMEM_MOVEABLE, Size + 1);
-
-	if (hClipboardData == nullptr)
-	{
-		CloseClipboard();
-		return;
-	}
-
-	char* pData = (char*)GlobalLock(hClipboardData);
-
-	if (pData != nullptr)
+	auto CopyData = [=](unsigned char* pBuffer)
 	{
 		size_t Offset = 0;
 
 		for (int i = m_SelectionStart; i <= m_SelectionEnd; i++)
 		{
-			strcpy(pData + Offset, (*m_pLogBuffer)[i].c_str());
+			strcpy((char*)pBuffer + Offset, (*m_pLogBuffer)[i].c_str());
 			Offset += (*m_pLogBuffer)[i].length();
 
-			pData[Offset++] = '\r';
-			pData[Offset++] = '\n';
+			pBuffer[Offset++] = '\r';
+			pBuffer[Offset++] = '\n';
 		}
 
-		pData[Offset] = '\0';
-		GlobalUnlock(hClipboardData);
+		pBuffer[Offset] = '\0';
+	};
 
-		SetClipboardData(CF_TEXT, hClipboardData);
-	}
-
-	CloseClipboard();
+	::CopyToClipboard(m_hwnd, Size, CopyData);
 }
 
 /****************************************************************************/

@@ -43,6 +43,7 @@ using std::max;
 #include "AviWriter.h"
 #include "BeebMem.h"
 #include "BeebWinPrefs.h"
+#include "Clipboard.h"
 #include "Disc1770.h"
 #include "Disc8271.h"
 #include "DiscEdit.h"
@@ -1701,33 +1702,14 @@ void BeebWin::CopyPrinterBufferToClipboard()
 		return;
 	}
 
-	if (!OpenClipboard(m_hWnd))
+	auto CopyData = [=](unsigned char* pBuffer)
 	{
-		return;
-	}
+		memcpy(pBuffer, &m_PrinterBuffer[0], m_PrinterBuffer.size());
 
-	EmptyClipboard();
+		pBuffer[m_PrinterBuffer.size()] = '\0';
+	};
 
-	HGLOBAL hClipboardData = GlobalAlloc(GMEM_MOVEABLE, m_PrinterBuffer.size() + 1);
-
-	if (hClipboardData == nullptr)
-	{
-		CloseClipboard();
-		return;
-	}
-
-	unsigned char* pData = (unsigned char*)GlobalLock(hClipboardData);
-
-	if (pData != nullptr)
-	{
-		memcpy(pData, &m_PrinterBuffer[0], m_PrinterBuffer.size());
-		pData[m_PrinterBuffer.size()] = '\0';
-		GlobalUnlock(hClipboardData);
-
-		SetClipboardData(CF_TEXT, hClipboardData);
-	}
-
-	CloseClipboard();
+	CopyToClipboard(m_hWnd, m_PrinterBuffer.size() + 1, CopyData);
 }
 
 /****************************************************************************/
