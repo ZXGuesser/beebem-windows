@@ -139,7 +139,7 @@ void LogView::AppendLog(bool BufferFull)
 
 			if (m_SelectionStart == -1)
 			{
-				SendMessage(m_hwndParent, WM_ECONET_LOG_SELECT_MESSAGE, 0, (LPARAM)nullptr);
+				SelectMessage(nullptr);
 			}
 		}
 
@@ -163,7 +163,94 @@ void LogView::Clear()
 
 	InvalidateRect(m_hwnd, nullptr, TRUE);
 
-	SendMessage(m_hwndParent, WM_ECONET_LOG_SELECT_MESSAGE, 0, (LPARAM)nullptr);
+	SelectMessage(nullptr);
+}
+
+/****************************************************************************/
+
+void LogView::CopyToClipboard()
+{
+	if (m_SelectionStart == -1 || m_SelectionEnd == -1)
+	{
+		return;
+	}
+
+	if (!OpenClipboard(m_hwnd))
+	{
+		return;
+	}
+
+	EmptyClipboard();
+
+	size_t Size = 0;
+
+	for (int i = m_SelectionStart; i <= m_SelectionEnd; i++)
+	{
+		Size += (*m_pLogBuffer)[i].length() + 2;
+	}
+
+	HGLOBAL hClipboardData = GlobalAlloc(GMEM_MOVEABLE, Size + 1);
+
+	if (hClipboardData == nullptr)
+	{
+		CloseClipboard();
+		return;
+	}
+
+	char* pData = (char*)GlobalLock(hClipboardData);
+
+	if (pData != nullptr)
+	{
+		size_t Offset = 0;
+
+		for (int i = m_SelectionStart; i <= m_SelectionEnd; i++)
+		{
+			strcpy(pData + Offset, (*m_pLogBuffer)[i].c_str());
+			Offset += (*m_pLogBuffer)[i].length();
+
+			pData[Offset++] = '\r';
+			pData[Offset++] = '\n';
+		}
+
+		pData[Offset] = '\0';
+		GlobalUnlock(hClipboardData);
+
+		SetClipboardData(CF_TEXT, hClipboardData);
+	}
+
+	CloseClipboard();
+}
+
+/****************************************************************************/
+
+void LogView::SelectAll()
+{
+	const int BufferSize = (int)m_pLogBuffer->size();
+
+	if (BufferSize == 0)
+	{
+		m_SelectionStart = -1;
+		m_SelectionEnd = -1;
+	}
+	else
+	{
+		m_SelectionStart = 0;
+		m_SelectionEnd = BufferSize - 1;
+	}
+
+	InvalidateRect(m_hwnd, nullptr, TRUE);
+
+	if (m_SelectionStart != -1)
+	{
+		const EconetLogMessage* pMessage = nullptr;
+
+		if (m_SelectionStart == m_SelectionEnd)
+		{
+			pMessage = &(*m_pLogBuffer)[m_SelectionStart];
+		}
+
+		SelectMessage(pMessage);
+	}
 }
 
 /****************************************************************************/
@@ -452,7 +539,7 @@ void LogView::OnLButtonUp(int YPos)
 				pMessage = &(*m_pLogBuffer)[m_SelectionStart];
 			}
 
-			SendMessage(m_hwndParent, WM_ECONET_LOG_SELECT_MESSAGE, 0, (LPARAM)pMessage);
+			SelectMessage(pMessage);
 		}
 	}
 }
@@ -488,6 +575,13 @@ void LogView::UpdateScrollBar()
 int LogView::GetLineAtY(int y) const
 {
 	return m_ScrollPos + (y / m_LineHeight);
+}
+
+/****************************************************************************/
+
+void LogView::SelectMessage(const EconetLogMessage* pMessage)
+{
+	SendMessage(m_hwndParent, WM_ECONET_LOG_SELECT_MESSAGE, 0, (LPARAM)pMessage);
 }
 
 /****************************************************************************/

@@ -39,6 +39,8 @@ class LogView
 
 		void AppendLog(bool BufferFull);
 		void Clear();
+		void CopyToClipboard();
+		void SelectAll();
 
 	private:
 		static LRESULT CALLBACK WndProcCallback(HWND hwnd,
@@ -60,6 +62,7 @@ class LogView
 
 		void UpdateScrollBar();
 		int GetLineAtY(int y) const;
+		void SelectMessage(const EconetLogMessage* pMessage);
 
 	private:
 		HWND m_hwnd;

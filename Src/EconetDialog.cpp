@@ -46,6 +46,7 @@ EconetDialog::EconetDialog(HINSTANCE hInstance, HWND hwndParent,
 	m_hInstance(hInstance),
 	m_hwndParent(hwndParent),
 	m_hwnd(nullptr),
+	m_hAccelerators(nullptr),
 	m_EconetNetworkPage(hInstance, IDD_ECONET_NETWORK),
 	m_EconetSettingsPage(hInstance, IDD_ECONET_SETTINGS),
 	m_EconetLogPage(hInstance, IDD_ECONET_LOG, pLogBuffer)
@@ -56,6 +57,8 @@ EconetDialog::EconetDialog(HINSTANCE hInstance, HWND hwndParent,
 
 bool EconetDialog::Open()
 {
+	m_hAccelerators = LoadAccelerators(m_hInstance, MAKEINTRESOURCE(IDR_ECONET));
+
 	PROPSHEETPAGE Pages[3];
 	ZeroMemory(Pages, sizeof(Pages));
 
@@ -116,9 +119,21 @@ void EconetDialog::AppendLog(bool BufferFull)
 
 /****************************************************************************/
 
-bool EconetDialog::ProcessMessage(const MSG* pMsg)
+bool EconetDialog::HandleMessage(MSG* pMsg)
 {
-	bool bHandled = PropSheet_IsDialogMessage(m_hwnd, pMsg) != 0;
+	BOOL bHandled = FALSE;
+
+	HWND hwndFocus = GetFocus();
+
+	if (hwndFocus == m_hwnd || IsChild(m_hwnd, hwndFocus))
+	{
+		bHandled = TranslateAccelerator(m_hwnd, m_hAccelerators, pMsg);
+	}
+
+	if (!bHandled)
+	{
+		bHandled = PropSheet_IsDialogMessage(m_hwnd, pMsg) != 0;
+	}
 
 	// PropSheet_GetCurrentPageHwnd() returns NULL after OK or Cancel has
 	// notified all pages.
@@ -128,7 +143,7 @@ bool EconetDialog::ProcessMessage(const MSG* pMsg)
 		Close();
 	}
 
-	return bHandled;
+	return !!bHandled;
 }
 
 /****************************************************************************/
@@ -464,12 +479,7 @@ INT_PTR EconetLogPage::HandleMessage(UINT nMessage,
 	switch (nMessage)
 	{
 		case WM_COMMAND:
-			if (wParam == IDC_CLEAR)
-			{
-				m_LogView.Clear();
-				return 0;
-			}
-			break;
+			return OnCommand(LOWORD(wParam));
 
 		case WM_ECONET_LOG_SELECT_MESSAGE:
 			OnSelectMessage((const EconetLogMessage*)lParam);
@@ -481,17 +491,27 @@ INT_PTR EconetLogPage::HandleMessage(UINT nMessage,
 
 /****************************************************************************/
 
-void EconetLogPage::OnCommand(UINT MenuID)
+BOOL EconetLogPage::OnCommand(UINT MenuID)
 {
 	switch (MenuID)
 	{
 		case IDC_CLEAR:
 			m_LogView.Clear();
-			break;
+			return TRUE;
+
+		case IDM_COPY:
+			m_LogView.CopyToClipboard();
+			return TRUE;
+
+		case IDM_SELECT_ALL:
+			m_LogView.SelectAll();
+			return TRUE;
 
 		default:
 			break;
 	}
+
+	return FALSE;
 }
 
 /****************************************************************************/

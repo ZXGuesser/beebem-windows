@@ -1198,12 +1198,9 @@ void DebugOpenDialog(HINSTANCE hInstance, HWND /* hwndParent */)
 
 	DebugEnabled = true;
 
-	haccelDebug = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDR_ACCELERATORS));
+	haccelDebug = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDR_DEBUG));
 	hwndDebug = CreateDialog(hInstance, MAKEINTRESOURCE(IDD_DEBUG),
 	                         hwndInvisibleOwner, DebugDlgProc);
-
-	hCurrentDialog = hwndDebug;
-	hCurrentAccelTable = haccelDebug;
 
 	DisableRoundedCorners(hwndDebug);
 	ShowWindow(hwndDebug, SW_SHOW);
@@ -1216,8 +1213,7 @@ void DebugCloseDialog()
 	DestroyWindow(hwndDebug);
 	hwndDebug = nullptr;
 	hwndInfo = nullptr;
-	hCurrentDialog = nullptr;
-	hCurrentAccelTable = nullptr;
+
 	DebugEnabled = false;
 	DebugSource = DebugType::None;
 	LinesDisplayed = 0;
@@ -1229,6 +1225,27 @@ void DebugCloseDialog()
 	LastAddrInOS = false;
 	LastAddrInBIOS = false;
 	LastAddrInROM = false;
+}
+
+/****************************************************************************/
+
+bool DebugHandleMessage(MSG* pMsg)
+{
+	BOOL bHandled = FALSE;
+
+	HWND hwndFocus = GetFocus();
+
+	if (hwndFocus == hwndDebug || IsChild(hwndDebug, hwndFocus))
+	{
+		bHandled = TranslateAccelerator(hwndDebug, haccelDebug, pMsg);
+	}
+
+	if (!bHandled)
+	{
+		bHandled = IsDialogMessage(hwndDebug, pMsg);
+	}
+
+	return !!bHandled;
 }
 
 /****************************************************************************/
@@ -1355,19 +1372,6 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hWnd, UINT Message, WPARAM wParam, LPA
 
 			return TRUE;
 		}
-
-		case WM_ACTIVATE:
-			if (LOWORD(wParam) == WA_INACTIVE)
-			{
-				hCurrentDialog = NULL;
-				hCurrentAccelTable = NULL;
-			}
-			else
-			{
-				hCurrentDialog = hWnd;
-				hCurrentAccelTable = haccelDebug;
-			}
-			break;
 
 		case WM_COMMAND:
 			switch (LOWORD(wParam))

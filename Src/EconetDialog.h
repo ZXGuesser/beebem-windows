@@ -92,7 +92,7 @@ class EconetLogPage : public PropertySheetPage
 		                              WPARAM wParam,
 		                              LPARAM lParam);
 
-		void OnCommand(UINT MenuID);
+		BOOL OnCommand(UINT MenuID);
 		void OnSelectMessage(const EconetLogMessage* pMessage);
 
 	private:
@@ -114,7 +114,7 @@ class EconetDialog
 
 		void AppendLog(bool BufferFull);
 
-		bool ProcessMessage(const MSG* pMsg);
+		bool HandleMessage(MSG* pMsg);
 
 	private:
 		static int CALLBACK PropSheetCallback(HWND hwnd,
@@ -125,6 +125,7 @@ class EconetDialog
 		HINSTANCE m_hInstance;
 		HWND m_hwndParent;
 		HWND m_hwnd;
+		HACCEL m_hAccelerators;
 		EconetNetworkPage m_EconetNetworkPage;
 		EconetSettingsPage m_EconetSettingsPage;
 		EconetLogPage m_EconetLogPage;

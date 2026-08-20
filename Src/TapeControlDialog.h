@@ -34,6 +34,8 @@ class TapeControlDialog : public Dialog
 		                  HWND hwndParent);
 
 	public:
+		bool HandleMessage(MSG* pMsg);
+
 		void UpdateCounter(int Time);
 		void SetUnlock(bool Unlock);
 		void SetFileName(const char *FileName);

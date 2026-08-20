@@ -127,6 +127,8 @@ int DebugDisassembleInstructionWithCPUStatus(int Addr,
 void DebugOpenDialog(HINSTANCE hInstance, HWND hwndParent);
 void DebugCloseDialog();
 
+bool DebugHandleMessage(MSG* pMsg);
+
 void DebugDisplayTrace(DebugType Type, bool Host, const char *Info);
 void DebugDisplayTraceF(DebugType Type, bool Host, const char *Format, ...);
 void DebugDisplayTraceV(DebugType Type, bool Host, const char *Format, va_list Args);

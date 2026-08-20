@@ -66,8 +66,6 @@ bool Dialog::Open()
 		                           DlgProcCallback,
 		                           reinterpret_cast<LPARAM>(this));
 
-		hCurrentDialog = m_hwnd;
-
 		ShowWindow(m_hwnd, SW_SHOW);
 	}
 
@@ -82,7 +80,6 @@ void Dialog::Close()
 {
 	DestroyWindow(m_hwnd);
 	m_hwnd = nullptr;
-	hCurrentDialog = nullptr;
 }
 
 /****************************************************************************/

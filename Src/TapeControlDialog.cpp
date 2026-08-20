@@ -145,6 +145,18 @@ void TapeControlDialog::UpdateState()
 
 /****************************************************************************/
 
+bool TapeControlDialog::HandleMessage(MSG* pMsg)
+{
+	if (m_hwnd != nullptr && IsDialogMessage(m_hwnd, pMsg))
+	{
+		return true;
+	}
+
+	return false;
+}
+
+/****************************************************************************/
+
 INT_PTR TapeControlDialog::DlgProc(UINT message, WPARAM wParam, LPARAM /* lParam */)
 {
 	switch (message)
@@ -166,17 +178,6 @@ INT_PTR TapeControlDialog::DlgProc(UINT message, WPARAM wParam, LPARAM /* lParam
 
 			return TRUE;
 		}
-
-		case WM_ACTIVATE:
-			if (LOWORD(wParam) == WA_INACTIVE)
-			{
-				hCurrentDialog = nullptr;
-			}
-			else
-			{
-				hCurrentDialog = m_hwnd;
-			}
-			return FALSE;
 
 		case WM_COMMAND:
 			switch (LOWORD(wParam))

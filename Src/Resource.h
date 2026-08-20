@@ -93,17 +93,18 @@
 #define IDD_TAPECONTROL                 112
 #define IDD_BREAKOUT                    113
 #define IDD_DISCEXPORT                  114
-#define IDR_ACCELERATORS                115
-#define IDD_ROMCONFIG                   116
-#define IDD_SELECT_KEY                  117
-#define IDD_RENAME_FILE                 118
-#define IDD_SERIAL                      119
-#define IDD_ABOUT                       120
-#define IDD_TELETEXT                    121
-#define IDD_JOYSTICK                    122
-#define IDD_ECONET_NETWORK              123
-#define IDD_ECONET_SETTINGS             124
-#define IDD_ECONET_LOG                  125
+#define IDD_ROMCONFIG                   115
+#define IDD_SELECT_KEY                  116
+#define IDD_RENAME_FILE                 117
+#define IDD_SERIAL                      118
+#define IDD_ABOUT                       119
+#define IDD_TELETEXT                    120
+#define IDD_JOYSTICK                    121
+#define IDD_ECONET_NETWORK              122
+#define IDD_ECONET_SETTINGS             123
+#define IDD_ECONET_LOG                  124
+#define IDR_DEBUG                       125
+#define IDR_ECONET                      126
 #define IDC_DEBUGBREAK                  1010
 #define IDC_DEBUGINFO                   1015
 #define IDC_DEBUGCOMMAND                1016
@@ -494,14 +495,16 @@
 #define IDM_TEXTTOSPEECH_DECREASE_RATE  40325
 #define IDM_SELECT_TELETEXT_DATA_SOURCE 40326
 #define IDM_ECONET_NETWORK              40327
+#define IDM_COPY                        40328
+#define IDM_SELECT_ALL                  40329
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        125
-#define _APS_NEXT_COMMAND_VALUE         40328
+#define _APS_NEXT_RESOURCE_VALUE        127
+#define _APS_NEXT_COMMAND_VALUE         40330
 #define _APS_NEXT_CONTROL_VALUE         1166
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
