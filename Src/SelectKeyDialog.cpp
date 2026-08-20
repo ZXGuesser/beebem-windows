@@ -77,18 +77,6 @@ INT_PTR SelectKeyDialog::DlgProc(UINT nMessage,
 		}
 		return TRUE;
 
-	case WM_ACTIVATE:
-		if (LOWORD(wParam) == WA_INACTIVE)
-		{
-			hCurrentDialog = nullptr;
-		}
-		else
-		{
-			hCurrentDialog = m_hwnd;
-			hCurrentAccelTable = nullptr;
-		}
-		break;
-
 	case WM_SYSCOMMAND:
 		if (wParam == SC_CLOSE)
 		{
@@ -133,16 +121,21 @@ INT_PTR SelectKeyDialog::DlgProc(UINT nMessage,
 
 /****************************************************************************/
 
-bool SelectKeyDialog::HandleMessage(const MSG& msg)
+bool SelectKeyDialog::HandleMessage(MSG* pMsg)
 {
-	if (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN)
+	if (pMsg->message == WM_KEYDOWN || pMsg->message == WM_SYSKEYDOWN)
 	{
-		m_Key = (int)msg.wParam;
+		m_Key = (int)pMsg->wParam;
 		m_Shift = IsDlgItemChecked(IDC_SHIFT);
 		m_Result = IDOK;
 
 		Close();
 
+		return true;
+	}
+
+	if (m_hwnd != nullptr && IsDialogMessage(m_hwnd, pMsg))
+	{
 		return true;
 	}
 

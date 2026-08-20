@@ -37,7 +37,7 @@ class SelectKeyDialog : public Dialog
 			bool DoingShifted
 		);
 
-		bool HandleMessage(const MSG& msg);
+		bool HandleMessage(MSG* pMsg);
 
 		int Key() const;
 		bool Shift() const;
