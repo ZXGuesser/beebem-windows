@@ -188,7 +188,7 @@ time_t GatewayTimeout; // Gateway timer - system time not emulation trigger.
 const unsigned int ANNOUNCE_TIMEOUT = 15;
 time_t AnnounceTimeout = 0; // BeebEm host announcement timer - system time not emulation trigger.
 uint32_t AnnounceHandle; // Sequence number for host announcements.
-const unsigned int HOST_TIMEOUT = 60; // How long since last ping before hosts can be replaced
+const unsigned int HOST_TIMEOUT = 60; // How long since last announcement before hosts can be replaced.
 
 static const unsigned char powers[4] = { 1, 2, 4, 8 };
 
@@ -213,7 +213,7 @@ static UdpServer SocketServer;
 const unsigned short DEFAULT_AUN_PORT = 32768;
 
 const unsigned char ECONET_PORT_IMMEDIATE        = 0x00; // Immediate operations
-const unsigned char ECONET_PORT_BEEBEM           = 0x9B; // Where gateway replies and BeebEm Ping/Pong will be sent
+const unsigned char ECONET_PORT_BEEBEM           = 0x9B; // Where gateway replies and BeebEm announcements will be sent
 const unsigned char ECONET_PORT_PI_ECONET_BRIDGE = 0x9C;
 
 // See https://mdfs.net/Docs/Comp/Econet/Specs/Packets
@@ -231,7 +231,7 @@ const unsigned char ECONET_CTRL_GET_REGISTERS     = 0x89; // Scout->, <-Data
 const unsigned char ECONET_CTRL_WHATNET           = 0x80;
 const unsigned char ECONET_CTRL_GATEWAY_QUERY     = 0x90;
 const unsigned char ECONET_CTRL_GATEWAY_REPLY     = 0x91;
-const unsigned char ECONET_CTRL_BEEBEM_PING       = 0x9F;
+const unsigned char ECONET_CTRL_BEEBEM_ANNOUNCE   = 0x9F;
 const unsigned char ECONET_CTRL_GATEWAY_KEEPALIVE = 0xD0; // Reuse trunk keepalive
 
 // Written in 2004:
@@ -1191,7 +1191,7 @@ bool EconetReset()
 
 	if (EconetConfig.AutoConfigure && AnnounceHandle == 0)
 	{
-		// Start up regular announce pings.
+		// Set a timer to send regular BeebEm announcement messages.
 		time(&AnnounceTimeout);
 	}
 
@@ -2069,11 +2069,10 @@ bool EconetPollReal()
 		GatewayTimeout = time(NULL) + DEFAULT_GATEWAY_KEEPALIVE_TIMEOUT;
 	}
 
-	// Send host announce pings if timeout value has been passed.
 	if (EconetConfig.AutoConfigure && time(NULL) > AnnounceTimeout)
 	{
-		// Announce our address other BeebEm instances by pinging the network
-		// this uses packets conforming to the structure of AUN, but with a
+		// Announce our address other BeebEm instances by pinging the network.
+		// This uses packets conforming to the structure of AUN, but with a
 		// proprietary type which will hopefully be ignored by any existing
 		// AUN code.
 
@@ -2081,7 +2080,7 @@ bool EconetPollReal()
 		ZeroMemory(&Packet, sizeof(Packet));
 		Packet.AUNHeader.Type = AUNType::BeebEm;
 		Packet.AUNHeader.Port = ECONET_PORT_BEEBEM; // BeebEm reply port
-		Packet.AUNHeader.CtrlByte = ECONET_CTRL_BEEBEM_PING & 0x7F;
+		Packet.AUNHeader.CtrlByte = ECONET_CTRL_BEEBEM_ANNOUNCE & 0x7F;
 		Packet.AUNHeader.Handle = AnnounceHandle++; // Sequence number
 		Packet.Buffer[0] = EconetStationID;
 		Packet.Buffer[1] = EconetNetworkID;
@@ -2101,7 +2100,7 @@ bool EconetPollReal()
 			                   (const unsigned char*)&Packet,
 			                   sizeof(Packet)))
 			{
-				EconetError("Econet: Failed to send BeebEm ping");
+				EconetError("Econet: Failed to send BeebEm broadcast announcement");
 			}
 		}
 
@@ -3080,7 +3079,7 @@ static bool IsBeebEmAnnouncePacket(const unsigned char* pData, int Length)
 	return Length == 16 &&
 	       pAUNHeader->Port == ECONET_PORT_BEEBEM &&
 	       pAUNHeader->Type == AUNType::BeebEm &&
-	       (pAUNHeader->CtrlByte | 0x80) == ECONET_CTRL_BEEBEM_PING;
+	       (pAUNHeader->CtrlByte | 0x80) == ECONET_CTRL_BEEBEM_ANNOUNCE;
 }
 
 /****************************************************************************/
@@ -3131,7 +3130,7 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 		return true;
 	}
 
-	// Check for a BeebEm ping, which are used for host discovery.
+	// Check for a BeebEm announce message, which are used for host discovery.
 	// It might be an announcement from an unknown station.
 	if (IsBeebEmAnnouncePacket(Packet.Data, Packet.Length))
 	{
@@ -3144,7 +3143,7 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 			unsigned char SrcNet = pData[1];
 
 			#ifdef DEBUG_ECONET
-			DebugTrace("Econet: Received BeebEm ping from station %d.%d\n",
+			DebugTrace("Econet: Received BeebEm announcement from station %d.%d\n",
 			           SrcNet,
 			           SrcStn);
 			#endif
@@ -3171,7 +3170,7 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 			{
 				EconetHost* pStation = FindNetworkConfig(SrcStn, SrcNet);
 
-				if (pStation == nullptr || time(NULL) >= pStation->Timeout)
+				if (pStation == nullptr || time(nullptr) >= pStation->Timeout)
 				{
 					// Station is new or stale.
 					AddStation(SrcStn,
@@ -3179,7 +3178,7 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 					           Packet.Src.sin_addr.s_addr,
 					           ntohs(Packet.Src.sin_port),
 					           false,
-					           BroadcastSource::Local); // Must be in the broadcast domain to have received this ping.
+					           BroadcastSource::Local); // Must be in the broadcast domain to have received this announcement.
 				}
 			}
 		}
