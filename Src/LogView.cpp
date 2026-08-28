@@ -447,7 +447,7 @@ void LogView::OnLButtonUp(int YPos)
 		{
 			const EconetLogMessage* pMessage = nullptr;
 
-			if (m_SelectionStart >= 0 && m_SelectionStart < m_pLogBuffer->size())
+			if (m_SelectionStart >= 0 && m_SelectionStart < (int)m_pLogBuffer->size())
 			{
 				pMessage = &(*m_pLogBuffer)[m_SelectionStart];
 			}
