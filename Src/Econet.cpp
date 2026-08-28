@@ -3085,19 +3085,6 @@ static bool IsBeebEmAnnouncePacket(const unsigned char* pData, int Length)
 
 /****************************************************************************/
 
-// Returns true if the packet is a BeebEm ping used for host discovery.
-
-static bool IsBeebEmPingPacket(const unsigned char* pData, int /* Length */)
-{
-	const AUNHeaderType* pAUNHeader = (const AUNHeaderType*)pData;
-
-	return pAUNHeader->Type == AUNType::BeebEm &&
-	       pAUNHeader->Port == ECONET_PORT_BEEBEM &&
-	       pAUNHeader->CtrlByte == ECONET_CTRL_BEEBEM_PING;
-}
-
-/****************************************************************************/
-
 // Handle "special" packets (e.g., gateway discovery and pings, and BeebEm
 // announcements). Returns true if such a packet was handled.
 
@@ -3198,88 +3185,6 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 		}
 
 		return true;
-	}
-
-	if (IsBeebEmPingPacket(Packet.Data, Packet.Length))
-	{
-		// This is a BeebEm ping used for host discovery
-		// from an address we think we know already.
-		const AUNHeaderType* pHeader = (const AUNHeaderType*)Packet.Data;
-		const unsigned char* pData   = Packet.Data + sizeof(AUNHeaderType);
-
-		if (EconetConfig.AutoConfigure)
-		{
-			unsigned char SrcStn = pData[0];
-			unsigned char SrcNet = pData[1];
-
-			#ifdef DEBUG_ECONET
-			DebugTrace("Econet: Received BeebEm ping from station %d.%d\n",
-			            SrcNet,
-			            SrcStn);
-			#endif
-
-			if (SrcStn == EconetStationID && SrcNet == EconetNetworkID)
-			{
-				// Address collision!
-				#ifdef DEBUG_ECONET
-				DebugTrace("Econet: Address collision!\n");
-				#endif
-
-				if (pHeader->Handle >= AnnounceHandle)
-				{
-					// They have had the address longer than us.
-					// Relinquish the address.
-					PreferredStationID = (rand() % 253) + 1;
-					EconetStationID = 0;
-
-					EconetError("Econet: Address collision detected.");
-					mainWin->ToggleEconet(); // Turn Econet off entirely.
-				}
-			}
-			else
-			{
-				unsigned char Network;
-				unsigned char Station;
-
-				bool Found = ResolveEconetHost(Packet, &Network, &Station);
-
-				if (Found)
-				{
-					if (SrcStn != Station || SrcNet != Network)
-					{
-						// Station number of this host has changed for some reason.
-						EconetHost* pStation = FindNetworkConfig(Station, Network);
-
-						if (pStation != nullptr)
-						{
-							if (time(nullptr) >= pStation->Timeout)
-							{
-								// Host is stale - replace it.
-								pStation->Station = SrcStn;
-								pStation->Network = SrcNet;
-								pStation->Timeout = time(nullptr) + HOST_TIMEOUT;
-
-								#ifdef DEBUG_ECONET
-								DebugTrace("Econet: updated station number\n");
-								#endif
-							}
-						}
-					}
-					else
-					{
-						EconetHost* pStation = FindNetworkConfig(Station, Network);
-
-						if (pStation != nullptr)
-						{
-							// Update timeout.
-							pStation->Timeout = time(nullptr) + HOST_TIMEOUT;
-						}
-					}
-				}
-			}
-
-			return true;
-        }
 	}
 
 	return false;
