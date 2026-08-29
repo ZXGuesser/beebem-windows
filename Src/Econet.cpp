@@ -499,7 +499,7 @@ static bool IsBroadcastStation(unsigned char Station)
 
 /****************************************************************************/
 
-static EconetHost* FindNetworkConfig(unsigned char Station, unsigned char Network)
+static EconetHost* FindStation(unsigned char Station, unsigned char Network)
 {
 	for (size_t i = 0; i < Stations.size(); ++i)
 	{
@@ -514,7 +514,8 @@ static EconetHost* FindNetworkConfig(unsigned char Station, unsigned char Networ
 
 /****************************************************************************/
 
-static EconetHost* FindStation(unsigned long IPAddress, unsigned short Port)
+static EconetHost* FindStationByIPAddress(unsigned long IPAddress,
+                                          unsigned short Port)
 {
 	for (size_t i = 0; i < Stations.size(); ++i)
 	{
@@ -540,7 +541,7 @@ static void AddStation(unsigned char Station,
                        bool Static,
                        BroadcastSource Broadcasts = BroadcastSource::Unknown)
 {
-	EconetHost* pHost = FindNetworkConfig(Station, Network);
+	EconetHost* pHost = FindStation(Station, Network);
 
 	if (pHost != nullptr)
 	{
@@ -2997,8 +2998,8 @@ static bool ResolveEconetHost(const ReceivedPacket& Packet,
 	bool Found = false;
 
 	// Search for source IP address in the list of known stations.
-	EconetHost* pEconetHost = FindStation(Packet.Src.sin_addr.s_addr,
-	                                      ntohs(Packet.Src.sin_port));
+	EconetHost* pEconetHost = FindStationByIPAddress(Packet.Src.sin_addr.s_addr,
+	                                                 ntohs(Packet.Src.sin_port));
 
 	if (pEconetHost != nullptr)
 	{
@@ -3258,7 +3259,7 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 			}
 			else
 			{
-				EconetHost* pStation = FindNetworkConfig(SrcStn, SrcNet);
+				EconetHost* pStation = FindStation(SrcStn, SrcNet);
 
 				if (pStation == nullptr || time(nullptr) >= pStation->Timeout)
 				{
