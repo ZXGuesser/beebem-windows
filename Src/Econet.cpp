@@ -1604,7 +1604,7 @@ bool EconetInterruptRequest()
 
 bool EconetPoll()
 {
-	if (EconetStateChanged || EconetTrigger <= TotalCycles)
+	if (EconetStateChanged || TotalCycles >= EconetTrigger)
 	{
 		EconetStateChanged = false;
 
@@ -2580,7 +2580,7 @@ static void EconetSendPacket()
 		case FourWayStage::ScoutAckReceived:
 			// It came in response to our ack of a scout.
 			// What we have /should/ be the data block.
-			// CLUDGE WARNING is this a scout sent again immediately?? TODO fix this?!?!
+			// CLUDGE WARNING: Is this a scout sent again immediately?? TODO fix this?!?!
 			if (pTxAUNHeader->Port == ECONET_PORT_IMMEDIATE)
 			{
 				if (pTxAUNHeader->CtrlByte == (ECONET_CTRL_POKE & 0x7F))
@@ -2594,8 +2594,16 @@ static void EconetSendPacket()
 				}
 			}
 
-			if (BeebTx.Pointer != sizeof(EconetHeaderType) + Offset ||
-			    memcmp(BeebTx.Buffer, BeebTxCopy, sizeof(EconetHeaderType) + Offset) != 0) // nope
+			if (BeebTx.Pointer == sizeof(EconetHeaderType) + Offset &&
+			    memcmp(BeebTx.Buffer, BeebTxCopy, sizeof(EconetHeaderType) + Offset) == 0)
+			{
+				// It is, so fall through...
+
+				#ifdef DEBUG_ECONET
+				DebugTrace("Econet: Unexpected scout detected\n");
+				#endif
+			}
+			else
 			{
 				const int Length = BeebTx.Pointer - 4;
 
@@ -2614,7 +2622,7 @@ static void EconetSendPacket()
 				DebugTrace("Econet: Set FourWayStage::DataSent\n");
 				#endif
 				break;
-			} // else fall through...
+			}
 
 		case FourWayStage::Idle: {
 			// Not currently doing anything, so this will be a scout,
