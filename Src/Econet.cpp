@@ -3085,6 +3085,20 @@ static bool ResolveEconetHost(const ReceivedPacket& Packet,
 
 /****************************************************************************/
 
+static bool IsGatewayDiscoveryPacket(const unsigned char* pData, int Length)
+{
+	const GatewayDiscoveryPacket* pPacket = (GatewayDiscoveryPacket*)pData;
+
+	return Length == sizeof(GatewayDiscoveryPacket) &&
+	       pPacket->AUNHeader.Type == AUNType::Broadcast &&
+	       pPacket->AUNHeader.Port == ECONET_PORT_PI_ECONET_BRIDGE &&
+	       (pPacket->AUNHeader.CtrlByte | 0x80) == ECONET_CTRL_GATEWAY_QUERY &&
+	       pPacket->AUNHeader.Handle == 0 &&
+	       pPacket->Buffer[0] == ECONET_PORT_BEEBEM;
+}
+
+/****************************************************************************/
+
 // Returns true if the packet looks like a Pi Econet Bridge gateway reply.
 
 static bool IsGatewayReplyPacket(const unsigned char* pData, int Length)
@@ -3121,6 +3135,15 @@ static bool IsBeebEmAnnouncePacket(const unsigned char* pData, int Length)
 
 static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 {
+	if (IsGatewayDiscoveryPacket(Packet.Data, Packet.Length))
+	{
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: Ignore received gateway discovery packet\n");
+		#endif
+
+		return true;
+	}
+
 	// Check for a Pi Econet Bridge gateway reply.
 	if (IsGatewayReplyPacket(Packet.Data, Packet.Length))
 	{
@@ -3440,33 +3463,22 @@ static bool EconetReceivePacket()
 						// We weren't doing anything when this packet came in.
 						switch (pRxAUNHeader->Type)
 						{
-							case AUNType::Broadcast:
-								if (pBeebRxEconetHeader->Port == ECONET_PORT_PI_ECONET_BRIDGE &&
-								    pRxAUNHeader->Handle == 0)
-								{
-									// This is a gateway discovery broadcast
-									// from another BeebEm instance so ignore it.
-									AUNState = FourWayStage::WaitForIdle;
-									break;
-								}
-								else
-								{
-									// It is a real Econet broadcast.
-									pBeebRxEconetHeader->DestStn = 255; // Not just for us.
-									pBeebRxEconetHeader->DestNet = 255;
+							case AUNType::Broadcast: {
+								pBeebRxEconetHeader->DestStn = 255; // Not just for us.
+								pBeebRxEconetHeader->DestNet = 255;
 
-									const int Offset = sizeof(LongEconetHeader);
-									const int Length = BytesReceived - sizeof(AUNHeaderType);
-									memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer + sizeof(AUNHeaderType), Length);
-									BeebRx.BytesInBuffer = Offset + Length;
+								const int Offset = sizeof(LongEconetHeader);
+								const int Length = BytesReceived - sizeof(AUNHeaderType);
+								memcpy(BeebRx.Buffer + Offset, EconetRx.Buffer + sizeof(AUNHeaderType), Length);
+								BeebRx.BytesInBuffer = Offset + Length;
 
-									AUNState = FourWayStage::WaitForIdle;
+								AUNState = FourWayStage::WaitForIdle;
 
-									#ifdef DEBUG_ECONET
-									DebugTrace("Econet: Set FourWayStage::WaitForIdle (broadcast received)\n");
-									#endif
-								}
+								#ifdef DEBUG_ECONET
+								DebugTrace("Econet: Set FourWayStage::WaitForIdle (broadcast received)\n");
+								#endif
 								break;
+							}
 
 							case AUNType::Immediate: {
 								// Must be for us.
@@ -3623,7 +3635,7 @@ static bool EconetReceivePacket()
 						AUNState = FourWayStage::WaitForIdle;
 
 						#ifdef DEBUG_ECONET
-						DebugTrace("Econet: Set FWS_WAIT4IDLE (invalid state)\n");
+						DebugTrace("Econet: Set FourWayStage::WaitForIdle (invalid state)\n");
 						#endif
 						break;
 				}
