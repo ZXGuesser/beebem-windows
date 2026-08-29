@@ -541,48 +541,52 @@ static void AddStation(unsigned char Station,
                        bool Static,
                        BroadcastSource Broadcasts = BroadcastSource::Unknown)
 {
-	EconetHost* pHost = FindStation(Station, Network);
+	// Station unknown, so add it.
+	EconetHost Host;
+	Host.Station = Station;
+	Host.Network = Network;
+	Host.IPAddress = IPAddress;
+	Host.Port = Port;
+	Host.Broadcasts = Broadcasts;
+	Host.Timeout = time(nullptr) + HOST_TIMEOUT;
 
-	if (pHost != nullptr)
+	Stations.emplace_back(Host);
+
+	#ifdef DEBUG_ECONET
+	DebugTrace("Econet: Added station %d.%d on %s:%u to host list\n",
+	           (int)Network,
+	           (int)Station,
+	           IPAddressStr(IPAddress).c_str(),
+	           Port);
+	#endif
+}
+
+/****************************************************************************/
+
+EconetNet::EconetNet(unsigned char network,
+                     unsigned long ip,
+                     unsigned short port,
+                     BroadcastSource broadcasts):
+	Network(network),
+	IPAddress(ip),
+	Port(port),
+	Broadcasts(broadcasts)
+{
+}
+
+static EconetNet* FindNetwork(unsigned char Network)
+{
+	EconetNet* pNetwork = nullptr;
+
+	for (size_t i = 0; i < Networks.size(); i++)
 	{
-		// Station already defined, replace it.
-		pHost->Station = Station;
-		pHost->Network = Network;
-		pHost->IPAddress = IPAddress;
-		pHost->Port = Port;
-		pHost->Static = Static;
-		pHost->Timeout = time(nullptr) + HOST_TIMEOUT;
-
-		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: Replaced station %d.%d in host list (now at %s:%u)\n",
-		           (int)Network,
-		           (int)Station,
-		           IPAddressStr(IPAddress).c_str(),
-		           Port);
-		#endif
+		if (Networks[i].Network == Network)
+		{
+			return &Networks[i];
+		}
 	}
-	else
-	{
-		// Station unknown, so add it.
-		EconetHost Host;
-		Host.Station = Station;
-		Host.Network = Network;
-		Host.IPAddress = IPAddress;
-		Host.Port = Port;
-		Host.Static = Static;
-		Host.Broadcasts = Broadcasts;
-		Host.Timeout = time(nullptr) + HOST_TIMEOUT;
 
-		Stations.emplace_back(Host);
-
-		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: Added station %d.%d on %s:%u to host list\n",
-		           (int)Network,
-		           (int)Station,
-		           IPAddressStr(IPAddress).c_str(),
-		           Port);
-		#endif
-	}
+	return pNetwork;
 }
 
 /****************************************************************************/
@@ -1251,7 +1255,19 @@ static bool ReadEconetConfigFile()
 				unsigned long IPAddress = ParseIPAddress("IP address", Tokens[Index + 2]);
 				unsigned short Port = (unsigned short)ParseNumber("Port", Tokens[Index + 3], 0, 65535);
 
-				AddStation(Station, Network, IPAddress, Port, true);
+				EconetHost* pStation = FindStation(Station, Network);
+
+				if (pStation == nullptr)
+				{
+					AddStation(Station, Network, IPAddress, Port, true);
+				}
+				else
+				{
+					EconetError("Duplicate station entry in Econet config file:\n  %s (Line %d)",
+					            EconetCfgPath, LineCounter);
+					Success = false;
+					break;
+				}
 			}
 			else if (Tokens.size() == 3 && StrCaseCmp(Tokens[0].c_str(), "GATEWAY") == 0)
 			{
@@ -1280,21 +1296,31 @@ static bool ReadEconetConfigFile()
 				// This line defines an entire network. It is added before any networks
 				// from AUNMap so takes precedence.
 
-				EconetNet Network;
 
-				Network.Network    = (unsigned char)ParseNumber("Network", Tokens[1], 1, 127);
-				Network.IPAddress  = ParseIPAddress("IP address", Tokens[2]);
-				Network.Port       = (unsigned short)ParseNumber("Port", Tokens[3], 1, 65535);
-				Network.Broadcasts = BroadcastSource::Unknown;
+				unsigned char Network    = (unsigned char)ParseNumber("Network", Tokens[1], 1, 127);
+				unsigned long IPAddress  = ParseIPAddress("IP address", Tokens[2]);
+				unsigned short Port       = (unsigned short)ParseNumber("Port", Tokens[3], 1, 65535);
 
 				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: ConfigFile Net %d IP %s:%u\n",
-				           Network.Network,
-				           IPAddressStr(Network.IPAddress).c_str(),
-				           Network.Port);
+				           Network,
+				           IPAddressStr(IPAddress).c_str(),
+				           Port);
 				#endif
 
-				Networks.emplace_back(Network);
+				EconetNet* pNetwork = FindNetwork(Network);
+
+				if (pNetwork == nullptr)
+				{
+					Networks.emplace_back(Network, IPAddress, Port, BroadcastSource::Unknown);
+				}
+				else
+				{
+					EconetError("Duplicate network entry in Econet config file\n%s\n%s (Line %d)",
+					            EconetCfgPath, LineCounter);
+					Success = false;
+					break;
+				}
 			}
 			else if (Tokens.size() == 2)
 			{
@@ -1422,21 +1448,30 @@ static bool ReadAUNConfigFile()
 		{
 			try
 			{
-				EconetNet Network;
-
-				Network.IPAddress  = ParseIPAddress("IP address", Tokens[1]) & 0x00FFFFFF;
-				Network.Network    = (unsigned char)ParseNumber("Network", Tokens[2], 0, 255);
-				Network.Port       = DEFAULT_AUN_PORT; // always use the default port for proper AUN networks
-				Network.Broadcasts = BroadcastSource::Unknown;
+				unsigned long IPAddress  = ParseIPAddress("IP address", Tokens[1]) & 0x00FFFFFF;
+				unsigned char Network    = (unsigned char)ParseNumber("Network", Tokens[2], 0, 255);
+				unsigned short Port      = DEFAULT_AUN_PORT; // always use the default port for proper AUN networks
 
 				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: AUNMap Net %d IP %s:%u\n",
-				           Network.Network,
-				           IPAddressStr(Network.IPAddress).c_str(),
-				           Network.Port);
+				           Network,
+				           IPAddressStr(IPAddress).c_str(),
+				           Port);
 				#endif
 
-				Networks.emplace_back(Network);
+				EconetNet* pNetwork = FindNetwork(Network);
+
+				if (pNetwork == nullptr)
+				{
+					Networks.emplace_back(Network, IPAddress, Port, BroadcastSource::Unknown);
+				}
+				else
+				{
+					EconetError("Duplicate network entry in AUNMap file\n%s\n%s (Line %d)",
+					            AUNMapPath, LineCounter);
+					Success = false;
+					break;
+				}
 			}
 			catch (const std::exception& e)
 			{
@@ -3261,15 +3296,20 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 			{
 				EconetHost* pStation = FindStation(SrcStn, SrcNet);
 
-				if (pStation == nullptr || time(nullptr) >= pStation->Timeout)
+				if (pStation == nullptr)
 				{
-					// Station is new or stale.
 					AddStation(SrcStn,
 					           SrcNet,
 					           Packet.Src.sin_addr.s_addr,
 					           ntohs(Packet.Src.sin_port),
 					           false,
 					           BroadcastSource::Local); // Must be in the broadcast domain to have received this announcement.
+				}
+				else if (time(nullptr) >= pStation->Timeout)
+				{
+					pStation->IPAddress = Packet.Src.sin_addr.s_addr;
+					pStation->Port = ntohs(Packet.Src.sin_port);
+					pStation->Timeout = time(nullptr) + HOST_TIMEOUT;
 				}
 			}
 		}
