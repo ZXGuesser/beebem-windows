@@ -2818,7 +2818,8 @@ static void EconetSendPacket()
 				}
 				else
 				{
-					EconetError("Econet: Failed to send packet to station %d (%s:%u)",
+					EconetError("Econet: Failed to send packet to station %d.%d (%s:%u)",
+					            EconetTx.DestNet,
 					            EconetTx.DestStn,
 					            IPAddressStr(BroadcastAddresses[i]).c_str(),
 					            RecvPort);
@@ -3174,7 +3175,7 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 		{
 			#ifdef DEBUG_ECONET
 			DebugTrace("Econet: Ignored gateway response from %s:%u\n",
-			           IpAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
+			           IPAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
 			           ntohs(Packet.Src.sin_port));
 			#endif
 
@@ -3208,7 +3209,7 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 
 			EconetLogData(Packet.Data,
 			              Packet.Length,
-			              "Received BeebEm ping from station %d.%d",
+			              "Received BeebEm announcement from station %d.%d",
 			              SrcNet,
 			              SrcStn);
 
@@ -3252,7 +3253,7 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 		{
 			EconetLogData(Packet.Data,
 			              Packet.Length,
-			              "Ignored BeebEm ping from station %d.%d",
+			              "Ignored BeebEm announcement from station %d.%d",
 			              SrcNet,
 			              SrcStn);
 		}
@@ -3426,7 +3427,7 @@ static bool EconetReceivePacket()
 
 				EconetLogData(EconetRx.Buffer,
 				              BytesReceived,
-				              "Received %d byte packet from station %d.%d at %s:%u",
+				              "Received %d byte packet from station %d.%d (%s:%u)",
 				              BytesReceived,
 				              SrcNet,
 				              SrcStn,
