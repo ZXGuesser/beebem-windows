@@ -97,6 +97,7 @@ class EconetLogPage : public PropertySheetPage
 
 	private:
 		LogView m_LogView;
+		HFONT m_hFont;
 };
 
 class EconetDialog

@@ -28,6 +28,7 @@ Boston, MA  02110-1301, USA.
 
 #include "EconetDialog.h"
 #include "BeebWin.h"
+#include "DebugTrace.h"
 #include "Econet.h"
 #include "Main.h"
 #include "Messages.h"
@@ -435,14 +436,83 @@ EconetLogPage::EconetLogPage(HINSTANCE hInstance,
                              int DialogID,
                              std::deque<EconetLogMessage>* pLogBuffer) :
 	PropertySheetPage(hInstance, DialogID),
-	m_LogView(pLogBuffer)
+	m_LogView(pLogBuffer),
+	m_hFont(nullptr)
 {
+}
+
+/****************************************************************************/
+
+static HFONT CreateMonoFontToFit(HDC hDC, const char* FaceName, int Chars, int Width)
+{
+	// Measure the width of a character and then set the font size
+	// to fit a number of characters into a given width.
+	const int TestHeight = 100;
+
+	HFONT hFont = CreateFont(-TestHeight,
+	                         0,
+	                         0,
+	                         0,
+	                         FW_NORMAL,
+	                         FALSE,
+	                         FALSE,
+	                         FALSE,
+	                         DEFAULT_CHARSET,
+	                         OUT_DEFAULT_PRECIS,
+	                         CLIP_DEFAULT_PRECIS,
+	                         DEFAULT_QUALITY,
+	                         FIXED_PITCH | FF_DONTCARE,
+	                         FaceName);
+
+	if (!hFont)
+	{
+		return nullptr;
+	}
+
+	HFONT hOldFont = (HFONT)SelectObject(hDC, hFont);
+
+	SIZE Size;
+	GetTextExtentPoint32W(hDC, L"M", 1, &Size);
+
+	SelectObject(hDC, hOldFont);
+	DeleteObject(hFont);
+
+	if (Size.cx <= 0)
+	{
+		return nullptr;
+	}
+
+	double CharWidth = (double)Width / Chars;
+
+	int Height = (int)(TestHeight * CharWidth / Size.cx);
+
+	if (Height < 1)
+	{
+		return nullptr;
+	}
+
+	return CreateFont(-Height,
+	                  0,
+	                  0,
+	                  0,
+	                  FW_NORMAL,
+	                  FALSE,
+	                  FALSE,
+	                  FALSE,
+	                  DEFAULT_CHARSET,
+	                  OUT_DEFAULT_PRECIS,
+	                  CLIP_DEFAULT_PRECIS,
+	                  DEFAULT_QUALITY,
+	                  FIXED_PITCH | FF_DONTCARE,
+	                  FaceName);
 }
 
 /****************************************************************************/
 
 void EconetLogPage::OnInitDialog()
 {
+	// Create the log view in place of the static placeholder.
+
 	HWND hwndPlaceholder = GetDlgItem(IDC_LOG);
 
 	RECT rc;
@@ -457,9 +527,36 @@ void EconetLogPage::OnInitDialog()
 
 	m_LogView.Create(hInst, m_hwnd, IDC_LOG, rc);
 
+	// Create a monospace font for the detail that's small enough
+	// to show a row of 16 bytes of data fit within the listbox width.
+
+	HWND hwndDetail = GetDlgItem(IDC_DETAIL);
+
+	RECT rcDetail;
+	GetWindowRect(hwndDetail, &rcDetail);
+
+	int Width = rcDetail.right - rcDetail.left;
+
+	int Chars = 16 * 3 + 16;
+
+	HDC hDC = GetDC(hwndDetail);
+
+	HFONT hFont = CreateMonoFontToFit(hDC, "Courier New", Chars, Width);
+
+	ReleaseDC(hwndDetail, hDC);
+
+	if (hFont != nullptr)
+	{
+		m_hFont = hFont;
+	}
+	else
+	{
+		hFont = (HFONT)GetStockObject(ANSI_FIXED_FONT);
+	}
+
 	SendDlgItemMessage(IDC_DETAIL,
 	                   WM_SETFONT,
-	                   (WPARAM)GetStockObject(ANSI_FIXED_FONT),
+	                   (WPARAM)hFont,
 	                   MAKELPARAM(FALSE, 0));
 }
 
@@ -483,6 +580,14 @@ INT_PTR EconetLogPage::HandleMessage(UINT nMessage,
 
 		case WM_ECONET_LOG_SELECT_MESSAGE:
 			OnSelectMessage((const EconetLogMessage*)lParam);
+			break;
+
+		case WM_DESTROY:
+			if (m_hFont != nullptr)
+			{
+				DeleteObject(m_hFont);
+				m_hFont = nullptr;
+			}
 			break;
 	}
 
@@ -556,8 +661,6 @@ void EconetLogPage::OnSelectMessage(const EconetLogMessage* pMessage)
 		{
 			str += "   ";
 		}
-
-		str += "| ";
 
 		for (i = 0; i < BytesPerLine && i < Length; i++)
 		{
