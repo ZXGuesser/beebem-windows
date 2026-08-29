@@ -447,6 +447,9 @@ static bool ReadAUNConfigFile();
 static bool EconetPollReal();
 static void EconetSendPacket();
 static bool EconetReceivePacket();
+static void EconetSendGatewayDiscoveryPacket();
+static void EconetSendGatewayKeepAlivePacket();
+static void EconetSendAnnouncePacket();
 static void EconetError(const char *Format, ...);
 
 /****************************************************************************/
@@ -2020,39 +2023,7 @@ bool EconetPollReal()
 
 	if (EconetConfig.FindGateways && Gateway.IPAddress == 0 && time(NULL) >= GatewayTimeout)
 	{
-		// Send a bridge discovery broadcast to learn of any
-		// Pi Econet Bridge gateways on the network.
-
-		GatewayDiscoveryPacket Packet;
-		ZeroMemory(&Packet, sizeof(Packet));
-		Packet.AUNHeader.Type = AUNType::Broadcast; // The gateway is listening for an AUN broadcast
-		Packet.AUNHeader.Port = ECONET_PORT_PI_ECONET_BRIDGE;
-		Packet.AUNHeader.CtrlByte = ECONET_CTRL_GATEWAY_QUERY & 0x7F;
-		Packet.Buffer[0] = ECONET_PORT_BEEBEM; // Where response is sent
-
-		EconetLogData((const unsigned char*)&Packet,
-		              sizeof(Packet),
-		              "Sending gateway discovery query");
-
-		// Send a copy of broadcast to each network interface.
-		for (size_t i = 0; i < BroadcastAddresses.size(); i++)
-		{
-			#ifdef DEBUG_ECONET
-			DebugTrace("Econet: Sending gateway discovery packet (%s:%u)\n",
-			           IPAddressStr(BroadcastAddresses[i]).c_str(),
-			           DEFAULT_AUN_PORT);
-
-			DebugDumpBytes("Econet: Gateway discovery packet:", (const unsigned char*)&Packet, sizeof(Packet));
-			#endif
-
-			if (!pSocket->Send(BroadcastAddresses[i],
-			                   DEFAULT_AUN_PORT,
-			                   (const unsigned char*)&Packet,
-			                   sizeof(Packet)))
-			{
-				EconetError("Econet: Failed to send bridge discovery broadcast");
-			}
-		}
+		EconetSendGatewayDiscoveryPacket();
 
 		// Set timeout to try again until a gateway replies.
 		GatewayTimeout = time(NULL) + DEFAULT_GATEWAY_DISCOVERY_TIMEOUT;
@@ -2061,36 +2032,7 @@ bool EconetPollReal()
 	// Send Gateway keepalive if timeout value has been passed.
 	if (Gateway.IPAddress != 0 && time(NULL) >= GatewayTimeout)
 	{
-		GatewayKeepAlivePacket Packet;
-		ZeroMemory(&Packet, sizeof(Packet));
-		Packet.EconetHeader.DestStn = 255;
-		Packet.EconetHeader.DestNet = 255;
-		// SrcStn and SrcNet in the Econet header are both left blank (zero).
-		Packet.AUNHeader.Type = AUNType::Broadcast;
-		Packet.AUNHeader.Port = ECONET_PORT_PI_ECONET_BRIDGE;
-		Packet.AUNHeader.CtrlByte = ECONET_CTRL_GATEWAY_KEEPALIVE & 0x7F;
-
-		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: Sending gateway keepalive\n");
-
-		DebugDumpBytes("Econet: Gateway keepalive packet", (const unsigned char*)&Packet, sizeof(Packet));
-		#endif
-
-		EconetLogData((const unsigned char*)&Packet,
-		              sizeof(Packet),
-		              "Sending gateway keepalive");
-
-		if (!pSocket->Send(Gateway.IPAddress,
-		                   Gateway.Port,
-		                   (const unsigned char*)&Packet,
-		                   sizeof(Packet)))
-		{
-			#ifdef DEBUG_ECONET
-			DebugTrace("Econet: Failed to send Gateway keepalive (%s:%u)\n",
-			           IPAddressStr(Gateway.IPAddress).c_str(),
-			           Gateway.Port);
-			#endif
-		}
+		EconetSendGatewayKeepAlivePacket();
 
 		// Set timeout again.
 		GatewayTimeout = time(NULL) + DEFAULT_GATEWAY_KEEPALIVE_TIMEOUT;
@@ -2098,42 +2040,7 @@ bool EconetPollReal()
 
 	if (EconetConfig.AutoConfigure && time(NULL) > AnnounceTimeout)
 	{
-		// Announce our address to other BeebEm instances by pinging the
-		// network. This uses packets conforming to the structure of AUN,
-		// but with a proprietary type which will hopefully be ignored by
-		// any existing AUN code.
-
-		AnnouncePacket Packet;
-		ZeroMemory(&Packet, sizeof(Packet));
-		Packet.AUNHeader.Type = AUNType::BeebEm;
-		Packet.AUNHeader.Port = ECONET_PORT_BEEBEM; // BeebEm reply port
-		Packet.AUNHeader.CtrlByte = ECONET_CTRL_BEEBEM_ANNOUNCE & 0x7F;
-		Packet.AUNHeader.Handle = AnnounceHandle++; // Sequence number
-		Packet.Buffer[0] = EconetStationID;
-		Packet.Buffer[1] = EconetNetworkID;
-
-		EconetLogData((const unsigned char*)&Packet,
-		              sizeof(Packet),
-		              "Sending broadcast announcement");
-
-		// Send a copy of broadcast to each network interface.
-		for (size_t i = 0; i < BroadcastAddresses.size(); i++)
-		{
-			#ifdef DEBUG_ECONET
-			DebugTrace("Econet: Sending broadcast announce packet (%s:%d)\n",
-			           IPAddressStr(BroadcastAddresses[i]).c_str(), DEFAULT_AUN_PORT);
-
-			DebugDumpBytes("Econet: Broadcast announce packet:", (const unsigned char*)&Packet, sizeof(Packet));
-			#endif
-
-			if (!pSocket->Send(BroadcastAddresses[i],
-			                   DEFAULT_AUN_PORT,
-			                   (const unsigned char*)&Packet,
-			                   sizeof(Packet)))
-			{
-				EconetError("Econet: Failed to send BeebEm broadcast announcement");
-			}
-		}
+		EconetSendAnnouncePacket();
 
 		// Set timeout again.
 		AnnounceTimeout = time(NULL) + ANNOUNCE_TIMEOUT;
@@ -3801,6 +3708,122 @@ static bool EconetReceivePacket()
 	}
 
 	return true;
+}
+
+/****************************************************************************/
+
+// Send a bridge discovery broadcast to learn of any
+// Pi Econet Bridge gateways on the network.
+
+static void EconetSendGatewayDiscoveryPacket()
+{
+	GatewayDiscoveryPacket Packet;
+	ZeroMemory(&Packet, sizeof(Packet));
+	Packet.AUNHeader.Type = AUNType::Broadcast; // The gateway is listening for an AUN broadcast
+	Packet.AUNHeader.Port = ECONET_PORT_PI_ECONET_BRIDGE;
+	Packet.AUNHeader.CtrlByte = ECONET_CTRL_GATEWAY_QUERY & 0x7F;
+	Packet.Buffer[0] = ECONET_PORT_BEEBEM; // Where response is sent
+
+	EconetLogData((const unsigned char*)&Packet,
+	              sizeof(Packet),
+	              "Sending gateway discovery query");
+
+	// Send a copy of broadcast to each network interface.
+	for (size_t i = 0; i < BroadcastAddresses.size(); i++)
+	{
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: Sending gateway discovery packet (%s:%u)\n",
+		           IPAddressStr(BroadcastAddresses[i]).c_str(),
+		           DEFAULT_AUN_PORT);
+
+		DebugDumpBytes("Econet: Gateway discovery packet:", (const unsigned char*)&Packet, sizeof(Packet));
+		#endif
+
+		if (!pSocket->Send(BroadcastAddresses[i],
+		                   DEFAULT_AUN_PORT,
+		                   (const unsigned char*)&Packet,
+		                   sizeof(Packet)))
+		{
+			EconetError("Econet: Failed to send bridge discovery broadcast");
+		}
+	}
+}
+
+/****************************************************************************/
+
+static void EconetSendGatewayKeepAlivePacket()
+{
+	GatewayKeepAlivePacket Packet;
+	ZeroMemory(&Packet, sizeof(Packet));
+	Packet.EconetHeader.DestStn = 255;
+	Packet.EconetHeader.DestNet = 255;
+	// SrcStn and SrcNet in the Econet header are both left blank (zero).
+	Packet.AUNHeader.Type = AUNType::Broadcast;
+	Packet.AUNHeader.Port = ECONET_PORT_PI_ECONET_BRIDGE;
+	Packet.AUNHeader.CtrlByte = ECONET_CTRL_GATEWAY_KEEPALIVE & 0x7F;
+
+	#ifdef DEBUG_ECONET
+	DebugTrace("Econet: Sending gateway keepalive\n");
+
+	DebugDumpBytes("Econet: Gateway keepalive packet", (const unsigned char*)&Packet, sizeof(Packet));
+	#endif
+
+	EconetLogData((const unsigned char*)&Packet,
+	              sizeof(Packet),
+	              "Sending gateway keepalive");
+
+	if (!pSocket->Send(Gateway.IPAddress,
+	                   Gateway.Port,
+	                   (const unsigned char*)&Packet,
+	                   sizeof(Packet)))
+	{
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: Failed to send Gateway keepalive (%s:%u)\n",
+		           IPAddressStr(Gateway.IPAddress).c_str(),
+		           Gateway.Port);
+		#endif
+	}
+}
+
+/****************************************************************************/
+
+// Announce our address to other BeebEm instances by pinging the network.
+// This uses packets conforming to the structure of AUN, but with a
+// proprietary type which will hopefully be ignored by any existing AUN code.
+
+static void EconetSendAnnouncePacket()
+{
+	AnnouncePacket Packet;
+	ZeroMemory(&Packet, sizeof(Packet));
+	Packet.AUNHeader.Type = AUNType::BeebEm;
+	Packet.AUNHeader.Port = ECONET_PORT_BEEBEM; // BeebEm reply port
+	Packet.AUNHeader.CtrlByte = ECONET_CTRL_BEEBEM_ANNOUNCE & 0x7F;
+	Packet.AUNHeader.Handle = AnnounceHandle++; // Sequence number
+	Packet.Buffer[0] = EconetStationID;
+	Packet.Buffer[1] = EconetNetworkID;
+
+	EconetLogData((const unsigned char*)&Packet,
+	              sizeof(Packet),
+	              "Sending broadcast announcement");
+
+	// Send a copy of broadcast to each network interface.
+	for (size_t i = 0; i < BroadcastAddresses.size(); i++)
+	{
+		#ifdef DEBUG_ECONET
+		DebugTrace("Econet: Sending broadcast announce packet (%s:%d)\n",
+		           IPAddressStr(BroadcastAddresses[i]).c_str(), DEFAULT_AUN_PORT);
+
+		DebugDumpBytes("Econet: Broadcast announce packet:", (const unsigned char*)&Packet, sizeof(Packet));
+		#endif
+
+		if (!pSocket->Send(BroadcastAddresses[i],
+		                   DEFAULT_AUN_PORT,
+		                   (const unsigned char*)&Packet,
+		                   sizeof(Packet)))
+		{
+			EconetError("Econet: Failed to send BeebEm broadcast announcement");
+		}
+	}
 }
 
 /****************************************************************************/
