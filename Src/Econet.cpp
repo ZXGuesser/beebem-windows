@@ -532,7 +532,7 @@ static EconetHost* FindStationByIPAddress(unsigned long IPAddress,
 
 /****************************************************************************/
 
-// Add or replace a station in stations list.
+// Add a station to the stations list.
 
 static void AddStation(unsigned char Station,
                        unsigned char Network,
@@ -541,7 +541,6 @@ static void AddStation(unsigned char Station,
                        bool Static,
                        BroadcastSource Broadcasts = BroadcastSource::Unknown)
 {
-	// Station unknown, so add it.
 	EconetHost Host;
 	Host.Station = Station;
 	Host.Network = Network;
@@ -573,6 +572,8 @@ EconetNet::EconetNet(unsigned char network,
 	Broadcasts(broadcasts)
 {
 }
+
+/****************************************************************************/
 
 static EconetNet* FindNetwork(unsigned char Network)
 {
@@ -1897,12 +1898,13 @@ bool EconetPollReal()
 		}
 
 		// Receive data.
-		if (!(ADLC.Control1 & CONTROL_REG1_RX_RESET)) // RX reset off
+		if (!(ADLC.Control1 & CONTROL_REG1_RX_RESET))
 		{
+			// Check for data waiting to be given to the processor.
 			if (BeebRx.Pointer < BeebRx.BytesInBuffer)
 			{
-				// There's something waiting to be given to the processor.
-				if (ADLC.RxFifoPtr < 3) // space in FIFO
+				// Check for space in the ADLC FIFO.
+				if (ADLC.RxFifoPtr < 3)
 				{
 					#ifdef DEBUG_ECONET_ADLC_FIFO
 					DebugTrace("EconetPoll: Send received byte to the Beeb: %02X %c\n",
@@ -1922,9 +1924,11 @@ bool EconetPollReal()
 						ADLC.RxFifoAPFlags |= 1; // 2 bytes? adr extension mode
 					}
 
-					if (++BeebRx.Pointer >= BeebRx.BytesInBuffer) // that was last byte!
+					if (++BeebRx.Pointer >= BeebRx.BytesInBuffer)
 					{
-						// Set Frame Valid flag (this was last byte of frame).
+						// We've just read the last byte from the receive buffer.
+						// Set the Frame Valid flag to indicate this was the last
+						// byte of the frame.
 						ADLC.RxFifoFCFlags |= 1;
 
 						// Reset read for next packet.
@@ -2094,10 +2098,10 @@ bool EconetPollReal()
 
 	if (EconetConfig.AutoConfigure && time(NULL) > AnnounceTimeout)
 	{
-		// Announce our address other BeebEm instances by pinging the network.
-		// This uses packets conforming to the structure of AUN, but with a
-		// proprietary type which will hopefully be ignored by any existing
-		// AUN code.
+		// Announce our address to other BeebEm instances by pinging the
+		// network. This uses packets conforming to the structure of AUN,
+		// but with a proprietary type which will hopefully be ignored by
+		// any existing AUN code.
 
 		AnnouncePacket Packet;
 		ZeroMemory(&Packet, sizeof(Packet));
@@ -2568,7 +2572,7 @@ static void EconetSendPacket()
 				RecvIPAddress = Gateway.IPAddress;
 				RecvPort = Gateway.Port;
 
-				// We need to send Extended AUN to this port.
+				// We need to send Extended AUN to the gateway.
 				ExtendedAUN = true;
 			}
 		}
