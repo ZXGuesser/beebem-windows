@@ -101,10 +101,15 @@ struct EconetHost
 
 struct EconetNet
 {
-	unsigned long IPAddress;
 	unsigned char Network;
+	unsigned long IPAddress;
 	unsigned short Port; // AUN port or base port from which sequential ports are calculated
 	BroadcastSource Broadcasts; // where to accept broadcasts from
+
+	EconetNet(unsigned char network,
+	          unsigned long ip,
+	          unsigned short port,
+	          BroadcastSource broadcasts);
 };
 
 struct EconetGateway
