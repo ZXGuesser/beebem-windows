@@ -180,7 +180,7 @@ EconetConfigType EconetConfig =
 bool EconetStateChanged = false;
 bool EconetEnabled;    // Enable hardware
 bool EconetNMIEnabled; // 68B54 -> NMI enabled. (IC97)
-int EconetTrigger;     // Poll timer
+int EconetTrigger; // Poll timer
 
 struct EconetTimerState
 {
@@ -2013,8 +2013,8 @@ bool EconetPollReal()
 	    )
 	{
 		AUNState = FourWayStage::Idle;
-		EconetFourWayTrigger = 0;
-		EconetScoutAckTrigger = 0;
+		ClearTrigger(EconetFourWayTrigger);
+		ClearTrigger(EconetScoutAckTrigger);
 		FlagFillActive = false;
 
 		#ifdef DEBUG_ECONET
@@ -2023,7 +2023,7 @@ bool EconetPollReal()
 	}
 
 	// Timeout four way handshake - for when we get lost.
-	if (EconetFourWayTrigger == 0)
+	if (EconetFourWayTrigger == CycleCountTMax)
 	{
 		if (AUNState != FourWayStage::Idle)
 		{
@@ -2032,8 +2032,8 @@ bool EconetPollReal()
 	}
 	else if (TotalCycles >= EconetFourWayTrigger)
 	{
-		EconetScoutAckTrigger = 0;
-		EconetFourWayTrigger = 0;
+		ClearTrigger(EconetScoutAckTrigger);
+		ClearTrigger(EconetFourWayTrigger);
 		AUNState = FourWayStage::Idle;
 
 		#ifdef DEBUG_ECONET
@@ -3635,7 +3635,7 @@ static bool EconetReceivePacket()
 
 	// This bit fakes the bits of the 4-way handshake that AUN doesn't do.
 
-	if (EconetScoutAckTrigger > TotalCycles)
+	if (EconetScoutAckTrigger != CycleCountTMax && EconetScoutAckTrigger > TotalCycles)
 	{
 		switch (AUNState)
 		{
