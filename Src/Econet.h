@@ -128,6 +128,7 @@ int GetEconetNetworkCount();
 const EconetNet* GetEconetNetwork(int Index);
 
 // #define DEBUG_ECONET
+// #define DEBUG_ECONET_ANNOUNCE
 // #define DEBUG_ECONET_ADLC
 // #define DEBUG_ECONET_ADLC_FIFO
 // #define DEBUG_ECONET_INTERRUPTS
