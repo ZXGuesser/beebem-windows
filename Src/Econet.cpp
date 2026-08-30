@@ -542,7 +542,7 @@ static void AddStation(unsigned char Station,
                        unsigned long IPAddress,
                        unsigned short Port,
                        bool Static,
-                       BroadcastSource Broadcasts = BroadcastSource::Unknown)
+                       BroadcastSource Broadcasts)
 {
 	EconetHost Host;
 	Host.Station = Station;
@@ -1263,7 +1263,7 @@ static bool ReadEconetConfigFile()
 
 				if (pStation == nullptr)
 				{
-					AddStation(Station, Network, IPAddress, Port, true);
+					AddStation(Station, Network, IPAddress, Port, true, BroadcastSource::Unknown);
 				}
 				else
 				{
