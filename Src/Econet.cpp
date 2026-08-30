@@ -3310,75 +3310,74 @@ static bool EconetReceivePacket()
 					SrcNet &= 0x7F;
 				}
 			}
-			else if (BytesReceived > sizeof(EconetHeaderType))
+			else if (Packet.Src.sin_addr.s_addr == Gateway.IPAddress &&
+			         ntohs(Packet.Src.sin_port) == Gateway.Port &&
+			         BytesReceived > sizeof(EconetHeaderType))
 			{
-				// Check if source is a Pi Econet Bridge extended AUN gateway.
-				if (Packet.Src.sin_addr.s_addr == Gateway.IPAddress &&
-				    ntohs(Packet.Src.sin_port) == Gateway.Port)
+				// This packet is from a Pi Econet Bridge extended AUN gateway.
+				//
+				// Extended AUN packets contain the Econet addresses at
+				// the start of the packet. This means the AUN data we want
+				// starts four bytes later than usual.
+				//
+				// https://github.com/cr12925/PiEconetBridge/wiki/The-AUN%E2%80%90extended-gateway
+
+				DestStn = Packet.Data[0];
+				DestNet = Packet.Data[1];
+				SrcStn  = Packet.Data[2];
+				SrcNet  = Packet.Data[3];
+
+				memcpy(EconetRx.Buffer,
+				       Packet.Data + sizeof(EconetHeaderType),
+				       Packet.Length - sizeof(EconetHeaderType));
+
+				// Adjust the length.
+				BytesReceived -= sizeof(EconetHeaderType);
+				EconetRx.BytesInBuffer = BytesReceived;
+
+				Found = true;
+
+				if (IsBroadcastStation(DestStn))
 				{
-					// Extended AUN packets contain the Econet addresses at
-					// the start of the packet. This means the AUN data we want
-					// starts four bytes later than usual.
-					//
-					// https://github.com/cr12925/PiEconetBridge/wiki/The-AUN%E2%80%90extended-gateway
-
-					DestStn = Packet.Data[0];
-					DestNet = Packet.Data[1];
-					SrcStn  = Packet.Data[2];
-					SrcNet  = Packet.Data[3];
-
-					memcpy(EconetRx.Buffer,
-					       Packet.Data + sizeof(EconetHeaderType),
-					       Packet.Length - sizeof(EconetHeaderType));
-
-					// Adjust the length.
-					BytesReceived -= sizeof(EconetHeaderType);
-					EconetRx.BytesInBuffer = BytesReceived;
-
-					Found = true;
-
-					if (IsBroadcastStation(DestStn))
+					// We want to ignore any broadcasts via the gateway
+					// if we will also receive them directly.
+					for (size_t i = 0; i < Networks.size(); i++)
 					{
-						// We want to ignore any broadcasts via the gateway
-						// if we will also receive them directly.
-						for (size_t i = 0; i < Networks.size(); i++)
+						EconetNet& Network = Networks[i];
+
+						if (Network.Network == SrcNet)
 						{
-							EconetNet& Network = Networks[i];
-
-							if (Network.Network == SrcNet)
+							if (Network.Broadcasts == BroadcastSource::Local)
 							{
-								if (Network.Broadcasts == BroadcastSource::Local)
-								{
-									// Don't resolve broadcasts from this net.
-									Found = false;
-								}
-								else
-								{
-									Network.Broadcasts = BroadcastSource::Gateway;
-								}
-
-								break;
+								// Don't resolve broadcasts from this net.
+								Found = false;
 							}
+							else
+							{
+								Network.Broadcasts = BroadcastSource::Gateway;
+							}
+
+							break;
 						}
+					}
 
-						for (size_t i = 0; i < Stations.size() && Found; ++i)
+					for (size_t i = 0; i < Stations.size() && Found; ++i)
+					{
+						EconetHost& Station = Stations[i];
+
+						if (Station.Network == SrcNet && Station.Station == SrcStn)
 						{
-							EconetHost& Station = Stations[i];
-
-							if (Station.Network == SrcNet && Station.Station == SrcStn)
+							if (Station.Broadcasts == BroadcastSource::Local)
 							{
-								if (Station.Broadcasts == BroadcastSource::Local)
-								{
-									// Don't resolve broadcasts from this station.
-									Found = false;
-								}
-								else
-								{
-									Station.Broadcasts = BroadcastSource::Gateway;
-								}
-
-								break;
+								// Don't resolve broadcasts from this station.
+								Found = false;
 							}
+							else
+							{
+								Station.Broadcasts = BroadcastSource::Gateway;
+							}
+
+							break;
 						}
 					}
 				}
