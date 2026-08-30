@@ -4022,11 +4022,11 @@ void BeebWin::ResetEconet()
 
 	if (EconetEnabled)
 	{
-		SetTimer(m_hWnd, TIMER_ECONET_EXPIRE_HOSTS, 60 * 1000, nullptr);
+		SetTimer(m_hWnd, TIMER_ECONET, ECONET_TIMER_PERIOD * 1000, nullptr);
 	}
 	else
 	{
-		KillTimer(m_hWnd, TIMER_ECONET_EXPIRE_HOSTS);
+		KillTimer(m_hWnd, TIMER_ECONET);
 	}
 }
 
@@ -6080,8 +6080,8 @@ void BeebWin::OnTimer(UINT_PTR TimerID)
 			m_DisplayFDCBoardInfo = false;
 			break;
 
-		case TIMER_ECONET_EXPIRE_HOSTS:
-			EconetExpireStations();
+		case TIMER_ECONET:
+			EconetTimer();
 			break;
 	}
 }
