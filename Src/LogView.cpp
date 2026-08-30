@@ -509,19 +509,18 @@ void LogView::OnLButtonUp(int YPos)
 
 		InvalidateRect(m_hwnd, nullptr, FALSE);
 
-		// If a single message is selected, show that message's
-		// data bytes.
-		if (m_SelectionStart == m_SelectionEnd)
+		// If a single message is selected, show that message's data bytes.
+
+		const EconetLogMessage* pMessage = nullptr;
+
+		if (m_SelectionStart == m_SelectionEnd &&
+		    m_SelectionStart >= 0 &&
+		    m_SelectionStart < (int)m_pLogBuffer->size())
 		{
-			const EconetLogMessage* pMessage = nullptr;
-
-			if (m_SelectionStart >= 0 && m_SelectionStart < (int)m_pLogBuffer->size())
-			{
-				pMessage = &(*m_pLogBuffer)[m_SelectionStart];
-			}
-
-			SelectMessage(pMessage);
+			pMessage = &(*m_pLogBuffer)[m_SelectionStart];
 		}
+
+		SelectMessage(pMessage);
 	}
 }
 
