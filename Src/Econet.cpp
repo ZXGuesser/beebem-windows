@@ -1321,10 +1321,9 @@ static bool ReadEconetConfigFile()
 				// This line defines an entire network. It is added before any networks
 				// from AUNMap so takes precedence.
 
-
-				unsigned char Network    = (unsigned char)ParseNumber("Network", Tokens[1], 1, 127);
-				unsigned long IPAddress  = ParseIPAddress("IP address", Tokens[2]);
-				unsigned short Port       = (unsigned short)ParseNumber("Port", Tokens[3], 1, 65535);
+				unsigned char Network = (unsigned char)ParseNumber("Network", Tokens[1], 1, 127);
+				unsigned long IPAddress = ParseIPAddress("IP address", Tokens[2]);
+				unsigned short Port = (unsigned short)ParseNumber("Port", Tokens[3], 1, 65535);
 
 				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: ConfigFile Net %d IP %s:%u\n",
@@ -1473,9 +1472,9 @@ static bool ReadAUNConfigFile()
 		{
 			try
 			{
-				unsigned long IPAddress  = ParseIPAddress("IP address", Tokens[1]) & 0x00FFFFFF;
-				unsigned char Network    = (unsigned char)ParseNumber("Network", Tokens[2], 0, 255);
-				unsigned short Port      = DEFAULT_AUN_PORT; // always use the default port for proper AUN networks
+				unsigned long IPAddress = ParseIPAddress("IP address", Tokens[1]) & 0x00FFFFFF;
+				unsigned char Network = (unsigned char)ParseNumber("Network", Tokens[2], 0, 255);
+				unsigned short Port = DEFAULT_AUN_PORT; // Always use the default port for proper AUN networks.
 
 				#ifdef DEBUG_ECONET
 				DebugTrace("Econet: AUNMap Net %d IP %s:%u\n",
@@ -2453,8 +2452,14 @@ static void EconetSendPacket()
 				}
 				else
 				{
-					// Whole network defined with a single address.
-					// Treat port as the base port number for a PiEconetBridge exposed network.
+					// This is Pi Econet Bridge exposed AUN network.
+					//
+					// The network is defined with a single IP address, and
+					// individual stations are on their own port, starting
+					// from the network's base port number.
+					//
+					// See https://github.com/cr12925/PiEconetBridge/wiki/AUN-clients-and-exposures
+
 					RecvIPAddress = Network.IPAddress;
 					RecvPort = Network.Port + pBeebTxEconetHeader->DestStn;
 					break;
