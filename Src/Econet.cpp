@@ -182,12 +182,21 @@ bool EconetEnabled;    // Enable hardware
 bool EconetNMIEnabled; // 68B54 -> NMI enabled. (IC97)
 int EconetTrigger;     // Poll timer
 
-const unsigned int DEFAULT_GATEWAY_DISCOVERY_TIMEOUT = 5; // 5 seconds
-const unsigned int DEFAULT_GATEWAY_KEEPALIVE_TIMEOUT = 300; // 5 minutes
-time_t GatewayTimeout; // Gateway timer - system time not emulation trigger.
+struct EconetTimerState
+{
+	int GatewayDiscovery;
+	int GatewayKeepAlive;
+	int Announce;
+	int ExpireStations;
+};
 
-const unsigned int ANNOUNCE_TIMEOUT = 15;
-time_t AnnounceTimeout = 0; // BeebEm host announcement timer - system time not emulation trigger.
+static EconetTimerState EconetTimers;
+
+const int GATEWAY_DISCOVERY_PERIOD = 5; // 5 seconds
+const int GATEWAY_KEEPALIVE_PERIOD = 300; // 5 minutes
+const int BEEBEM_ANNOUNCE_PERIOD = 15; // 15 seconds
+const int EXPIRE_STATIONS_PERIOD = 120; // 2 minutes
+
 uint32_t AnnounceHandle; // Sequence number for host announcements.
 const unsigned int HOST_TIMEOUT = 60; // How long since last announcement before hosts can be replaced.
 
@@ -541,7 +550,6 @@ static void AddStation(unsigned char Station,
                        unsigned char Network,
                        unsigned long IPAddress,
                        unsigned short Port,
-                       bool Static,
                        BroadcastSource Broadcasts)
 {
 	EconetHost Host;
@@ -1167,22 +1175,35 @@ bool EconetReset()
 		Gateway.Port      = EconetConfig.GatewayPort;
 	}
 
-	if ((EconetConfig.FindGateways && Gateway.IPAddress == 0) ||
-	    Gateway.IPAddress != 0)
+	if (EconetConfig.FindGateways)
 	{
-		time(&GatewayTimeout);
+		// Send a discovery or keep-alive message immediately.
+
+		if (Gateway.IPAddress == 0)
+		{
+			EconetTimers.GatewayDiscovery = 1;
+		}
+		else
+		{
+			EconetTimers.GatewayKeepAlive = 1;
+		}
 	}
 
 	if (EconetConfig.AutoConfigure && AnnounceHandle == 0)
 	{
-		// Set a timer to send regular BeebEm announcement messages.
-		time(&AnnounceTimeout);
+		// Send a BeebEm announcement message immediately.
+		EconetTimers.Announce = 1;
 	}
+
+	EconetTimer();
+
+	EconetTimers.ExpireStations = EXPIRE_STATIONS_PERIOD / ECONET_TIMER_PERIOD;
 
 	return true;
 
 Fail:
 	AnnounceHandle = 0; // Clear announce packet sequence number.
+
 	EconetCloseSockets();
 
 	EconetEnabled = false;
@@ -1263,7 +1284,7 @@ static bool ReadEconetConfigFile()
 
 				if (pStation == nullptr)
 				{
-					AddStation(Station, Network, IPAddress, Port, true, BroadcastSource::Unknown);
+					AddStation(Station, Network, IPAddress, Port, BroadcastSource::Unknown);
 				}
 				else
 				{
@@ -2019,31 +2040,6 @@ bool EconetPollReal()
 		#ifdef DEBUG_ECONET
 		DebugTrace("Econet: Set FourWayStage::Idle (FourWayStage timeout)\n");
 		#endif
-	}
-
-	if (EconetConfig.FindGateways && Gateway.IPAddress == 0 && time(NULL) >= GatewayTimeout)
-	{
-		EconetSendGatewayDiscoveryPacket();
-
-		// Set timeout to try again until a gateway replies.
-		GatewayTimeout = time(NULL) + DEFAULT_GATEWAY_DISCOVERY_TIMEOUT;
-	}
-
-	// Send Gateway keepalive if timeout value has been passed.
-	if (Gateway.IPAddress != 0 && time(NULL) >= GatewayTimeout)
-	{
-		EconetSendGatewayKeepAlivePacket();
-
-		// Set timeout again.
-		GatewayTimeout = time(NULL) + DEFAULT_GATEWAY_KEEPALIVE_TIMEOUT;
-	}
-
-	if (EconetConfig.AutoConfigure && time(NULL) > AnnounceTimeout)
-	{
-		EconetSendAnnouncePacket();
-
-		// Set timeout again.
-		AnnounceTimeout = time(NULL) + ANNOUNCE_TIMEOUT;
 	}
 
 	// Status bits need changing?
@@ -3125,8 +3121,8 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 				          pPacket->EconetHeader.DestNet,
 				          pPacket->EconetHeader.DestStn);
 
-				// Start/reset keepalives.
-				time(&GatewayTimeout);
+				// Start/reset keep-alives.
+				EconetTimers.GatewayKeepAlive = GATEWAY_KEEPALIVE_PERIOD / ECONET_TIMER_PERIOD;
 			}
 			else if (Gateway.IPAddress != Packet.Src.sin_addr.s_addr ||
 			         Gateway.Port != ntohs(Packet.Src.sin_port))
@@ -3209,15 +3205,18 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 
 				if (pStation == nullptr)
 				{
+					// Discovered a new station. It must be in the broadcast
+					// domain to have received this announcement.
 					AddStation(SrcStn,
 					           SrcNet,
 					           Packet.Src.sin_addr.s_addr,
 					           ntohs(Packet.Src.sin_port),
-					           false,
-					           BroadcastSource::Local); // Must be in the broadcast domain to have received this announcement.
+					           BroadcastSource::Local);
 				}
 				else if (time(nullptr) >= pStation->Timeout)
 				{
+					// At least one minute has passed since this host was
+					// added. Allow its IP address and Port to be updated.
 					pStation->IPAddress = Packet.Src.sin_addr.s_addr;
 					pStation->Port = ntohs(Packet.Src.sin_port);
 					pStation->Timeout = time(nullptr) + HOST_TIMEOUT;
@@ -3716,6 +3715,10 @@ static bool EconetReceivePacket()
 
 static void EconetSendGatewayDiscoveryPacket()
 {
+	#ifdef DEBUG_ECONET
+	DebugTrace("Econet: Sending gateway discovery\n");
+	#endif
+
 	GatewayDiscoveryPacket Packet;
 	ZeroMemory(&Packet, sizeof(Packet));
 	Packet.AUNHeader.Type = AUNType::Broadcast; // The gateway is listening for an AUN broadcast
@@ -3752,6 +3755,10 @@ static void EconetSendGatewayDiscoveryPacket()
 
 static void EconetSendGatewayKeepAlivePacket()
 {
+	#ifdef DEBUG_ECONET
+	DebugTrace("Econet: Sending gateway keep-alive\n");
+	#endif
+
 	GatewayKeepAlivePacket Packet;
 	ZeroMemory(&Packet, sizeof(Packet));
 	Packet.EconetHeader.DestStn = 255;
@@ -3761,15 +3768,9 @@ static void EconetSendGatewayKeepAlivePacket()
 	Packet.AUNHeader.Port = ECONET_PORT_PI_ECONET_BRIDGE;
 	Packet.AUNHeader.CtrlByte = ECONET_CTRL_GATEWAY_KEEPALIVE & 0x7F;
 
-	#ifdef DEBUG_ECONET
-	DebugTrace("Econet: Sending gateway keepalive\n");
-
-	DebugDumpBytes("Econet: Gateway keepalive packet", (const unsigned char*)&Packet, sizeof(Packet));
-	#endif
-
 	EconetLogData((const unsigned char*)&Packet,
 	              sizeof(Packet),
-	              "Sending gateway keepalive");
+	              "Sending gateway keep-alive");
 
 	if (!pSocket->Send(Gateway.IPAddress,
 	                   Gateway.Port,
@@ -3777,7 +3778,7 @@ static void EconetSendGatewayKeepAlivePacket()
 	                   sizeof(Packet)))
 	{
 		#ifdef DEBUG_ECONET
-		DebugTrace("Econet: Failed to send Gateway keepalive (%s:%u)\n",
+		DebugTrace("Econet: Failed to send Gateway keep-alive (%s:%u)\n",
 		           IPAddressStr(Gateway.IPAddress).c_str(),
 		           Gateway.Port);
 		#endif
@@ -3792,6 +3793,10 @@ static void EconetSendGatewayKeepAlivePacket()
 
 static void EconetSendAnnouncePacket()
 {
+	#ifdef DEBUG_ECONET
+	DebugTrace("Econet: Sending BeebEm announcement\n");
+	#endif
+
 	AnnouncePacket Packet;
 	ZeroMemory(&Packet, sizeof(Packet));
 	Packet.AUNHeader.Type = AUNType::BeebEm;
@@ -3827,15 +3832,19 @@ static void EconetSendAnnouncePacket()
 
 /****************************************************************************/
 
-// Remove any expired hosts from the stations list.
+// Remove expired hosts from the stations list.
 
-void EconetExpireStations()
+static void EconetExpireStations()
 {
+	#ifdef DEBUG_ECONET
+	DebugTrace("Econet: Removing expired stations\n");
+	#endif
+
 	time_t Now = time(nullptr);
 
 	auto Filter = [=](const EconetHost& Host)
 	{
-		return !Host.Static && Now > Host.Timeout;
+		return Host.Broadcasts == BroadcastSource::Local && Now > Host.Timeout;
 	};
 
 	auto it = std::remove_if(Stations.begin(),
@@ -3843,6 +3852,64 @@ void EconetExpireStations()
 	                         Filter);
 
 	Stations.erase(it, Stations.end());
+}
+
+/****************************************************************************/
+
+void EconetTimer()
+{
+	#ifdef DEBUG_ECONET
+	DebugTrace("Econet: Timer\n");
+	#endif
+
+	if (EconetConfig.FindGateways && Gateway.IPAddress == 0)
+	{
+		if (EconetTimers.GatewayDiscovery > 0)
+		{
+			if (--EconetTimers.GatewayDiscovery == 0)
+			{
+				EconetSendGatewayDiscoveryPacket();
+
+				EconetTimers.GatewayDiscovery = GATEWAY_DISCOVERY_PERIOD / ECONET_TIMER_PERIOD;
+			}
+		}
+	}
+
+	if (Gateway.IPAddress != 0)
+	{
+		if (EconetTimers.GatewayKeepAlive > 0)
+		{
+			if (--EconetTimers.GatewayKeepAlive == 0)
+			{
+				EconetSendGatewayKeepAlivePacket();
+
+				EconetTimers.GatewayKeepAlive = GATEWAY_KEEPALIVE_PERIOD / ECONET_TIMER_PERIOD;
+			}
+		}
+	}
+
+	if (EconetConfig.AutoConfigure)
+	{
+		if (EconetTimers.Announce > 0)
+		{
+			if (--EconetTimers.Announce == 0)
+			{
+				EconetSendAnnouncePacket();
+
+				EconetTimers.Announce = BEEBEM_ANNOUNCE_PERIOD / ECONET_TIMER_PERIOD;
+			}
+		}
+	}
+
+	if (EconetTimers.ExpireStations > 0)
+	{
+		if (--EconetTimers.ExpireStations == 0)
+		{
+			EconetExpireStations();
+
+			EconetTimers.ExpireStations = EXPIRE_STATIONS_PERIOD / ECONET_TIMER_PERIOD;
+		}
+	}
 }
 
 /****************************************************************************/

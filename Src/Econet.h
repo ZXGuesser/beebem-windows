@@ -32,7 +32,7 @@ void EconetWrite(unsigned char Register, unsigned char Value);
 unsigned char EconetReadStationID();
 bool EconetInterruptRequest();
 bool EconetPoll();
-void EconetExpireStations();
+void EconetTimer();
 void DebugEconetState();
 
 // Config settings
@@ -72,6 +72,8 @@ extern bool EconetStateChanged;
 extern int EconetTrigger;
 extern int EconetFlagFillTimeoutTrigger;
 
+const int ECONET_TIMER_PERIOD = 5; // Seconds
+
 extern unsigned char EconetStationID;
 extern unsigned char EconetNetworkID;
 extern unsigned char PreferredStationID;
@@ -94,7 +96,6 @@ struct EconetHost
 	unsigned char Network;
 	unsigned long IPAddress;
 	unsigned short Port;
-	bool Static; // Static hosts are defined in Econet.cfg, otherwise dynamic.
 	BroadcastSource Broadcasts; // where to accept broadcasts from
 	time_t Timeout;
 };
