@@ -3108,7 +3108,7 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 				// This is an Extended AUN packet so all the headers are moved.
 				ExtendedAUNPacket* pPacket = (ExtendedAUNPacket*)Packet.Data;
 
-				#ifdef DEBUG_ECONET
+				#ifdef DEBUG_ECONET_ANNOUNCE
 				DebugTrace("Econet: Learned about gateway at %s:%u. Bridge sees us as station %d.%d\n",
 				           IPAddressStr(Gateway.IPAddress).c_str(),
 				           Gateway.Port,
@@ -3144,7 +3144,7 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 
 		if (Ignored)
 		{
-			#ifdef DEBUG_ECONET
+			#ifdef DEBUG_ECONET_ANNOUNCE
 			DebugTrace("Econet: Ignored gateway response from %s:%u\n",
 			           IPAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
 			           ntohs(Packet.Src.sin_port));
@@ -3172,7 +3172,7 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 
 		if (EconetConfig.AutoConfigure)
 		{
-			#ifdef DEBUG_ECONET
+			#ifdef DEBUG_ECONET_ANNOUNCE
 			DebugTrace("Econet: Received BeebEm announcement from station %d.%d\n",
 			           SrcNet,
 			           SrcStn);
@@ -3187,7 +3187,7 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 			if (SrcStn == EconetStationID && SrcNet == EconetNetworkID)
 			{
 				// Address collision!
-				#ifdef DEBUG_ECONET
+				#ifdef DEBUG_ECONET_ANNOUNCE
 				DebugTrace("Econet: Address collision!\n");
 				#endif
 
@@ -3720,7 +3720,7 @@ static bool EconetReceivePacket()
 
 static void EconetSendGatewayDiscoveryPacket()
 {
-	#ifdef DEBUG_ECONET
+	#ifdef DEBUG_ECONET_ANNOUNCE
 	DebugTrace("Econet: Sending gateway discovery\n");
 	#endif
 
@@ -3738,7 +3738,7 @@ static void EconetSendGatewayDiscoveryPacket()
 	// Send a copy of broadcast to each network interface.
 	for (size_t i = 0; i < BroadcastAddresses.size(); i++)
 	{
-		#ifdef DEBUG_ECONET
+		#ifdef DEBUG_ECONET_ANNOUNCE
 		DebugTrace("Econet: Sending gateway discovery packet (%s:%u)\n",
 		           IPAddressStr(BroadcastAddresses[i]).c_str(),
 		           DEFAULT_AUN_PORT);
@@ -3760,7 +3760,7 @@ static void EconetSendGatewayDiscoveryPacket()
 
 static void EconetSendGatewayKeepAlivePacket()
 {
-	#ifdef DEBUG_ECONET
+	#ifdef DEBUG_ECONET_ANNOUNCE
 	DebugTrace("Econet: Sending gateway keep-alive\n");
 	#endif
 
@@ -3782,7 +3782,7 @@ static void EconetSendGatewayKeepAlivePacket()
 	                   (const unsigned char*)&Packet,
 	                   sizeof(Packet)))
 	{
-		#ifdef DEBUG_ECONET
+		#ifdef DEBUG_ECONET_ANNOUNCE
 		DebugTrace("Econet: Failed to send Gateway keep-alive (%s:%u)\n",
 		           IPAddressStr(Gateway.IPAddress).c_str(),
 		           Gateway.Port);
@@ -3798,7 +3798,7 @@ static void EconetSendGatewayKeepAlivePacket()
 
 static void EconetSendAnnouncePacket()
 {
-	#ifdef DEBUG_ECONET
+	#ifdef DEBUG_ECONET_ANNOUNCE
 	DebugTrace("Econet: Sending BeebEm announcement\n");
 	#endif
 
@@ -3818,7 +3818,7 @@ static void EconetSendAnnouncePacket()
 	// Send a copy of broadcast to each network interface.
 	for (size_t i = 0; i < BroadcastAddresses.size(); i++)
 	{
-		#ifdef DEBUG_ECONET
+		#ifdef DEBUG_ECONET_ANNOUNCE
 		DebugTrace("Econet: Sending broadcast announce packet (%s:%d)\n",
 		           IPAddressStr(BroadcastAddresses[i]).c_str(), DEFAULT_AUN_PORT);
 
