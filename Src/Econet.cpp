@@ -3597,12 +3597,8 @@ static bool EconetReceivePacket()
 					break;
 
 				default:
-					// Erm, what are we doing here? Ignore packet.
-					AUNState = FourWayStage::WaitForIdle;
-
-					#ifdef DEBUG_ECONET
-					DebugTrace("Econet: Set FourWayStage::WaitForIdle (invalid state)\n");
-					#endif
+					// Can't get here.
+					assert(false);
 					break;
 			}
 
