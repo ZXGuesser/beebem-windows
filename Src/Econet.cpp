@@ -1147,11 +1147,22 @@ bool EconetReset()
 			goto Fail;
 		}
 
+		unsigned long IPAddress = INADDR_ANY;
+		unsigned short Port = DEFAULT_AUN_PORT;
+
 		// Listen on all interfaces.
-		if (pBroadcastListenSocket->Bind(INADDR_ANY, DEFAULT_AUN_PORT))
+		if (pBroadcastListenSocket->Bind(IPAddress, Port))
 		{
 			#ifdef DEBUG_ECONET
-			DebugTrace("Econet: Started broadcast listener\n");
+			DebugTrace("Econet: Started broadcast listener on %s:%d\n",
+			           IPAddressStr(IPAddress).c_str(), Port);
+			#endif
+		}
+		else
+		{
+			#ifdef DEBUG_ECONET
+			DebugTrace("Econet: Failed to start broadcast listener on %s:%d\n",
+			           IPAddressStr(IPAddress).c_str(), Port);
 			#endif
 		}
 	}
@@ -3170,20 +3181,20 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 		unsigned char SrcStn = pData[0];
 		unsigned char SrcNet = pData[1];
 
+		#ifdef DEBUG_ECONET_ANNOUNCE
+		DebugTrace("Econet: Received BeebEm announcement from station %d.%d\n",
+		           SrcNet,
+		           SrcStn);
+		#endif
+
+		EconetLogData(Packet.Data,
+		              Packet.Length,
+		              "Received BeebEm announcement from station %d.%d",
+		              SrcNet,
+		              SrcStn);
+
 		if (EconetConfig.AutoConfigure)
 		{
-			#ifdef DEBUG_ECONET_ANNOUNCE
-			DebugTrace("Econet: Received BeebEm announcement from station %d.%d\n",
-			           SrcNet,
-			           SrcStn);
-			#endif
-
-			EconetLogData(Packet.Data,
-			              Packet.Length,
-			              "Received BeebEm announcement from station %d.%d",
-			              SrcNet,
-			              SrcStn);
-
 			if (SrcStn == EconetStationID && SrcNet == EconetNetworkID)
 			{
 				// Address collision!
