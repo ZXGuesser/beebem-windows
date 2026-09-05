@@ -37,9 +37,8 @@ LogView::LogView(std::deque<EconetLogMessage>* pLogBuffer) :
 	m_hFont(nullptr),
 	m_LineHeight(0),
 	m_ScrollPos(0),
-	m_Dragging(false),
-	m_SelectionStart(-1),
-	m_SelectionEnd(-1)
+	m_SelectedIndex(-1),
+	m_bSelectAll(false)
 {
 }
 
@@ -86,10 +85,7 @@ void LogView::AppendLog(bool BufferFull)
 {
 	if (m_hwnd != nullptr)
 	{
-		RECT rc;
-		GetClientRect(m_hwnd, &rc);
-
-		int LinesVisible = rc.bottom / m_LineHeight;
+		int LinesVisible = GetLinesVisible();
 
 		// The producer can add several messages before this posted UI update is
 		// handled.  Use the scrollbar's existing range, rather than the current
@@ -115,30 +111,14 @@ void LogView::AppendLog(bool BufferFull)
 		if (BufferFull)
 		{
 			// The buffer is full and the oldest entry has been removed.
-			// Adjust the selection to that the same range of lines
-			// is selected.
+			// Adjust the selection so that the same lines is selected.
 
-			if (m_SelectionStart > m_SelectionEnd)
+			if (m_SelectedIndex != -1)
 			{
-				std::swap(m_SelectionStart, m_SelectionEnd);
+				m_SelectedIndex--;
 			}
 
-			if (m_SelectionStart != -1)
-			{
-				m_SelectionStart--;
-			}
-
-			if (m_SelectionEnd != -1)
-			{
-				m_SelectionEnd--;
-			}
-
-			if (m_SelectionEnd >= 0 && m_SelectionStart == -1)
-			{
-				m_SelectionStart = 0;
-			}
-
-			if (m_SelectionStart == -1)
+			if (m_SelectedIndex == -1)
 			{
 				SelectMessage(nullptr);
 			}
@@ -157,8 +137,8 @@ void LogView::Clear()
 	m_pLogBuffer->clear();
 
 	m_ScrollPos = 0;
-	m_SelectionStart = -1;
-	m_SelectionEnd = -1;
+	m_SelectedIndex = -1;
+	m_bSelectAll = false;
 
 	UpdateScrollBar();
 
@@ -171,14 +151,22 @@ void LogView::Clear()
 
 void LogView::CopyToClipboard()
 {
-	if (m_SelectionStart == -1 || m_SelectionEnd == -1)
+	if (m_pLogBuffer->size() == 0)
+	{
+		return;
+	}
+
+	if (!m_bSelectAll && m_SelectedIndex == -1)
 	{
 		return;
 	}
 
 	size_t Size = 0;
 
-	for (int i = m_SelectionStart; i <= m_SelectionEnd; i++)
+	const int StartIndex = m_bSelectAll ? 0 : m_SelectedIndex;
+	const int EndIndex = m_bSelectAll ? (int)m_pLogBuffer->size() - 1 : m_SelectedIndex;
+
+	for (int i = StartIndex; i <= EndIndex; i++)
 	{
 		Size += (*m_pLogBuffer)[i].length() + 2;
 	}
@@ -187,7 +175,7 @@ void LogView::CopyToClipboard()
 	{
 		size_t Offset = 0;
 
-		for (int i = m_SelectionStart; i <= m_SelectionEnd; i++)
+		for (int i = StartIndex; i <= EndIndex; i++)
 		{
 			strcpy((char*)pBuffer + Offset, (*m_pLogBuffer)[i].c_str());
 			Offset += (*m_pLogBuffer)[i].length();
@@ -204,34 +192,64 @@ void LogView::CopyToClipboard()
 
 /****************************************************************************/
 
-void LogView::SelectAll()
+void LogView::SelectUp()
+{
+	if (m_SelectedIndex > 0)
+	{
+		m_SelectedIndex--;
+
+		SelectMessage(&(*m_pLogBuffer)[m_SelectedIndex]);
+
+		InvalidateRect(m_hwnd, nullptr, TRUE);
+	}
+
+	if (m_SelectedIndex >= 0 && m_SelectedIndex < m_ScrollPos)
+	{
+		SetScrollPosition(m_SelectedIndex);
+	}
+}
+
+/****************************************************************************/
+
+void LogView::SelectDown()
 {
 	const int BufferSize = (int)m_pLogBuffer->size();
 
-	if (BufferSize == 0)
+	if (m_SelectedIndex < BufferSize - 1)
 	{
-		m_SelectionStart = -1;
-		m_SelectionEnd = -1;
-	}
-	else
-	{
-		m_SelectionStart = 0;
-		m_SelectionEnd = BufferSize - 1;
+		m_SelectedIndex++;
+
+		SelectMessage(&(*m_pLogBuffer)[m_SelectedIndex]);
+
+		InvalidateRect(m_hwnd, nullptr, TRUE);
 	}
 
-	InvalidateRect(m_hwnd, nullptr, TRUE);
+	const int LinesVisible = GetLinesVisible();
 
-	if (m_SelectionStart != -1)
+	if (m_SelectedIndex >= m_ScrollPos + LinesVisible)
 	{
-		const EconetLogMessage* pMessage = nullptr;
+		SetScrollPosition(m_SelectedIndex - LinesVisible + 1);
+	}
+}
 
-		if (m_SelectionStart == m_SelectionEnd)
-		{
-			pMessage = &(*m_pLogBuffer)[m_SelectionStart];
-		}
+/****************************************************************************/
+
+void LogView::SelectAll()
+{
+	m_SelectedIndex = -1;
+
+	const int BufferSize = (int)m_pLogBuffer->size();
+
+	m_bSelectAll = true;
+
+	if (m_SelectedIndex != -1)
+	{
+		const EconetLogMessage* pMessage = &(*m_pLogBuffer)[m_SelectedIndex];
 
 		SelectMessage(pMessage);
 	}
+
+	InvalidateRect(m_hwnd, nullptr, TRUE);
 }
 
 /****************************************************************************/
@@ -286,14 +304,6 @@ LRESULT LogView::WndProc(UINT nMessage, WPARAM wParam, LPARAM lParam)
 
 		case WM_SIZE:
 			UpdateScrollBar();
-			return 0;
-
-		case WM_LBUTTONDOWN:
-			OnLButtonDown(GET_Y_LPARAM(lParam));
-			return 0;
-
-		case WM_MOUSEMOVE:
-			OnMouseMove(GET_Y_LPARAM(lParam));
 			return 0;
 
 		case WM_LBUTTONUP:
@@ -367,9 +377,7 @@ void LogView::OnPaint()
 	{
 		const EconetLogMessage& Message = (*m_pLogBuffer)[i];
 
-		bool Selected = m_SelectionStart >= 0 &&
-		                i >= std::min(m_SelectionStart, m_SelectionEnd) &&
-		                i <= std::max(m_SelectionStart, m_SelectionEnd);
+		bool Selected = m_bSelectAll || i == m_SelectedIndex;
 
 		if (Selected)
 		{
@@ -450,10 +458,7 @@ void LogView::OnMouseWheel(int Delta)
 {
 	m_ScrollPos -= Delta / WHEEL_DELTA * 3;
 
-	RECT rc;
-	GetClientRect(m_hwnd, &rc);
-
-	int LinesVisible = rc.bottom / m_LineHeight;
+	int LinesVisible = GetLinesVisible();
 	int MaxScrollPos = std::max(0, (int)m_pLogBuffer->size() - LinesVisible);
 
 	m_ScrollPos = std::max(0, std::min(m_ScrollPos, MaxScrollPos));
@@ -465,73 +470,34 @@ void LogView::OnMouseWheel(int Delta)
 
 /****************************************************************************/
 
-void LogView::OnLButtonDown(int YPos)
-{
-	int Line = GetLineAtY(YPos);
-
-	m_SelectionStart = Line;
-	m_SelectionEnd = Line;
-	m_Dragging = true;
-
-	SetCapture(m_hwnd);
-
-	InvalidateRect(m_hwnd, nullptr, FALSE);
-}
-
-/****************************************************************************/
-
-void LogView::OnMouseMove(int YPos)
-{
-	if (m_Dragging)
-	{
-		int Line = GetLineAtY(YPos);
-
-		if (Line != m_SelectionEnd)
-		{
-			m_SelectionEnd = Line;
-
-			InvalidateRect(m_hwnd, nullptr, FALSE);
-		}
-	}
-}
-
-/****************************************************************************/
-
 void LogView::OnLButtonUp(int YPos)
 {
-	if (m_Dragging)
+	m_SelectedIndex = GetLineAtY(YPos);
+	m_bSelectAll = false;
+
+	InvalidateRect(m_hwnd, nullptr, FALSE);
+
+	// Show the selected message's data bytes.
+
+	const EconetLogMessage* pMessage = nullptr;
+
+	if (m_SelectedIndex >= 0 &&
+		m_SelectedIndex < (int)m_pLogBuffer->size())
 	{
-		m_SelectionEnd = GetLineAtY(YPos);
-
-		m_Dragging = false;
-
-		ReleaseCapture();
-
-		InvalidateRect(m_hwnd, nullptr, FALSE);
-
-		// If a single message is selected, show that message's data bytes.
-
-		const EconetLogMessage* pMessage = nullptr;
-
-		if (m_SelectionStart == m_SelectionEnd &&
-		    m_SelectionStart >= 0 &&
-		    m_SelectionStart < (int)m_pLogBuffer->size())
-		{
-			pMessage = &(*m_pLogBuffer)[m_SelectionStart];
-		}
-
-		SelectMessage(pMessage);
+		pMessage = &(*m_pLogBuffer)[m_SelectedIndex];
 	}
+
+	SelectMessage(pMessage);
 }
 
 /****************************************************************************/
 
 void LogView::UpdateScrollBar()
 {
-	RECT rc;
-	GetClientRect(m_hwnd, &rc);
+	RECT Rect;
+	GetClientRect(m_hwnd, &Rect);
 
-	int LinesVisible = std::max(1, (int)(rc.bottom / m_LineHeight));
+	int LinesVisible = std::max(1, (int)(Rect.bottom / m_LineHeight));
 	bool CanScroll = m_pLogBuffer->size() > (size_t)LinesVisible;
 
 	SCROLLINFO ScrollInfo;
@@ -548,6 +514,25 @@ void LogView::UpdateScrollBar()
 	SetScrollInfo(m_hwnd, SB_VERT, &ScrollInfo, TRUE);
 
 	EnableScrollBar(m_hwnd, SB_VERT, CanScroll ? ESB_ENABLE_BOTH : ESB_DISABLE_BOTH);
+}
+
+/****************************************************************************/
+
+void LogView::SetScrollPosition(int Index)
+{
+	m_ScrollPos = Index;
+
+	UpdateScrollBar();
+}
+
+/****************************************************************************/
+
+int LogView::GetLinesVisible()
+{
+	RECT Rect;
+	GetClientRect(m_hwnd, &Rect);
+
+	return Rect.bottom / m_LineHeight;
 }
 
 /****************************************************************************/

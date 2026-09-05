@@ -40,6 +40,8 @@ class LogView
 		void AppendLog(bool BufferFull);
 		void Clear();
 		void CopyToClipboard();
+		void SelectUp();
+		void SelectDown();
 		void SelectAll();
 
 	private:
@@ -54,13 +56,13 @@ class LogView
 
 		void OnNcCreate();
 		void OnPaint();
-		void OnLButtonDown(int YPos);
-		void OnMouseMove(int YPos);
 		void OnLButtonUp(int YPos);
 		void OnVScroll(int Event);
 		void OnMouseWheel(int Delta);
 
 		void UpdateScrollBar();
+		void SetScrollPosition(int Index);
+		int GetLinesVisible();
 		int GetLineAtY(int y) const;
 		void SelectMessage(const EconetLogMessage* pMessage);
 
@@ -71,9 +73,8 @@ class LogView
 		HFONT m_hFont;
 		int m_LineHeight;
 		int m_ScrollPos;
-		bool m_Dragging;
-		int m_SelectionStart;
-		int m_SelectionEnd;
+		int m_SelectedIndex;
+		bool m_bSelectAll;
 };
 
 #endif

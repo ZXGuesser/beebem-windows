@@ -449,8 +449,8 @@
 #define IDM_DISC_EXPORT_1               40251
 #define IDM_DISC_EXPORT_2               40252
 #define IDM_DISC_EXPORT_3               40253
-#define ID_ACCELUP                      40254
-#define ID_ACCELDOWN                    40258
+#define IDM_UP                          40254
+#define IDM_DOWN                        40258
 #define IDM_DXSMOOTHMODE7ONLY           40259
 #define IDM_SFX_DISCDRIVES              40260
 #define IDM_SELECT_USER_DATA_FOLDER     40261

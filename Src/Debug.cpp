@@ -1376,14 +1376,14 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hWnd, UINT Message, WPARAM wParam, LPA
 		case WM_COMMAND:
 			switch (LOWORD(wParam))
 			{
-				case ID_ACCELUP:
+				case IDM_UP:
 					if (GetFocus() == GetDlgItem(hWnd, IDC_DEBUGCOMMAND))
 					{
 						DebugHistoryMove(-1);
 					}
 					break;
 
-				case ID_ACCELDOWN:
+				case IDM_DOWN:
 					if (GetFocus() == GetDlgItem(hWnd, IDC_DEBUGCOMMAND))
 					{
 						DebugHistoryMove(1);
