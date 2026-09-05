@@ -608,6 +608,14 @@ BOOL EconetLogPage::OnCommand(UINT MenuID)
 			m_LogView.CopyToClipboard();
 			return TRUE;
 
+		case IDM_UP:
+			m_LogView.SelectUp();
+			break;
+
+		case IDM_DOWN:
+			m_LogView.SelectDown();
+			break;
+
 		case IDM_SELECT_ALL:
 			m_LogView.SelectAll();
 			return TRUE;
