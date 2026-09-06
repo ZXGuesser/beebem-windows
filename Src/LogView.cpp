@@ -26,20 +26,23 @@ Boston, MA  02110-1301, USA.
 
 #include "LogView.h"
 #include "Clipboard.h"
+#include "EconetLog.h"
 #include "Messages.h"
 
 /****************************************************************************/
 
-LogView::LogView(std::deque<EconetLogMessage>* pLogBuffer) :
+LogView::LogView(EconetLogBuffer& LogBuffer, bool ShowBroadcasts) :
+	m_LogBuffer(LogBuffer),
 	m_hwnd(nullptr),
 	m_hwndParent(nullptr),
-	m_pLogBuffer(pLogBuffer),
+	m_ShowBroadcasts(ShowBroadcasts),
 	m_hFont(nullptr),
 	m_LineHeight(0),
 	m_ScrollPos(0),
 	m_SelectedIndex(-1),
-	m_bSelectAll(false)
+	m_SelectAll(false)
 {
+	m_LogBuffer.SetFilter(!m_ShowBroadcasts);
 }
 
 /****************************************************************************/
@@ -83,62 +86,63 @@ bool LogView::Create(HINSTANCE hInstance, HWND hwndParent, int id, const RECT& R
 
 void LogView::AppendLog(bool BufferFull)
 {
-	if (m_hwnd != nullptr)
+	if (m_hwnd == nullptr)
+	{
+		// The log window hasn't been initialised yet.
+		return;
+	}
+
+	// If the end of the log is being viewed, ensure the latest entry
+	// is visible, otherwise keep the existing scroll position.
+
+	SCROLLINFO ScrollInfo;
+	ZeroMemory(&ScrollInfo, sizeof(ScrollInfo));
+
+	ScrollInfo.cbSize = sizeof(ScrollInfo);
+	ScrollInfo.fMask = SIF_RANGE | SIF_PAGE;
+
+	GetScrollInfo(m_hwnd, SB_VERT, &ScrollInfo);
+
+	int MaxScrollPos = std::max(ScrollInfo.nMin,
+	                            ScrollInfo.nMax - (int)ScrollInfo.nPage + 1);
+
+	if (m_ScrollPos >= MaxScrollPos)
 	{
 		int LinesVisible = GetLinesVisible();
 
-		// The producer can add several messages before this posted UI update is
-		// handled.  Use the scrollbar's existing range, rather than the current
-		// buffer size, to determine whether the viewport was at the old end.
-		SCROLLINFO ScrollInfo;
-		ZeroMemory(&ScrollInfo, sizeof(ScrollInfo));
-
-		ScrollInfo.cbSize = sizeof(ScrollInfo);
-		ScrollInfo.fMask = SIF_RANGE | SIF_PAGE;
-
-		GetScrollInfo(m_hwnd, SB_VERT, &ScrollInfo);
-
-		int PreviousMaxScrollPos = std::max(ScrollInfo.nMin,
-		                                    ScrollInfo.nMax - (int)ScrollInfo.nPage + 1);
-
-		// Follow a live log only when it was already being viewed at its end.
-		// Otherwise keep the current viewport stable for users reviewing history.
-		if (m_ScrollPos >= PreviousMaxScrollPos)
-		{
-			m_ScrollPos = std::max(0, (int)m_pLogBuffer->size() - LinesVisible);
-		}
-
-		if (BufferFull)
-		{
-			// The buffer is full and the oldest entry has been removed.
-			// Adjust the selection so that the same lines is selected.
-
-			if (m_SelectedIndex != -1)
-			{
-				m_SelectedIndex--;
-			}
-
-			if (m_SelectedIndex == -1)
-			{
-				SelectMessage(nullptr);
-			}
-		}
-
-		UpdateScrollBar();
-
-		InvalidateRect(m_hwnd, nullptr, FALSE);
+		m_ScrollPos = std::max(0, m_LogBuffer.GetSize() - LinesVisible);
 	}
+
+	if (BufferFull)
+	{
+		// The buffer is full and the oldest entry has been removed.
+		// Adjust the selection so that the same line is selected.
+
+		if (m_SelectedIndex != -1)
+		{
+			m_SelectedIndex--;
+		}
+
+		if (m_SelectedIndex == -1)
+		{
+			SelectMessage(nullptr);
+		}
+	}
+
+	UpdateScrollBar();
+
+	InvalidateRect(m_hwnd, nullptr, FALSE);
 }
 
 /****************************************************************************/
 
 void LogView::Clear()
 {
-	m_pLogBuffer->clear();
+	m_LogBuffer.Clear();
 
 	m_ScrollPos = 0;
 	m_SelectedIndex = -1;
-	m_bSelectAll = false;
+	m_SelectAll = false;
 
 	UpdateScrollBar();
 
@@ -151,24 +155,24 @@ void LogView::Clear()
 
 void LogView::CopyToClipboard()
 {
-	if (m_pLogBuffer->size() == 0)
+	if (m_LogBuffer.GetSize() == 0)
 	{
 		return;
 	}
 
-	if (!m_bSelectAll && m_SelectedIndex == -1)
+	if (!m_SelectAll && m_SelectedIndex == -1)
 	{
 		return;
 	}
 
 	size_t Size = 0;
 
-	const int StartIndex = m_bSelectAll ? 0 : m_SelectedIndex;
-	const int EndIndex = m_bSelectAll ? (int)m_pLogBuffer->size() - 1 : m_SelectedIndex;
+	const int StartIndex = m_SelectAll ? 0 : m_SelectedIndex;
+	const int EndIndex = m_SelectAll ? m_LogBuffer.GetSize() - 1 : m_SelectedIndex;
 
 	for (int i = StartIndex; i <= EndIndex; i++)
 	{
-		Size += (*m_pLogBuffer)[i].length() + 2;
+		Size += m_LogBuffer.GetMessage(i)->GetMessageLength() + 2;
 	}
 
 	auto CopyData = [=](unsigned char* pBuffer)
@@ -177,8 +181,8 @@ void LogView::CopyToClipboard()
 
 		for (int i = StartIndex; i <= EndIndex; i++)
 		{
-			strcpy((char*)pBuffer + Offset, (*m_pLogBuffer)[i].c_str());
-			Offset += (*m_pLogBuffer)[i].length();
+			strcpy((char*)pBuffer + Offset, m_LogBuffer.GetMessage(i)->GetMessageStr());
+			Offset += m_LogBuffer.GetMessage(i)->GetMessageLength();
 
 			pBuffer[Offset++] = '\r';
 			pBuffer[Offset++] = '\n';
@@ -198,7 +202,7 @@ void LogView::SelectUp()
 	{
 		m_SelectedIndex--;
 
-		SelectMessage(&(*m_pLogBuffer)[m_SelectedIndex]);
+		SelectMessage(m_LogBuffer.GetMessage(m_SelectedIndex));
 
 		InvalidateRect(m_hwnd, nullptr, TRUE);
 	}
@@ -213,13 +217,13 @@ void LogView::SelectUp()
 
 void LogView::SelectDown()
 {
-	const int BufferSize = (int)m_pLogBuffer->size();
+	const int BufferSize = m_LogBuffer.GetSize();
 
 	if (m_SelectedIndex < BufferSize - 1)
 	{
 		m_SelectedIndex++;
 
-		SelectMessage(&(*m_pLogBuffer)[m_SelectedIndex]);
+		SelectMessage(m_LogBuffer.GetMessage(m_SelectedIndex));
 
 		InvalidateRect(m_hwnd, nullptr, TRUE);
 	}
@@ -238,16 +242,37 @@ void LogView::SelectAll()
 {
 	m_SelectedIndex = -1;
 
-	const int BufferSize = (int)m_pLogBuffer->size();
+	const int BufferSize = m_LogBuffer.GetSize();
 
-	m_bSelectAll = true;
+	m_SelectAll = true;
 
 	if (m_SelectedIndex != -1)
 	{
-		const EconetLogMessage* pMessage = &(*m_pLogBuffer)[m_SelectedIndex];
+		const EconetLogMessage* pMessage = m_LogBuffer.GetMessage(m_SelectedIndex);
 
 		SelectMessage(pMessage);
 	}
+
+	InvalidateRect(m_hwnd, nullptr, TRUE);
+}
+
+/****************************************************************************/
+
+void LogView::ShowBroadcasts(bool Show)
+{
+	m_ShowBroadcasts = Show;
+	m_LogBuffer.SetFilter(!m_ShowBroadcasts);
+
+	m_SelectedIndex = -1;
+	SelectMessage(nullptr);
+
+	// Show the most recent log message.
+
+	int LinesVisible = GetLinesVisible();
+
+	m_ScrollPos = std::max(0, m_LogBuffer.GetSize() - LinesVisible);
+
+	UpdateScrollBar();
 
 	InvalidateRect(m_hwnd, nullptr, TRUE);
 }
@@ -346,7 +371,6 @@ void LogView::OnNcCreate()
 void LogView::OnPaint()
 {
 	PAINTSTRUCT ps;
-
 	HDC hdc = BeginPaint(m_hwnd, &ps);
 
 	RECT rc;
@@ -369,15 +393,15 @@ void LogView::OnPaint()
 
 	int LinesVisible = rc.bottom / m_LineHeight + 1;
 
-	int Last = std::min((int)m_pLogBuffer->size(), m_ScrollPos + LinesVisible);
+	int Last = std::min(m_LogBuffer.GetSize(), m_ScrollPos + LinesVisible);
 
 	int y = 0;
 
 	for (int i = m_ScrollPos; i < Last; i++)
 	{
-		const EconetLogMessage& Message = (*m_pLogBuffer)[i];
+		const EconetLogMessage* pMessage = m_LogBuffer.GetMessage(i);
 
-		bool Selected = m_bSelectAll || i == m_SelectedIndex;
+		bool Selected = m_SelectAll || i == m_SelectedIndex;
 
 		if (Selected)
 		{
@@ -386,7 +410,7 @@ void LogView::OnPaint()
 			SetTextColor(hdcBuffer, GetSysColor(COLOR_HIGHLIGHTTEXT));
 		}
 
-		TextOut(hdcBuffer, 4, y, Message.c_str(), (int)Message.length());
+		TextOut(hdcBuffer, 4, y, pMessage->GetMessageStr(), (int)pMessage->GetMessageLength());
 
 		if (Selected)
 		{
@@ -459,7 +483,7 @@ void LogView::OnMouseWheel(int Delta)
 	m_ScrollPos -= Delta / WHEEL_DELTA * 3;
 
 	int LinesVisible = GetLinesVisible();
-	int MaxScrollPos = std::max(0, (int)m_pLogBuffer->size() - LinesVisible);
+	int MaxScrollPos = std::max(0, m_LogBuffer.GetSize() - LinesVisible);
 
 	m_ScrollPos = std::max(0, std::min(m_ScrollPos, MaxScrollPos));
 
@@ -473,7 +497,7 @@ void LogView::OnMouseWheel(int Delta)
 void LogView::OnLButtonUp(int YPos)
 {
 	m_SelectedIndex = GetLineAtY(YPos);
-	m_bSelectAll = false;
+	m_SelectAll = false;
 
 	InvalidateRect(m_hwnd, nullptr, FALSE);
 
@@ -481,10 +505,9 @@ void LogView::OnLButtonUp(int YPos)
 
 	const EconetLogMessage* pMessage = nullptr;
 
-	if (m_SelectedIndex >= 0 &&
-		m_SelectedIndex < (int)m_pLogBuffer->size())
+	if (m_SelectedIndex >= 0 && m_SelectedIndex < m_LogBuffer.GetSize())
 	{
-		pMessage = &(*m_pLogBuffer)[m_SelectedIndex];
+		pMessage = m_LogBuffer.GetMessage(m_SelectedIndex);
 	}
 
 	SelectMessage(pMessage);
@@ -497,8 +520,8 @@ void LogView::UpdateScrollBar()
 	RECT Rect;
 	GetClientRect(m_hwnd, &Rect);
 
-	int LinesVisible = std::max(1, (int)(Rect.bottom / m_LineHeight));
-	bool CanScroll = m_pLogBuffer->size() > (size_t)LinesVisible;
+	int Size = m_LogBuffer.GetSize();
+	int LinesVisible = GetLinesVisible();
 
 	SCROLLINFO ScrollInfo;
 	ZeroMemory(&ScrollInfo, sizeof(ScrollInfo));
@@ -507,13 +530,13 @@ void LogView::UpdateScrollBar()
 	ScrollInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
 
 	ScrollInfo.nMin = 0;
-	ScrollInfo.nMax = std::max(0, (int)m_pLogBuffer->size() - 1);
-	ScrollInfo.nPage = LinesVisible;
+	ScrollInfo.nMax = std::max(0, Size - 1);
+	ScrollInfo.nPage = std::max(1, LinesVisible);
 	ScrollInfo.nPos = m_ScrollPos;
 
 	SetScrollInfo(m_hwnd, SB_VERT, &ScrollInfo, TRUE);
 
-	EnableScrollBar(m_hwnd, SB_VERT, CanScroll ? ESB_ENABLE_BOTH : ESB_DISABLE_BOTH);
+	EnableScrollBar(m_hwnd, SB_VERT, Size > LinesVisible ? ESB_ENABLE_BOTH : ESB_DISABLE_BOTH);
 }
 
 /****************************************************************************/

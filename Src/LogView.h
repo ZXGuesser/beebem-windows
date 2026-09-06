@@ -23,12 +23,14 @@ Boston, MA  02110-1301, USA.
 
 #include <deque>
 
-#include "EconetLog.h"
+class EconetLogMessage;
+class EconetLogBuffer;
 
 class LogView
 {
 	public:
-		LogView(std::deque<EconetLogMessage>* pLogBuffer);
+		LogView(EconetLogBuffer& LogBuffer,
+		        bool ShowBroadcasts);
 
 		static bool InitClass(HINSTANCE hInstance);
 
@@ -43,6 +45,7 @@ class LogView
 		void SelectUp();
 		void SelectDown();
 		void SelectAll();
+		void ShowBroadcasts(bool bShow);
 
 	private:
 		static LRESULT CALLBACK WndProcCallback(HWND hwnd,
@@ -67,14 +70,15 @@ class LogView
 		void SelectMessage(const EconetLogMessage* pMessage);
 
 	private:
+		EconetLogBuffer& m_LogBuffer;
 		HWND m_hwnd;
 		HWND m_hwndParent;
-		std::deque<EconetLogMessage>* m_pLogBuffer;
+		bool m_ShowBroadcasts;
 		HFONT m_hFont;
 		int m_LineHeight;
 		int m_ScrollPos;
 		int m_SelectedIndex;
-		bool m_bSelectAll;
+		bool m_SelectAll;
 };
 
 #endif

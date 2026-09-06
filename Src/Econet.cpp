@@ -1024,7 +1024,7 @@ bool EconetReset()
 	// Stop here if not enabled.
 	if (!EconetEnabled)
 	{
-		EconetLog("Econet disabled");
+		EconetLog(EconetLogMessageType::Status, "Econet disabled");
 
 		AnnounceHandle = 0; // Clear announce packet sequence number.
 		return true;
@@ -1047,7 +1047,7 @@ bool EconetReset()
 		PreferredNetworkID = DEFAULT_PREFERRED_NET;
 	}
 
-	EconetLog("Starting socket server");
+	EconetLog(EconetLogMessageType::Status, "Starting socket server");
 
 	SocketServer.Start();
 
@@ -1118,7 +1118,8 @@ bool EconetReset()
 	           EconetStationID, EconetListenPort);
 	#endif
 
-	EconetLog("Station number set to %d, port %d",
+	EconetLog(EconetLogMessageType::Status,
+	          "Station number set to %d, port %d",
 	          EconetStationID, EconetListenPort);
 
 	// On Master the station number is read from CMOS so update it.
@@ -1227,7 +1228,9 @@ Fail:
 
 static bool ReadEconetConfigFile()
 {
-	EconetLog("Reading Econet config: %s", EconetCfgPath);
+	EconetLog(EconetLogMessageType::Status,
+	          "Reading Econet config: %s",
+	          EconetCfgPath);
 
 	std::ifstream Input(EconetCfgPath);
 
@@ -1440,7 +1443,9 @@ static bool ReadEconetConfigFile()
 
 static bool ReadAUNConfigFile()
 {
-	EconetLog("Reading AUN config: %s", AUNMapPath);
+	EconetLog(EconetLogMessageType::Status,
+	          "Reading AUN config: %s",
+	          AUNMapPath);
 
 	std::ifstream Input(AUNMapPath);
 
@@ -2766,7 +2771,8 @@ static void EconetSendPacket()
 				                  pBufferToSend,
 				                  SendLen))
 				{
-					EconetLogData(pBufferToSend,
+					EconetLogData(EconetLogMessageType::Data,
+					              pBufferToSend,
 					              SendLen,
 					              "Sent %d byte packet to station %d.%d (%s:%u)",
 					              SendLen,
@@ -2809,7 +2815,8 @@ static void EconetSendPacket()
 				                  pBufferToSend,
 				                  SendLen))
 				{
-					EconetLogData(pBufferToSend,
+					EconetLogData(EconetLogMessageType::Data,
+					              pBufferToSend,
 					              SendLen,
 					              "Sent %d byte packet to station %d.%d (%s:%u)",
 					              SendLen,
@@ -2843,7 +2850,8 @@ static void EconetSendPacket()
 			                  ExtendedAUNTxBuffer.Buffer,
 			                  SendLen + 4))
 			{
-				EconetLogData(ExtendedAUNTxBuffer.Buffer,
+				EconetLogData(EconetLogMessageType::Data,
+				              ExtendedAUNTxBuffer.Buffer,
 				              SendLen + 4,
 				              "Sent %d byte broadcast to gateway (%s:%u)",
 				              SendLen + 4,
@@ -3127,13 +3135,15 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 				           pPacket->EconetHeader.DestStn);
 				#endif
 
-				EconetLogData(Packet.Data,
+				EconetLogData(EconetLogMessageType::Status,
+				              Packet.Data,
 				              Packet.Length,
 				              "Gateway found at %s:%u",
 				              IPAddressStr(Gateway.IPAddress).c_str(),
 				              Gateway.Port);
 
-				EconetLog("Bridge sees us as station %d.%d",
+				EconetLog(EconetLogMessageType::Status,
+				          "Bridge sees us as station %d.%d",
 				          pPacket->EconetHeader.DestNet,
 				          pPacket->EconetHeader.DestStn);
 
@@ -3161,7 +3171,8 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 			           ntohs(Packet.Src.sin_port));
 			#endif
 
-			EconetLogData(Packet.Data,
+			EconetLogData(EconetLogMessageType::Status,
+			              Packet.Data,
 			              Packet.Length,
 			              "Ignored gateway response from %s:%u",
 			              IPAddressStr(Packet.Src.sin_addr.s_addr).c_str(),
@@ -3187,7 +3198,8 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 		           SrcStn);
 		#endif
 
-		EconetLogData(Packet.Data,
+		EconetLogData(EconetLogMessageType::Broadcast,
+		              Packet.Data,
 		              Packet.Length,
 		              "Received BeebEm announcement from station %d.%d",
 		              SrcNet,
@@ -3202,7 +3214,8 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 				DebugTrace("Econet: Address collision!\n");
 				#endif
 
-				EconetLog("Address collision detected");
+				EconetLog(EconetLogMessageType::Status,
+				          "Address collision detected");
 
 				if (pHeader->Handle >= AnnounceHandle)
 				{
@@ -3241,7 +3254,8 @@ static bool HandleSpecialPacket(const ReceivedPacket& Packet)
 		}
 		else
 		{
-			EconetLogData(Packet.Data,
+			EconetLogData(EconetLogMessageType::Broadcast,
+			              Packet.Data,
 			              Packet.Length,
 			              "Ignored BeebEm announcement from station %d.%d",
 			              SrcNet,
@@ -3424,7 +3438,8 @@ static bool EconetReceivePacket()
 			pBeebRxEconetHeader->CtrlByte = pRxAUNHeader->CtrlByte | 0x80;
 			pBeebRxEconetHeader->Port     = pRxAUNHeader->Port;
 
-			EconetLogData(EconetRx.Buffer,
+			EconetLogData(EconetLogMessageType::Data,
+			              EconetRx.Buffer,
 			              BytesReceived,
 			              "Received %d byte packet from station %d.%d (%s:%u)",
 			              BytesReceived,
@@ -3567,7 +3582,8 @@ static bool EconetReceivePacket()
 						DebugTrace("Econet: Unexpected packet dropped\n");
 						#endif
 
-						EconetLog("Unexpected packet dropped");
+						EconetLog(EconetLogMessageType::Status,
+						          "Unexpected packet dropped");
 					}
 
 					BeebRx.Pointer = 0;
@@ -3599,7 +3615,8 @@ static bool EconetReceivePacket()
 						DebugTrace("Econet: Unexpected packet dropped\n");
 						#endif
 
-						EconetLog("Unexpected packet dropped");
+						EconetLog(EconetLogMessageType::Status,
+						          "Unexpected packet dropped");
 
 						BeebRx.BytesInBuffer = 0;
 					}
@@ -3737,7 +3754,8 @@ static void EconetSendGatewayDiscoveryPacket()
 	Packet.AUNHeader.CtrlByte = ECONET_CTRL_GATEWAY_QUERY & 0x7F;
 	Packet.Buffer[0] = ECONET_PORT_BEEBEM; // Where response is sent
 
-	EconetLogData((const unsigned char*)&Packet,
+	EconetLogData(EconetLogMessageType::Broadcast,
+	              (const unsigned char*)&Packet,
 	              sizeof(Packet),
 	              "Sending gateway discovery query");
 
@@ -3779,7 +3797,8 @@ static void EconetSendGatewayKeepAlivePacket()
 	Packet.AUNHeader.Port = ECONET_PORT_PI_ECONET_BRIDGE;
 	Packet.AUNHeader.CtrlByte = ECONET_CTRL_GATEWAY_KEEPALIVE & 0x7F;
 
-	EconetLogData((const unsigned char*)&Packet,
+	EconetLogData(EconetLogMessageType::Broadcast,
+	              (const unsigned char*)&Packet,
 	              sizeof(Packet),
 	              "Sending gateway keep-alive");
 
@@ -3817,7 +3836,8 @@ static void EconetSendAnnouncePacket()
 	Packet.Buffer[0] = EconetStationID;
 	Packet.Buffer[1] = EconetNetworkID;
 
-	EconetLogData((const unsigned char*)&Packet,
+	EconetLogData(EconetLogMessageType::Broadcast,
+	              (const unsigned char*)&Packet,
 	              sizeof(Packet),
 	              "Sending broadcast announcement");
 

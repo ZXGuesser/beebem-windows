@@ -68,6 +68,7 @@ using std::max;
 #include "DiscInfo.h"
 #include "Econet.h" // Rob O'Donnell Christmas 2004.
 #include "EconetDialog.h"
+#include "EconetLog.h"
 #include "Ext1770.h"
 #include "FolderSelectDialog.h"
 #include "FileType.h"
@@ -276,6 +277,9 @@ BeebWin::BeebWin()
 	}
 
 	InitKeyMap();
+
+	// Econet
+	m_ShowEconetBroadcasts = true;
 
 	// File paths
 
@@ -4048,7 +4052,8 @@ void BeebWin::OnEconetNetwork()
 
 	g_pEconetDialog = new(std::nothrow) EconetDialog(hInst,
 	                                                 m_hWnd,
-	                                                 GetEconetLogBuffer());
+	                                                 GetEconetLogBuffer(),
+	                                                 m_ShowEconetBroadcasts);
 
 	if (g_pEconetDialog == nullptr)
 	{
@@ -4070,6 +4075,11 @@ void BeebWin::OnEconetNetwork()
 
 void BeebWin::EconetDialogClosed()
 {
+	if (g_pEconetDialog->ApplyChanges())
+	{
+		m_ShowEconetBroadcasts = g_pEconetDialog->GetShowBroadcasts();
+	}
+
 	delete g_pEconetDialog;
 	g_pEconetDialog = nullptr;
 

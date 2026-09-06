@@ -787,6 +787,9 @@ public:
 	bool m_ShiftBooted;
 	int m_vkeyPressed[256][2][2];
 
+	// Econet
+	bool m_ShowEconetBroadcasts;
+
 	// File paths
 	char m_AppPath[MAX_PATH];
 	char m_UserDataPath[MAX_PATH];

@@ -259,6 +259,7 @@
 #define IDC_GATEWAY_PORT                1164
 #define IDC_LOG                         1164
 #define IDC_DETAIL                      1165
+#define IDC_SHOW_BROADCASTS             1166
 #define IDM_ABOUT                       40001
 #define IDM_DISC                        40002
 #define IDM_LOADDISC0                   40002
@@ -505,7 +506,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        127
 #define _APS_NEXT_COMMAND_VALUE         40330
-#define _APS_NEXT_CONTROL_VALUE         1166
+#define _APS_NEXT_CONTROL_VALUE         1167
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -24,12 +24,21 @@ Boston, MA  02110-1301, USA.
 #include <deque>
 #include <string>
 
+enum class EconetLogMessageType
+{
+	Status,
+	Data,
+	Broadcast
+};
+
 class EconetLogMessage
 {
 	public:
-		explicit EconetLogMessage(const std::string& Message);
+		EconetLogMessage(EconetLogMessageType Type,
+		                 const std::string& Message);
 
-		EconetLogMessage(const std::string& Message,
+		EconetLogMessage(EconetLogMessageType Type,
+		                 const std::string& Message,
 		                 const unsigned char* pData,
 		                 int Length);
 
@@ -39,19 +48,50 @@ class EconetLogMessage
 		~EconetLogMessage();
 
 	public:
-		const char* c_str() const { return m_Message.c_str(); }
-		size_t length() const { return m_Message.length(); }
+		EconetLogMessageType GetType() const { return m_Type; }
+
+		const char* GetMessageStr() const { return m_Message.c_str(); }
+		size_t GetMessageLength() const { return m_Message.length(); }
+
 		const unsigned char* GetData() const { return m_pData; }
 		int GetDataLength() const { return m_DataLength; }
+
 	private:
+		EconetLogMessageType m_Type;
 		std::string m_Message;
 		unsigned char* m_pData;
 		int m_DataLength;
 };
 
-void EconetLog(const char *Format, ...);
-void EconetLogData(const unsigned char* pData, int Length, const char *Format, ...);
+class EconetLogBuffer
+{
+	public:
+		EconetLogBuffer();
+		~EconetLogBuffer();
 
-std::deque<EconetLogMessage>* GetEconetLogBuffer();
+	public:
+		int GetSize() const;
+		const EconetLogMessage* GetMessage(int Index) const;
+
+		bool AddMessage(EconetLogMessage* pMessage);
+		void SetFilter(bool Filter);
+		void Clear();
+
+	private:
+		std::deque<EconetLogMessage*> m_Messages;
+		std::deque<EconetLogMessage*> m_FilteredMessages;
+		bool m_Filter;
+};
+
+EconetLogBuffer& GetEconetLogBuffer();
+
+void EconetLog(EconetLogMessageType Type,
+               const char *Format, ...);
+
+void EconetLogData(EconetLogMessageType Type,
+                   const unsigned char* pData,
+                   int Length,
+                   const char *Format, ...);
+
 
 #endif
