@@ -30,6 +30,7 @@ Boston, MA  02110-1301, USA.
 #include "BeebWin.h"
 #include "DebugTrace.h"
 #include "Econet.h"
+#include "EconetLog.h"
 #include "Main.h"
 #include "Messages.h"
 #include "Resource.h"
@@ -43,14 +44,15 @@ EconetDialog* g_pEconetDialog = nullptr;
 /****************************************************************************/
 
 EconetDialog::EconetDialog(HINSTANCE hInstance, HWND hwndParent,
-                           std::deque<EconetLogMessage>* pLogBuffer) :
+                           EconetLogBuffer& LogBuffer,
+                           bool ShowBroadcasts) :
 	m_hInstance(hInstance),
 	m_hwndParent(hwndParent),
 	m_hwnd(nullptr),
 	m_hAccelerators(nullptr),
 	m_EconetNetworkPage(hInstance, IDD_ECONET_NETWORK),
 	m_EconetSettingsPage(hInstance, IDD_ECONET_SETTINGS),
-	m_EconetLogPage(hInstance, IDD_ECONET_LOG, pLogBuffer)
+	m_EconetLogPage(hInstance, IDD_ECONET_LOG, LogBuffer, ShowBroadcasts)
 {
 }
 
@@ -113,9 +115,23 @@ bool EconetDialog::IsOpen() const
 
 /****************************************************************************/
 
+bool EconetDialog::ApplyChanges() const
+{
+	return m_EconetLogPage.Apply();
+}
+
+/****************************************************************************/
+
 void EconetDialog::AppendLog(bool BufferFull)
 {
 	m_EconetLogPage.AppendLog(BufferFull);
+}
+
+/****************************************************************************/
+
+bool EconetDialog::GetShowBroadcasts() const
+{
+	return m_EconetLogPage.GetShowBroadcasts();
 }
 
 /****************************************************************************/
@@ -434,9 +450,11 @@ INT_PTR EconetSettingsPage::HandleMessage(UINT nMessage,
 
 EconetLogPage::EconetLogPage(HINSTANCE hInstance,
                              int DialogID,
-                             std::deque<EconetLogMessage>* pLogBuffer) :
+                             EconetLogBuffer& LogBuffer,
+                             bool ShowBroadcasts) :
 	PropertySheetPage(hInstance, DialogID),
-	m_LogView(pLogBuffer),
+	m_LogView(LogBuffer, ShowBroadcasts),
+	m_ShowBroadcasts(ShowBroadcasts),
 	m_hFont(nullptr)
 {
 }
@@ -558,6 +576,16 @@ void EconetLogPage::OnInitDialog()
 	                   WM_SETFONT,
 	                   (WPARAM)hFont,
 	                   MAKELPARAM(FALSE, 0));
+
+	SetDlgItemChecked(IDC_SHOW_BROADCASTS, m_ShowBroadcasts);
+}
+
+/****************************************************************************/
+
+bool EconetLogPage::OnApply()
+{
+	// Apply changes to the ShowBroadcasts flag.
+	return true;
 }
 
 /****************************************************************************/
@@ -565,6 +593,13 @@ void EconetLogPage::OnInitDialog()
 void EconetLogPage::AppendLog(bool BufferFull)
 {
 	m_LogView.AppendLog(BufferFull);
+}
+
+/****************************************************************************/
+
+bool EconetLogPage::GetShowBroadcasts() const
+{
+	return m_ShowBroadcasts;
 }
 
 /****************************************************************************/
@@ -603,6 +638,11 @@ BOOL EconetLogPage::OnCommand(UINT MenuID)
 		case IDC_CLEAR:
 			m_LogView.Clear();
 			return TRUE;
+
+		case IDC_SHOW_BROADCASTS:
+			m_ShowBroadcasts = IsDlgItemChecked(IDC_SHOW_BROADCASTS);
+			m_LogView.ShowBroadcasts(m_ShowBroadcasts);
+			break;
 
 		case IDM_COPY:
 			m_LogView.CopyToClipboard();

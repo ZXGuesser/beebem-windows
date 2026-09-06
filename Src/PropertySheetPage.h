@@ -31,6 +31,7 @@ class PropertySheetPage : public Window
 
 	public:
 		const PROPSHEETPAGE* GetPropSheetPage() const;
+		bool Apply() const;
 
 	private:
 		static INT_PTR CALLBACK DlgProcCallback(HWND hwnd,
@@ -54,6 +55,7 @@ class PropertySheetPage : public Window
 
 	private:
 		PROPSHEETPAGE m_Page;
+		bool m_Apply;
 };
 
 #endif

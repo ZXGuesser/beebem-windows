@@ -18,6 +18,8 @@ Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 Boston, MA  02110-1301, USA.
 ****************************************************************/
 
+#include <windows.h>
+
 #include "EconetLog.h"
 
 #include <assert.h>
@@ -29,11 +31,14 @@ Boston, MA  02110-1301, USA.
 /****************************************************************************/
 
 static const size_t MAX_LOG_MESSAGES = 2000;
-static std::deque<EconetLogMessage> EconetLogMessages;
+
+static EconetLogBuffer LogBuffer;
 
 /****************************************************************************/
 
-EconetLogMessage::EconetLogMessage(const std::string& Message) :
+EconetLogMessage::EconetLogMessage(EconetLogMessageType Type,
+                                   const std::string& Message) :
+	m_Type(Type),
 	m_Message(Message),
 	m_pData(nullptr),
 	m_DataLength(0)
@@ -42,9 +47,11 @@ EconetLogMessage::EconetLogMessage(const std::string& Message) :
 
 /****************************************************************************/
 
-EconetLogMessage::EconetLogMessage(const std::string& Message,
+EconetLogMessage::EconetLogMessage(EconetLogMessageType Type,
+                                   const std::string& Message,
                                    const unsigned char* pData,
                                    int Length) :
+	m_Type(Type),
 	m_Message(Message),
 	m_DataLength(Length)
 {
@@ -69,7 +76,93 @@ EconetLogMessage::~EconetLogMessage()
 
 /****************************************************************************/
 
-void EconetLog(const char *Format, ...)
+EconetLogBuffer::EconetLogBuffer() :
+	m_Filter(false)
+{
+}
+
+/****************************************************************************/
+
+EconetLogBuffer::~EconetLogBuffer()
+{
+	Clear();
+}
+
+/****************************************************************************/
+
+int EconetLogBuffer::GetSize() const
+{
+	return m_Filter ? (int)m_FilteredMessages.size() : (int)m_Messages.size();
+}
+
+/****************************************************************************/
+
+const EconetLogMessage* EconetLogBuffer::GetMessage(int Index) const
+{
+	return m_Filter ? m_FilteredMessages[Index] : m_Messages[Index];
+}
+
+/****************************************************************************/
+
+bool EconetLogBuffer::AddMessage(EconetLogMessage* pMessage)
+{
+	bool BufferFull = m_Messages.size() == MAX_LOG_MESSAGES;
+
+	if (BufferFull)
+	{
+		// Discard oldest message.
+		EconetLogMessage* pLastMessage = m_Messages.front();
+
+		m_Messages.pop_front();
+
+		if (pLastMessage->GetType() != EconetLogMessageType::Broadcast)
+		{
+			m_FilteredMessages.pop_front();
+		}
+
+		delete pLastMessage;
+	}
+
+	m_Messages.push_back(pMessage);
+
+	if (pMessage->GetType() != EconetLogMessageType::Broadcast)
+	{
+		m_FilteredMessages.push_back(pMessage);
+	}
+
+	return BufferFull;
+}
+
+/****************************************************************************/
+
+void EconetLogBuffer::SetFilter(bool Filter)
+{
+	m_Filter = Filter;
+}
+
+/****************************************************************************/
+
+void EconetLogBuffer::Clear()
+{
+	for (size_t i = 0; i < m_Messages.size(); i++)
+	{
+		delete m_Messages[i];
+	}
+
+	m_Messages.clear();
+	m_FilteredMessages.clear();
+}
+
+/****************************************************************************/
+
+EconetLogBuffer& GetEconetLogBuffer()
+{
+	return LogBuffer;
+}
+
+/****************************************************************************/
+
+void EconetLog(EconetLogMessageType Type, const char *Format, ...)
 {
 	va_list Args;
 	va_start(Args, Format);
@@ -92,24 +185,23 @@ void EconetLog(const char *Format, ...)
 
 	vsprintf_s(Buffer + 24, (512 - 24) * sizeof(char), Format, Args);
 
-	bool BufferFull = EconetLogMessages.size() == MAX_LOG_MESSAGES;
+	EconetLogMessage* pMessage = new(std::nothrow) EconetLogMessage(Type, Buffer);
 
-	if (BufferFull)
+	if (pMessage != nullptr)
 	{
-		// Discard oldest message.
-		EconetLogMessages.pop_front();
+		bool BufferFull = LogBuffer.AddMessage(pMessage);
+
+		PostMessage(mainWin->GethWnd(), WM_ECONET_APPEND_LOG, BufferFull, 0);
 	}
-
-	EconetLogMessages.emplace_back(Buffer);
-
-	PostMessage(mainWin->GethWnd(), WM_ECONET_APPEND_LOG, BufferFull, 0);
 
 	va_end(Args);
 }
 
 /****************************************************************************/
 
-void EconetLogData(const unsigned char* pData, int Length, const char *Format, ...)
+void EconetLogData(EconetLogMessageType Type,
+                   const unsigned char* pData, int Length,
+                   const char *Format, ...)
 {
 	va_list Args;
 	va_start(Args, Format);
@@ -132,26 +224,16 @@ void EconetLogData(const unsigned char* pData, int Length, const char *Format, .
 
 	vsprintf_s(Buffer + 24, (512 - 24) * sizeof(char), Format, Args);
 
-	bool BufferFull = EconetLogMessages.size() == MAX_LOG_MESSAGES;
+	EconetLogMessage* pMessage = new(std::nothrow) EconetLogMessage(Type, Buffer, pData, Length);
 
-	if (BufferFull)
+	if (pMessage != nullptr)
 	{
-		// Discard oldest message.
-		EconetLogMessages.pop_front();
+		bool BufferFull = LogBuffer.AddMessage(pMessage);
+
+		PostMessage(mainWin->GethWnd(), WM_ECONET_APPEND_LOG, BufferFull, 0);
 	}
 
-	EconetLogMessages.emplace_back(Buffer, pData, Length);
-
-	PostMessage(mainWin->GethWnd(), WM_ECONET_APPEND_LOG, BufferFull, 0);
-
 	va_end(Args);
-}
-
-/****************************************************************************/
-
-std::deque<EconetLogMessage>* GetEconetLogBuffer()
-{
-	return &EconetLogMessages;
 }
 
 /****************************************************************************/

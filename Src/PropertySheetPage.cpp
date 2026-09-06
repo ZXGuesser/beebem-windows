@@ -33,6 +33,8 @@ PropertySheetPage::PropertySheetPage(HINSTANCE hInstance, int DialogID)
 	m_Page.pszTemplate = MAKEINTRESOURCE(DialogID);
 	m_Page.pfnDlgProc  = DlgProcCallback;
 	m_Page.lParam      = reinterpret_cast<LPARAM>(this);
+
+	m_Apply = false;
 }
 
 /****************************************************************************/
@@ -40,6 +42,13 @@ PropertySheetPage::PropertySheetPage(HINSTANCE hInstance, int DialogID)
 const PROPSHEETPAGE* PropertySheetPage::GetPropSheetPage() const
 {
 	return &m_Page;
+}
+
+/****************************************************************************/
+
+bool PropertySheetPage::Apply() const
+{
+	return m_Apply;
 }
 
 /****************************************************************************/
@@ -108,6 +117,7 @@ INT_PTR PropertySheetPage::DlgProc(UINT nMessage,
 
 				case PSN_APPLY: {
 					bool Ok = OnApply();
+					m_Apply = Ok;
 					SetWindowLongPtr(m_hwnd, DWLP_MSGRESULT, Ok ? PSNRET_NOERROR : PSNRET_INVALID);
 					return TRUE;
 				}

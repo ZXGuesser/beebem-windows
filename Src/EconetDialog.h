@@ -74,19 +74,23 @@ class EconetSettingsPage : public PropertySheetPage
 };
 
 class EconetLogMessage;
+class EconetLogBuffer;
 
 class EconetLogPage : public PropertySheetPage
 {
 	public:
 		EconetLogPage(HINSTANCE hInstance,
 		              int DialogID,
-		              std::deque<EconetLogMessage>* pLogBuffer);
+		              EconetLogBuffer& LogBuffer,
+		              bool ShowBroadcasts);
 
 	public:
 		void AppendLog(bool BufferFull);
+		bool GetShowBroadcasts() const;
 
 	private:
 		virtual void OnInitDialog();
+		virtual bool OnApply();
 
 		virtual INT_PTR HandleMessage(UINT nMessage,
 		                              WPARAM wParam,
@@ -97,6 +101,7 @@ class EconetLogPage : public PropertySheetPage
 
 	private:
 		LogView m_LogView;
+		bool m_ShowBroadcasts;
 		HFONT m_hFont;
 };
 
@@ -105,15 +110,19 @@ class EconetDialog
 	public:
 		EconetDialog(HINSTANCE hInstance,
 		             HWND hwndParent,
-		             std::deque<EconetLogMessage>* pLogBuffer);
+		             EconetLogBuffer& LogBuffer,
+		             bool ShowBroadcasts);
 
 	public:
 		bool Open();
 		void Close();
 
 		bool IsOpen() const;
+		bool ApplyChanges() const;
 
 		void AppendLog(bool BufferFull);
+
+		bool GetShowBroadcasts() const;
 
 		bool HandleMessage(MSG* pMsg);
 
