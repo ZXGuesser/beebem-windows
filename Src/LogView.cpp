@@ -175,6 +175,8 @@ void LogView::CopyToClipboard()
 		Size += m_LogBuffer.GetMessage(i)->GetMessageLength() + 2;
 	}
 
+	Size += 1; // For the NUL terminator.
+
 	auto CopyData = [=](unsigned char* pBuffer)
 	{
 		size_t Offset = 0;
