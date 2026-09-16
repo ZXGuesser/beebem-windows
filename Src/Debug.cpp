@@ -43,6 +43,7 @@ Boston, MA  02110-1301, USA.
 #include "Arm.h"
 #include "ArmDisassembler.h"
 #include "BeebMem.h"
+#include "Clipboard.h"
 #include "DebugTrace.h"
 #include "Econet.h"
 #include "FileDialog.h"
@@ -1308,6 +1309,61 @@ void DebugDisplayInfo(const char *info)
 
 /****************************************************************************/
 
+static void DebugSelectAll()
+{
+	int Count = SendMessage(hwndInfo, LB_GETCOUNT, 0, 0);
+
+	if (Count > 0)
+	{
+		SendMessage(hwndInfo, LB_SELITEMRANGE, TRUE, MAKELPARAM(0, Count - 1));
+	}
+}
+
+/****************************************************************************/
+
+static void DebugCopy()
+{
+	int Count = SendMessage(hwndInfo, LB_GETSELCOUNT, 0, 0);
+
+	if (Count > 0 && Count != LB_ERR)
+	{
+		int* pItems = new(std::nothrow) int[Count];
+
+		SendMessage(hwndInfo, LB_GETSELITEMS, Count, (LPARAM)pItems);
+
+		size_t Size = 0;
+
+		for (int i = 0; i < Count; i++)
+		{
+			Size += SendMessage(hwndInfo, LB_GETTEXTLEN, pItems[i], 0);
+			Size += 2;
+		}
+
+		Size += 1; // For the NUL terminator.
+
+		auto CopyData = [=](unsigned char* pData)
+		{
+			for (int i = 0; i < Count; i++)
+			{
+				SendMessage(hwndInfo, LB_GETTEXT, pItems[i], (LPARAM)pData);
+
+				pData += strlen((const char*)pData);
+
+				*pData++ = '\r';
+				*pData++ = '\n';
+			}
+
+			*pData = '\0';
+		};
+
+		::CopyToClipboard(hwndDebug, Size, CopyData);
+
+		delete [] pItems;
+	}
+}
+
+/****************************************************************************/
+
 static INT_PTR CALLBACK DebugDlgProc(HWND hWnd, UINT Message, WPARAM wParam, LPARAM /* lParam */)
 {
 	switch (Message)
@@ -1388,6 +1444,14 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hWnd, UINT Message, WPARAM wParam, LPA
 					{
 						DebugHistoryMove(1);
 					}
+					break;
+
+				case IDM_SELECT_ALL:
+					DebugSelectAll();
+					break;
+
+				case IDM_COPY:
+					DebugCopy();
 					break;
 
 				case IDC_DEBUGBREAK:

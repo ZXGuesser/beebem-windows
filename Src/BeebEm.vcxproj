@@ -360,7 +360,7 @@
     <ClInclude Include="BeebMem.h" />
     <ClInclude Include="BeebWin.h" />
     <ClInclude Include="BeebWinPrefs.h" />
-    <ClInclude Include="ClipBoard.h" />
+    <ClInclude Include="Clipboard.h" />
     <ClInclude Include="ComboBox.h" />
     <ClInclude Include="Csw.h" />
     <ClInclude Include="Debug.h" />

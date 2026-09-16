@@ -439,6 +439,8 @@ END
 
 IDR_DEBUG ACCELERATORS
 BEGIN
+    "C",            IDM_COPY,               VIRTKEY, CONTROL, NOINVERT
+    "A",            IDM_SELECT_ALL,         VIRTKEY, CONTROL, NOINVERT
     VK_UP,          IDM_UP,                 VIRTKEY, NOINVERT
     VK_DOWN,        IDM_DOWN,               VIRTKEY, NOINVERT
 END
