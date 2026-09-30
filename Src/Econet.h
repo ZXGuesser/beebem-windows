@@ -98,6 +98,7 @@ struct EconetHost
 	unsigned short Port;
 	BroadcastSource Broadcasts; // where to accept broadcasts from
 	time_t Timeout;
+	bool Local; // this physical host
 };
 
 struct EconetNet
