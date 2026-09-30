@@ -774,6 +774,10 @@ static void AllocateNewAddress()
 							// fully wild address. (Only for loopback!)
 							BroadcastAddresses.clear();
 							BroadcastAddresses.emplace_back(INADDR_BROADCAST);
+							
+							// Only stations on this host will be reachable
+							// remove everything else from the stations list
+							Stations.erase(std::remove_if(Stations.begin(), Stations.end(), [](const EconetHost& s) { return !s.Local; }),Stations.end());
 						}
 						
 						break;
