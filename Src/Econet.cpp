@@ -532,8 +532,9 @@ static EconetHost* FindStationByIPAddress(unsigned long IPAddress,
 	for (size_t i = 0; i < Stations.size(); ++i)
 	{
 		EconetHost& Station = Stations[i];
-
-		if (IPAddress == Station.IPAddress && Port == Station.Port)
+		
+		// Also match addresses flagged as being on this host when passed the loopback address
+		if (Port == Station.Port && (IPAddress == Station.IPAddress || (Station.Local && IPAddress == htonl(INADDR_LOOPBACK))))
 		{
 			return &Station;
 		}
@@ -559,6 +560,14 @@ static void AddStation(unsigned char Station,
 	Host.Port = Port;
 	Host.Broadcasts = Broadcasts;
 	Host.Timeout = time(nullptr) + HOST_TIMEOUT;
+
+	// Check against our local IP addresses.
+	auto it = std::find(LocalIPAddresses.begin(),
+	                    LocalIPAddresses.end(),
+	                    IPAddress);
+
+	// flag if this station ip matches one of our network adapters
+	Host.Local = it != LocalIPAddresses.end();
 
 	Stations.emplace_back(Host);
 
@@ -738,7 +747,12 @@ static void AllocateNewAddress()
 				    (Station.Station == PreferredStationID &&
 				     Station.Network == PreferredNetworkID))
 				{
-					// Bind to configured port on only the configured address.
+					// If configured address is loopback bind only to it, else bind to all interfaces.
+					if (IPAddress != htonl(INADDR_LOOPBACK))
+					{
+						IPAddress = INADDR_ANY;
+					}
+					
 					if (pSocket->Bind(IPAddress, Station.Port))
 					{
 						EconetListenIP = IPAddress;
@@ -754,12 +768,13 @@ static void AllocateNewAddress()
 						           EconetListenPort);
 						#endif
 						
-						// Replace network specific broadcast addresses with
-						// fully wild address.
-						// As we are bound to a single IP it will go only to
-						// the correct network.
-						BroadcastAddresses.clear();
-						BroadcastAddresses.emplace_back(INADDR_BROADCAST);
+						if (EconetListenIP != INADDR_ANY)
+						{
+							// Replace network specific broadcast addresses with
+							// fully wild address. (Only for loopback!)
+							BroadcastAddresses.clear();
+							BroadcastAddresses.emplace_back(INADDR_BROADCAST);
+						}
 						
 						break;
 					}
@@ -1029,7 +1044,9 @@ bool EconetReset()
 		AnnounceHandle = 0; // Clear announce packet sequence number.
 		return true;
 	}
-
+	
+	GetLocalNetworkAddresses(LocalIPAddresses, BroadcastAddresses);
+	
 	// Read in Econet.cfg and AUNMap. Done here so can refresh it on Break.
 	if (!ReadEconetConfigFile())
 	{
@@ -1081,7 +1098,6 @@ bool EconetReset()
 		goto Fail;
 	}
 
-	GetLocalNetworkAddresses(LocalIPAddresses, BroadcastAddresses);
 
 	if (EconetConfig.AutoConfigure &&
 	    PreferredStationID == 0 &&
@@ -2915,6 +2931,11 @@ static bool IgnoreReceivedBroadcastPacket(const sockaddr_in& RecvAddr,
 			// We sent this packet out, ignore it.
 			return true;
 		}
+	}
+	else if (EconetListenIP == htonl(INADDR_LOOPBACK))
+	{
+		// packet is not from this host and we are configured for localhost econet only
+		return true;
 	}
 
 	return false;
