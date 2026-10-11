@@ -169,6 +169,19 @@ bool UdpSocket::Create(HANDLE iocp)
 		return false;
 	}
 
+	HANDLE Result = CreateIoCompletionPort((HANDLE)m_Socket, // FileHandle
+	                                       m_iocp,           // ExistingCompletionPort
+	                                       (ULONG_PTR)this,  // CompletionKey
+	                                       0);               // NumberOfConcurrentThreads
+
+	if (Result == nullptr)
+	{
+		closesocket(m_Socket);
+		m_Socket = INVALID_SOCKET;
+
+		return false;
+	}
+
 	#ifdef DEBUG_UDP
 	DebugTrace("UdpSocket: Created socket\n");
 	#endif
@@ -198,16 +211,6 @@ bool UdpSocket::Bind(unsigned long IPAddress, unsigned short Port)
 		return false;
 	}
 
-	HANDLE Result = CreateIoCompletionPort((HANDLE)m_Socket, // FileHandle
-	                                       m_iocp,           // ExistingCompletionPort
-	                                       (ULONG_PTR)this,  // CompletionKey
-	                                       0);               // NumberOfConcurrentThreads
-
-	if (Result == nullptr)
-	{
-		return false;
-	}
-
 	// Pre-post receive buffers
 	for (int i = 0; i < ReceiveQueue::RECEIVE_QUEUE_DEPTH; i++)
 	{
@@ -215,10 +218,15 @@ bool UdpSocket::Bind(unsigned long IPAddress, unsigned short Port)
 
 		if (pContext == nullptr)
 		{
+			Close();
 			return false;
 		}
 
-		PostReceive(pContext);
+		if (!PostReceive(pContext))
+		{
+			delete pContext;
+			return false;
+		}
 	}
 
 	#ifdef DEBUG_UDP
