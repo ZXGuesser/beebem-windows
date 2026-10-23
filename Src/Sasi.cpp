@@ -126,16 +126,20 @@ void SASIReset()
 			continue;
 
 		char FileName[MAX_PATH];
-		MakeFileName(FileName, MAX_PATH, HardDrivePath, "sasi%d.dat", i);
+		sprintf(FileName, "sasi%d.dat", i);
 
-		SASIDisc[i] = fopen(FileName, "rb+");
+		char PathName[MAX_PATH];
+		strcpy(PathName, HardDrivePath);
+		AppendPath(PathName, FileName);
+
+		SASIDisc[i] = fopen(PathName, "rb+");
 
 		if (SASIDisc[i] == nullptr)
 		{
 			std::string Error = GetSystemError();
 
 			mainWin->Report(MessageType::Error,
-			                "Could not open Torch Z80 SASI disc image:\n  %s\n\n%s", FileName, Error.c_str());
+			                "Could not open Torch Z80 SASI disc image:\n  %s\n\n%s", PathName, Error.c_str());
 		}
 	}
 
@@ -678,7 +682,8 @@ static bool SASIWriteGeometry(unsigned char * /* buf */)
 
 static bool SASIDiscFormat(unsigned char *buf)
 {
-	if (SASIDisc[sasi.lun] != nullptr) {
+	if (SASIDisc[sasi.lun] != nullptr)
+	{
 		fclose(SASIDisc[sasi.lun]);
 		SASIDisc[sasi.lun] = nullptr;
 	}
@@ -690,13 +695,25 @@ static bool SASIDiscFormat(unsigned char *buf)
 	record |= buf[3];
 
 	char FileName[MAX_PATH];
-	MakeFileName(FileName, MAX_PATH, HardDrivePath, "sasi%d.dat", sasi.lun);
+	sprintf(FileName, "sasi%d.dat", sasi.lun);
 
-	SASIDisc[sasi.lun] = fopen(FileName, "wb");
-	if (SASIDisc[sasi.lun] != nullptr) fclose(SASIDisc[sasi.lun]);
-	SASIDisc[sasi.lun] = fopen(FileName, "rb+");
+	char PathName[MAX_PATH];
+	strcpy(PathName, HardDrivePath);
+	AppendPath(PathName, FileName);
 
-	if (SASIDisc[sasi.lun] == NULL) return false;
+	SASIDisc[sasi.lun] = fopen(PathName, "wb");
+
+	if (SASIDisc[sasi.lun] != nullptr)
+	{
+		fclose(SASIDisc[sasi.lun]);
+	}
+
+	SASIDisc[sasi.lun] = fopen(PathName, "rb+");
+
+	if (SASIDisc[sasi.lun] == nullptr)
+	{
+		return false;
+	}
 
 	return true;
 }

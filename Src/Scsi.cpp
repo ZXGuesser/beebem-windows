@@ -118,9 +118,13 @@ static bool ReadGeometryFile(int lun)
 	bool Success = true;
 
 	char FileName[MAX_PATH];
-	MakeFileName(FileName, MAX_PATH, HardDrivePath, "scsi%d.dsc", lun);
+	sprintf(FileName, "scsi%d.dsc", lun);
 
-	FILE* pFile = fopen(FileName, "rb");
+	char PathName[MAX_PATH];
+	strcpy(PathName, HardDrivePath);
+	AppendPath(PathName, FileName);
+
+	FILE* pFile = fopen(PathName, "rb");
 
 	if (pFile != nullptr)
 	{
@@ -164,16 +168,20 @@ void SCSIReset()
 	for (int i = 0; i < 4; ++i)
 	{
 		char FileName[MAX_PATH];
-		MakeFileName(FileName, MAX_PATH, HardDrivePath, "scsi%d.dat", i);
+		sprintf(FileName, "scsi%d.dat", i);
 
-		SCSIDisc[i] = fopen(FileName, "rb+");
+		char PathName[MAX_PATH];
+		strcpy(PathName, HardDrivePath);
+		AppendPath(PathName, FileName);
+
+		SCSIDisc[i] = fopen(PathName, "rb+");
 
 		if (SCSIDisc[i] == nullptr)
 		{
 			std::string Error = GetSystemError();
 
 			mainWin->Report(MessageType::Error,
-			                "Could not open SCSI disc image:\n  %s\n\n%s", FileName, Error.c_str());
+			                "Could not open SCSI disc image:\n  %s\n\n%s", PathName, Error.c_str());
 		}
 
 		SCSISize[i] = 0;
@@ -742,20 +750,30 @@ static void ModeSense()
 
 static int DiscModeSense(unsigned char *cdb, unsigned char *buf)
 {
-	if (SCSIDisc[scsi.lun] == NULL) return 0;
+	if (SCSIDisc[scsi.lun] == nullptr)
+	{
+		return 0;
+	}
 
 	char FileName[MAX_PATH];
-	MakeFileName(FileName, MAX_PATH, HardDrivePath, "scsi%d.dsc", scsi.lun);
+	sprintf(FileName, "scsi%d.dsc", scsi.lun);
 
-	FILE *f = fopen(FileName, "rb");
+	char PathName[MAX_PATH];
+	strcpy(PathName, HardDrivePath);
+	AppendPath(PathName, FileName);
 
-	if (f == nullptr) return 0;
+	FILE* pFile = fopen(PathName, "rb");
+
+	if (pFile == nullptr)
+	{
+		return 0;
+	}
 
 	int size = cdb[4];
 	if (size == 0)
 		size = 22;
 
-	size = (int)fread(buf, 1, size, f);
+	size = (int)fread(buf, 1, size, pFile);
 
 	// heads = buf[15];
 	// cyl   = buf[13] * 256 + buf[14];
@@ -763,7 +781,7 @@ static int DiscModeSense(unsigned char *cdb, unsigned char *buf)
 	// rwcc  = buf[16] * 256 + buf[17];
 	// lz    = buf[20];
 
-	fclose(f);
+	fclose(pFile);
 
 	return size;
 }
@@ -787,18 +805,28 @@ static void ModeSelect()
 
 static bool WriteGeometry(unsigned char *buf)
 {
-	if (SCSIDisc[scsi.lun] == NULL) return false;
+	if (SCSIDisc[scsi.lun] == nullptr)
+	{
+		return false;
+	}
 
 	char FileName[MAX_PATH];
-	MakeFileName(FileName, MAX_PATH, HardDrivePath, "scsi%d.dsc", scsi.lun);
+	sprintf(FileName, "scsi%d.dsc", scsi.lun);
 
-	FILE *f = fopen(FileName, "wb");
+	char PathName[MAX_PATH];
+	strcpy(PathName, HardDrivePath);
+	AppendPath(PathName, FileName);
 
-	if (f == nullptr) return false;
+	FILE* pFile = fopen(PathName, "wb");
 
-	fwrite(buf, 22, 1, f);
+	if (pFile == nullptr)
+	{
+		return false;
+	}
 
-	fclose(f);
+	fwrite(buf, 22, 1, pFile);
+
+	fclose(pFile);
 
 	return true;
 }
@@ -807,19 +835,32 @@ static bool DiscFormat(unsigned char * /* buf */)
 {
 	// Ignore defect list
 
-	if (SCSIDisc[scsi.lun] != nullptr) {
+	if (SCSIDisc[scsi.lun] != nullptr)
+	{
 		fclose(SCSIDisc[scsi.lun]);
 		SCSIDisc[scsi.lun] = nullptr;
 	}
 
 	char FileName[MAX_PATH];
-	MakeFileName(FileName, MAX_PATH, HardDrivePath, "scsi%d.dat", scsi.lun);
+	sprintf(FileName, "scsi%d.dat", scsi.lun);
 
-	SCSIDisc[scsi.lun] = fopen(FileName, "wb");
-	if (SCSIDisc[scsi.lun] != nullptr) fclose(SCSIDisc[scsi.lun]);
-	SCSIDisc[scsi.lun] = fopen(FileName, "rb+");
+	char PathName[MAX_PATH];
+	strcpy(PathName, HardDrivePath);
+	AppendPath(PathName, FileName);
 
-	if (SCSIDisc[scsi.lun] == nullptr) return false;
+	SCSIDisc[scsi.lun] = fopen(PathName, "wb");
+
+	if (SCSIDisc[scsi.lun] != nullptr)
+	{
+		fclose(SCSIDisc[scsi.lun]);
+	}
+
+	SCSIDisc[scsi.lun] = fopen(PathName, "rb+");
+
+	if (SCSIDisc[scsi.lun] == nullptr)
+	{
+		return false;
+	}
 
 	ReadGeometryFile(scsi.lun);
 

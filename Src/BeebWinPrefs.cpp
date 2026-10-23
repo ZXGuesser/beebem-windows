@@ -1408,10 +1408,14 @@ void BeebWin::LoadTeletextAdapterPreferences(int Version)
 			m_Preferences.GetStringValue("DiscsPath", DiscsPath);
 			GetDataPath(m_UserDataPath, DiscsPath);
 
-			char TeletextFile[MAX_PATH];
-			MakeFileName(TeletextFile, MAX_PATH, DiscsPath, "txt%d.dat", ch);
+			char FileName[MAX_PATH];
+			sprintf(FileName, "txt%d.dat", ch);
 
-			TeletextFileName[ch] = TeletextFile;
+			char PathName[MAX_PATH];
+			strcpy(PathName, DiscsPath);
+			AppendPath(PathName, FileName);
+
+			TeletextFileName[ch] = PathName;
 		}
 
 		std::string TeletextIPAddress;

@@ -80,16 +80,20 @@ void IDEReset()
 	for (int i = 0; i < IDEDriveMax; ++i)
 	{
 		char FileName[MAX_PATH];
-		MakeFileName(FileName, MAX_PATH, HardDrivePath, "ide%d.dat", i);
+		sprintf(FileName, "ide%d.dat", i);
 
-		IDEDisc[i] = fopen(FileName, "rb+");
+		char PathName[MAX_PATH];
+		strcpy(PathName, HardDrivePath);
+		AppendPath(PathName, FileName);
+
+		IDEDisc[i] = fopen(PathName, "rb+");
 
 		if (IDEDisc[i] == nullptr)
 		{
 			std::string Error = GetSystemError();
 
 			mainWin->Report(MessageType::Error,
-			                "Could not open IDE disc image:\n  %s\n\n%s", FileName, Error.c_str());
+			                "Could not open IDE disc image:\n  %s\n\n%s", PathName, Error.c_str());
 		}
 	}
 }

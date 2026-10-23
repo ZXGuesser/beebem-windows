@@ -145,27 +145,6 @@ const char* GetFileNameFromPath(const char* PathName)
 
 /****************************************************************************/
 
-void MakeFileName(char* Path, size_t /* Size */, const char* DirName, const char* FileName, ...)
-{
-	va_list args;
-	va_start(args, FileName);
-
-	strcpy(Path, DirName);
-
-	size_t Len = strlen(Path);
-
-	if (Path[Len] != DIR_SEPARATOR)
-	{
-		Path[Len++] = DIR_SEPARATOR;
-	}
-
-	vsprintf(&Path[Len], FileName, args);
-
-	va_end(args);
-}
-
-/****************************************************************************/
-
 void MakePreferredPath(char* PathName)
 {
 	for (size_t i = 0; i < strlen(PathName); ++i)
