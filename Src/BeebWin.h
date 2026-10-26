@@ -41,6 +41,7 @@ Boston, MA  02110-1301, USA.
 #include <sapi.h>
 
 #include "DiscType.h"
+#include "HardDrive.h"
 #include "JoystickController.h"
 #include "KeyMap.h"
 #include "Model.h"
@@ -547,6 +548,8 @@ public:
 	void SetDiscWriteProtect(int Drive, bool WriteProtect);
 	void SetDiscWriteProtects();
 
+	void SetHardDrive(HardDriveType HardDrive);
+	void UpdateHardDriveMenu();
 	void SelectHardDriveFolder();
 
 	// AMX mouse

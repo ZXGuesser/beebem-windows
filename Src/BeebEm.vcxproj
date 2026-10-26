@@ -201,6 +201,7 @@
     <ClCompile Include="FileType.cpp" />
     <ClCompile Include="FileUtils.cpp" />
     <ClCompile Include="FolderSelectDialog.cpp" />
+    <ClCompile Include="HardDrive.cpp" />
     <ClCompile Include="IC32Latch.cpp" />
     <ClCompile Include="Ide.cpp" />
     <ClCompile Include="JoystickController.cpp" />
@@ -372,6 +373,7 @@
     <ClInclude Include="FileType.h" />
     <ClInclude Include="FileUtils.h" />
     <ClInclude Include="FolderSelectDialog.h" />
+    <ClInclude Include="HardDrive.h" />
     <ClInclude Include="IC32Latch.h" />
     <ClInclude Include="JoystickController.h" />
     <ClInclude Include="JoystickDialog.h" />

@@ -25,11 +25,9 @@ Boston, MA  02110-1301, USA.
 #ifndef IDE_HEADER
 #define IDE_HEADER
 
-extern bool IDEDriveEnabled;
-
 void IDEWrite(int Address, unsigned char Value);
 unsigned char IDERead(int Address);
-void IDEReset();
+bool IDEReset();
 void IDEClose();
 
 #endif

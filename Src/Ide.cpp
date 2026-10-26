@@ -50,10 +50,9 @@ Offset  Description             Access
 #include "BeebMem.h"
 #include "BeebWin.h"
 #include "FileUtils.h"
+#include "HardDrive.h"
 #include "Main.h"
 #include "Resource.h"
-
-bool IDEDriveEnabled = false;
 
 static unsigned char IDERegs[8];
 static unsigned char IDEStatus;
@@ -70,11 +69,13 @@ static int IDEnumHeads = 4;
 static void DoIDESeek();
 static void DoIDEGeometry();
 
-void IDEReset()
+bool IDEReset()
 {
 	IDEStatus = 0x50;
 	IDEError = 0;
 	IDEData = 0;
+
+	bool Success = false;
 
 	// NB: Only mount drives 0-IDEDriveMax
 	for (int i = 0; i < IDEDriveMax; ++i)
@@ -88,7 +89,12 @@ void IDEReset()
 
 		IDEDisc[i] = fopen(PathName, "rb+");
 
-		if (IDEDisc[i] == nullptr)
+		if (IDEDisc[i] != nullptr)
+		{
+			// Success if at least one disc image can be opened.
+			Success = true;
+		}
+		else
 		{
 			std::string Error = GetSystemError();
 
@@ -96,6 +102,8 @@ void IDEReset()
 			                "Could not open IDE disc image:\n  %s\n\n%s", PathName, Error.c_str());
 		}
 	}
+
+	return Success;
 }
 
 void IDEWrite(int Address, unsigned char Value)

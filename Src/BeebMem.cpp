@@ -46,6 +46,7 @@ Boston, MA  02110-1301, USA.
 #include "Disc8271.h"
 #include "Econet.h" // Rob
 #include "FileUtils.h"
+#include "HardDrive.h"
 #include "IC32Latch.h"
 #include "Ide.h"
 #include "Main.h"
@@ -643,12 +644,14 @@ unsigned char BeebReadMem(int Address) {
 		return TeletextRead(Address & 0x3);
 	}
 
-	if ((Address & ~0x3)==0xfc40) {
-		if (SCSIDriveEnabled) return SCSIRead(Address & 0x3);
+	if ((Address & ~0x3) == 0xFC40 && HardDrive == HardDriveType::SCSI)
+	{
+		return SCSIRead(Address & 0x3);
 	}
 
-	if ((Address & ~0x7)==0xfc40) {
-		if (IDEDriveEnabled) return IDERead(Address & 0x7);
+	if ((Address & ~0x7) == 0xFC40 && HardDrive == HardDriveType::IDE)
+	{
+		return IDERead(Address & 0x7);
 	}
 
 	// DB: M5000 will only return its fcff select register or
@@ -659,7 +662,8 @@ unsigned char BeebReadMem(int Address) {
 	if (Music5000Read(Address, &ret))
 		return ret;
 
-	if ((Address & ~0x3)==0xfdf0) {
+	if ((Address & ~0x3) == 0xFDF0 && HardDrive == HardDriveType::SASI)
+	{
 		return SASIRead(Address & 0x3);
 	}
 
@@ -1138,24 +1142,23 @@ void BeebWriteMem(int Address, unsigned char Value)
 		return;
 	}
 
-	if ((Address & ~0x3)==0xfc40) {
-		if (SCSIDriveEnabled) {
-			SCSIWrite((Address & 0x3),Value);
-			return;
-		}
+	if ((Address & ~0x3) == 0xFC40 && HardDrive == HardDriveType::SCSI)
+	{
+		SCSIWrite(Address & 0x3, Value);
+		return;
 	}
 
-	if ((Address & ~0x7)==0xfc40) {
-		if (IDEDriveEnabled) {
-			IDEWrite((Address & 0x7),Value);
-			return;
-		}
+	if ((Address & ~0x7) == 0xFC40 && HardDrive == HardDriveType::IDE)
+	{
+		IDEWrite(Address & 0x7, Value);
+		return;
 	}
 
 	Music5000Write(Address, Value);
 
-	if ((Address & ~0x3)==0xfdf0) {
-		SASIWrite((Address & 0x3),Value);
+	if ((Address & ~0x3) == 0xFDF0 && HardDrive == HardDriveType::SASI)
+	{
+		SASIWrite(Address & 0x3, Value);
 		return;
 	}
 

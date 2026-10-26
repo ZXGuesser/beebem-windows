@@ -395,7 +395,6 @@
 #define IDM_ECONET                      40194
 #define IDM_SPEECH                      40196
 #define IDM_TELETEXT                    40199
-#define IDM_SCSI_HARD_DRIVE             40200
 #define IDM_EJECTDISC0                  40201
 #define IDM_EJECTDISC1                  40202
 #define IDM_EXPVOLUME                   40203
@@ -450,7 +449,11 @@
 #define IDM_MAINTAINASPECTRATIO         40278
 #define IDM_XAUDIO2                     40285
 #define IDM_DIRECTSOUND                 40286
-#define IDM_IDE_HARD_DRIVE              40287
+#define IDM_HARD_DRIVE_NONE             40287
+#define IDM_HARD_DRIVE_SCSI             40288
+#define IDM_HARD_DRIVE_IDE              40289
+#define IDM_HARD_DRIVE_TORCH_SASI       40290
+#define IDM_SELECT_HARD_DRIVE_FOLDER    40291
 #define IDM_PAUSE                       40296
 #define IDM_VIEW_DD_SCREENRES           40297
 #define IDM_VIEW_DD_640X480             40298
@@ -467,7 +470,6 @@
 #define IDM_VIEW_DD_2560X1440           40309
 #define IDM_VIEW_DD_3840X2160           40310
 #define IDM_CAPTUREMOUSE                40318
-#define IDM_SELECT_HARD_DRIVE_FOLDER    40319
 #define IDM_SELECT_SERIAL_DESTINATION   40320
 #define IDM_SET_KEYBOARD_LINKS          40321
 #define IDM_TEXTTOSPEECH_AUTO_SPEAK     40322

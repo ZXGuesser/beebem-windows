@@ -179,8 +179,9 @@ const char* const CFG_VIDEO_CAPTURE_FRAME_SKIP_OLD = "FrameSkip"; // For BeebEm 
 // Floppy and hard drives
 const char* const CFG_WRITE_PROTECT_ON_LOAD        = "WriteProtectOnLoad";
 const char* const CFG_FLOPPY_DRIVE_ENABLED         = "FloppyDriveEnabled";
-const char* const CFG_SCSI_DRIVE_ENABLED           = "SCSIDriveEnabled";
-const char* const CFG_IDE_DRIVE_ENABLED            = "IDEDriveEnabled";
+const char* const CFG_HARD_DRIVE_TYPE              = "HardDrive";
+const char* const CFG_SCSI_DRIVE_ENABLED_OLD       = "SCSIDriveEnabled"; // For BeebEm v4.23 and earlier.
+const char* const CFG_IDE_DRIVE_ENABLED_OLD        = "IDEDriveEnabled"; // For BeebEm v4.23 and earlier.
 
 // User port RTC
 const char* const CFG_USER_PORT_RTC_ENABLED        = "UserPortRTCEnabled";

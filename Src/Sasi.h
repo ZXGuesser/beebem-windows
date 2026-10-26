@@ -24,7 +24,9 @@ Boston, MA  02110-1301, USA.
 #ifndef SASI_HEADER
 #define SASI_HEADER
 
-void SASIReset();
+extern bool SASIDriveEnabled;
+
+bool SASIReset();
 void SASIWrite(int Address, unsigned char Value);
 unsigned char SASIRead(int Address);
 void SASIClose();

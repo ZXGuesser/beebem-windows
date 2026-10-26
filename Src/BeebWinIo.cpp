@@ -53,9 +53,13 @@ using std::max;
 #include "FileDialog.h"
 #include "FileType.h"
 #include "FileUtils.h"
+#include "HardDrive.h"
+#include "Ide.h"
 #include "KeyMap.h"
 #include "Main.h"
 #include "Resource.h"
+#include "Sasi.h"
+#include "Scsi.h"
 #include "Serial.h"
 #include "Sound.h"
 #include "StringUtils.h"
@@ -1974,20 +1978,100 @@ void BeebWin::ImportDiscFiles(int menuId)
 	}
 }
 
+/****************************************************************************/
+
+void BeebWin::SetHardDrive(HardDriveType Type)
+{
+	HardDriveType CurrentHardDrive = HardDrive;
+
+	HardDrive = HardDriveType::None;
+
+	switch (CurrentHardDrive)
+	{
+		case HardDriveType::SCSI:
+			SCSIReset();
+			break;
+
+		case HardDriveType::IDE:
+			IDEReset();
+			break;
+
+		case HardDriveType::SASI:
+			SASIReset();
+			break;
+
+		default:
+			break;
+	}
+
+	bool Success = false;
+
+	switch (Type)
+	{
+		case HardDriveType::None:
+		default:
+			break;
+
+		case HardDriveType::SCSI:
+			Success = SCSIReset();
+			break;
+
+		case HardDriveType::IDE:
+			Success = IDEReset();
+			break;
+
+		case HardDriveType::SASI:
+			Success = SASIReset();
+			break;
+	}
+
+	HardDrive = Success ? Type : HardDriveType::None;
+
+	UpdateHardDriveMenu();
+}
+
+/****************************************************************************/
+
+void BeebWin::UpdateHardDriveMenu()
+{
+	static const struct { UINT ID; HardDriveType Type; } MenuItems[] =
+	{
+		{ IDM_HARD_DRIVE_NONE,       HardDriveType::None },
+		{ IDM_HARD_DRIVE_SCSI,       HardDriveType::SCSI },
+		{ IDM_HARD_DRIVE_IDE,        HardDriveType::IDE  },
+		{ IDM_HARD_DRIVE_TORCH_SASI, HardDriveType::SASI }
+	};
+
+	UINT SelectedMenuItemID = 0;
+
+	for (size_t i = 0; i < _countof(MenuItems); i++)
+	{
+		if (HardDrive == MenuItems[i].Type)
+		{
+			SelectedMenuItemID = MenuItems[i].ID;
+			break;
+		}
+	}
+
+	CheckMenuRadioItem(IDM_HARD_DRIVE_NONE, IDM_HARD_DRIVE_TORCH_SASI, SelectedMenuItemID);
+}
+
+/****************************************************************************/
+
 void BeebWin::SelectHardDriveFolder()
 {
 	char DefaultPath[MAX_PATH];
 	char FileName[MAX_PATH];
 	FileName[0] = '\0';
 
-	const char* filter =
+	const char* Filter =
 		"Hard Drive Images (*.dat)\0*.dat\0"
 		"All files (*.*)\0*.*\0";
 
 	m_Preferences.GetStringValue(CFG_HARD_DRIVE_PATH, DefaultPath);
 	GetDataPath(m_UserDataPath, DefaultPath);
 
-	FileDialog Dialog(m_hWnd, FileName, sizeof(FileName), DefaultPath, filter);
+	FileDialog Dialog(m_hWnd, FileName, sizeof(FileName), DefaultPath, Filter);
 
 	if (Dialog.Open())
 	{

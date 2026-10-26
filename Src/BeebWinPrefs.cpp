@@ -32,7 +32,7 @@ Boston, MA  02110-1301, USA.
 #include "Disc8271.h"
 #include "Econet.h"
 #include "FileUtils.h"
-#include "Ide.h"
+#include "HardDrive.h"
 #include "IP232.h"
 #include "JoystickOptions.h"
 #include "KeyMap.h"
@@ -41,7 +41,6 @@ Boston, MA  02110-1301, USA.
 #include "Registry.h"
 #include "Resource.h"
 #include "Rtc.h"
-#include "Scsi.h"
 #include "Serial.h"
 #include "Sound.h"
 #include "SoundStreamer.h"
@@ -222,6 +221,15 @@ static const char* const TeletextSourceTypeStr[] =
 {
 	"IP",
 	"File",
+	nullptr
+};
+
+static const char* const HardDriveTypeStr[] =
+{
+	"None",
+	"SCSI",
+	"IDE",
+	"SASI",
 	nullptr
 };
 
@@ -1603,8 +1611,33 @@ void BeebWin::LoadDiskPreferences()
 
 	Disc1770Enabled = Disc8271Enabled;
 
-	m_Preferences.GetBoolValue(CFG_SCSI_DRIVE_ENABLED, SCSIDriveEnabled, false);
-	m_Preferences.GetBoolValue(CFG_IDE_DRIVE_ENABLED, IDEDriveEnabled, false);
+	std::string Value;
+
+	if (m_Preferences.GetStringValue(CFG_HARD_DRIVE_TYPE, Value, HardDriveTypeStr[0]))
+	{
+		HardDrive = static_cast<HardDriveType>(FindEnum(Value, HardDriveTypeStr, 0));
+	}
+	else
+	{
+		bool SCSIDriveEnabled;
+		bool IDEDriveEnabled;
+
+		m_Preferences.GetBoolValue(CFG_SCSI_DRIVE_ENABLED_OLD, SCSIDriveEnabled, false);
+		m_Preferences.GetBoolValue(CFG_IDE_DRIVE_ENABLED_OLD, IDEDriveEnabled, false);
+
+		if (SCSIDriveEnabled)
+		{
+			HardDrive = HardDriveType::SCSI;
+		}
+		else if (IDEDriveEnabled)
+		{
+			HardDrive = HardDriveType::IDE;
+		}
+		else
+		{
+			HardDrive = HardDriveType::None;
+		}
+	}
 }
 
 /****************************************************************************/
@@ -1977,8 +2010,9 @@ void BeebWin::SavePreferences(bool saveAll)
 		// Floppy and hard drives
 		m_Preferences.SetBoolValue(CFG_WRITE_PROTECT_ON_LOAD, m_WriteProtectOnLoad);
 		m_Preferences.SetBoolValue(CFG_FLOPPY_DRIVE_ENABLED, Disc8271Enabled);
-		m_Preferences.SetBoolValue(CFG_SCSI_DRIVE_ENABLED, SCSIDriveEnabled);
-		m_Preferences.SetBoolValue(CFG_IDE_DRIVE_ENABLED, IDEDriveEnabled);
+		m_Preferences.SetStringValue(CFG_HARD_DRIVE_TYPE, HardDriveTypeStr[(int)HardDrive]);
+		m_Preferences.EraseValue(CFG_SCSI_DRIVE_ENABLED_OLD);
+		m_Preferences.EraseValue(CFG_IDE_DRIVE_ENABLED_OLD);
 
 		// User port RTC
 		m_Preferences.SetBoolValue(CFG_USER_PORT_RTC_ENABLED, UserPortRTCEnabled);

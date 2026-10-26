@@ -40,6 +40,7 @@ Offset  Description                 Access
 #include "BeebMem.h"
 #include "DebugTrace.h"
 #include "FileUtils.h"
+#include "HardDrive.h"
 #include "Log.h"
 #include "Main.h"
 
@@ -111,8 +112,6 @@ static scsi_t scsi;
 static FILE *SCSIDisc[4] = { nullptr, nullptr, nullptr, nullptr };
 static int SCSISize[4];
 
-bool SCSIDriveEnabled = false;
-
 static bool ReadGeometryFile(int lun)
 {
 	bool Success = true;
@@ -153,17 +152,19 @@ static bool ReadGeometryFile(int lun)
 	return Success;
 }
 
-void SCSIReset()
+bool SCSIReset()
 {
 	scsi.code = 0x00;
 	scsi.sector = 0x00;
 
 	SCSIClose();
 
-	if (!SCSIDriveEnabled)
+	if (HardDrive != HardDriveType::SCSI)
 	{
-		return;
+		return true;
 	}
+
+	bool Success = false;
 
 	for (int i = 0; i < 4; ++i)
 	{
@@ -176,7 +177,12 @@ void SCSIReset()
 
 		SCSIDisc[i] = fopen(PathName, "rb+");
 
-		if (SCSIDisc[i] == nullptr)
+		if (SCSIDisc[i] != nullptr)
+		{
+			// Success if at least one disc image can be opened.
+			Success = true;
+		}
+		else
 		{
 			std::string Error = GetSystemError();
 
@@ -193,12 +199,16 @@ void SCSIReset()
 	}
 
 	BusFree();
+
+	return Success;
 }
 
 void SCSIWrite(int Address, unsigned char Value)
 {
-	if (!SCSIDriveEnabled)
+	if (HardDrive != HardDriveType::SCSI)
+	{
 		return;
+	}
 
 	// WriteLog("SCSIWrite Address = 0x%02x, Value = 0x%02x, Phase = %d, PC = 0x%04x\n", Address, Value, scsi.phase, ProgramCounter);
 
@@ -238,8 +248,10 @@ void SCSIWrite(int Address, unsigned char Value)
 
 unsigned char SCSIRead(int Address)
 {
-	if (!SCSIDriveEnabled)
+	if (HardDrive != HardDriveType::SCSI)
+	{
 		return 0xff;
+	}
 
 	unsigned char data = 0xff;
 

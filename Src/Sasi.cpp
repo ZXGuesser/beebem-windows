@@ -39,6 +39,7 @@ Offset  Description                 Access
 #include "6502core.h"
 #include "BeebMem.h"
 #include "FileUtils.h"
+#include "HardDrive.h"
 #include "Log.h"
 #include "Main.h"
 
@@ -107,12 +108,17 @@ struct sasi_t {
 static sasi_t sasi;
 static FILE *SASIDisc[4] = {0};
 
-extern bool SCSIDriveEnabled;
-
-void SASIReset()
+bool SASIReset()
 {
 	sasi.code = 0x00;
 	sasi.sector = 0x00;
+
+	if (HardDrive != HardDriveType::SASI)
+	{
+		return true;
+	}
+
+	bool Success = false;
 
 	for (int i = 0; i < 1; ++i) // only one drive allowed under Torch Z80 ?
 	{
@@ -121,9 +127,6 @@ void SASIReset()
 			fclose(SASIDisc[i]);
 			SASIDisc[i] = nullptr;
 		}
-
-		if (!SCSIDriveEnabled)
-			continue;
 
 		char FileName[MAX_PATH];
 		sprintf(FileName, "sasi%d.dat", i);
@@ -134,7 +137,11 @@ void SASIReset()
 
 		SASIDisc[i] = fopen(PathName, "rb+");
 
-		if (SASIDisc[i] == nullptr)
+		if (SASIDisc[i] != nullptr)
+		{
+			Success = true;
+		}
+		else
 		{
 			std::string Error = GetSystemError();
 
@@ -144,12 +151,16 @@ void SASIReset()
 	}
 
 	SASIBusFree();
+
+	return Success;
 }
 
 void SASIWrite(int Address, unsigned char Value)
 {
-	if (!SCSIDriveEnabled)
+	if (HardDrive != HardDriveType::SASI)
+	{
 		return;
+	}
 
 	// WriteLog("SASIWrite Address = 0x%02x, Value = 0x%02x, Phase = %d, PC = 0x%04x\n", Address, Value, sasi.phase, ProgramCounter);
 
@@ -178,8 +189,10 @@ void SASIWrite(int Address, unsigned char Value)
 
 unsigned char SASIRead(int Address)
 {
-	if (!SCSIDriveEnabled)
+	if (HardDrive != HardDriveType::SASI)
+	{
 		return 0xff;
+	}
 
 	unsigned char data = 0xff;
 

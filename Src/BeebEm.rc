@@ -378,9 +378,14 @@ BEGIN
         MENUITEM "Set &Keyboard Links...",      IDM_SET_KEYBOARD_LINKS
         MENUITEM SEPARATOR
         MENUITEM "Floppy Drive On/Off",         IDM_FLOPPY_DRIVE
-        MENUITEM "SCSI Hard Drive On/Off",      IDM_SCSI_HARD_DRIVE
-        MENUITEM "IDE Hard Drive On/Off",       IDM_IDE_HARD_DRIVE
-        MENUITEM "Select Hard Drive Folder...", IDM_SELECT_HARD_DRIVE_FOLDER
+        POPUP "&Hard Drive"
+        BEGIN
+            MENUITEM "None",                        IDM_HARD_DRIVE_NONE
+            MENUITEM "SCSI Hard Drive",             IDM_HARD_DRIVE_SCSI
+            MENUITEM "IDE Hard Drive",              IDM_HARD_DRIVE_IDE
+            MENUITEM "&Torch SASI Hard Drive",      IDM_HARD_DRIVE_TORCH_SASI
+            MENUITEM "Select Hard Drive Folder...", IDM_SELECT_HARD_DRIVE_FOLDER
+        END
         MENUITEM SEPARATOR
         MENUITEM "User Port Breakout Box",      IDM_BREAKOUT
         MENUITEM "User Port RTC Module",        IDM_USER_PORT_RTC_MODULE

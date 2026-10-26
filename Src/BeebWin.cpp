@@ -71,6 +71,7 @@ using std::max;
 #include "FolderSelectDialog.h"
 #include "FileType.h"
 #include "FileUtils.h"
+#include "HardDrive.h"
 #include "Ide.h"
 #include "IP232.h"
 #include "JoystickDialog.h"
@@ -893,17 +894,13 @@ void BeebWin::ResetBeebSystem(Model NewModelType, bool LoadRoms)
 
 	if (MachineType == Model::MasterET)
 	{
-		SCSIDriveEnabled = false;
-		IDEDriveEnabled = false;
+		HardDrive = HardDriveType::None;
 
-		CheckMenuItem(IDM_SCSI_HARD_DRIVE, SCSIDriveEnabled);
-		CheckMenuItem(IDM_IDE_HARD_DRIVE, IDEDriveEnabled);
+		UpdateHardDriveMenu();
 	}
 	else
 	{
-		if (SCSIDriveEnabled) SCSIReset();
-		if (SCSIDriveEnabled) SASIReset();
-		if (IDEDriveEnabled) IDEReset();
+		HardDriveReset();
 	}
 
 	TeletextClose();
@@ -1029,9 +1026,7 @@ void BeebWin::Break()
 
 	if (MachineType != Model::MasterET)
 	{
-		if (SCSIDriveEnabled) SCSIReset();
-		if (SCSIDriveEnabled) SASIReset();
-		if (IDEDriveEnabled)  IDEReset();
+		HardDriveReset();
 		TeletextInit();
 
 		//SoundChipReset();
@@ -1512,8 +1507,7 @@ void BeebWin::InitMenu()
 	UpdateEconetMenu();
 	CheckMenuItem(IDM_TELETEXT, TeletextAdapterEnabled);
 	CheckMenuItem(IDM_FLOPPY_DRIVE, Disc8271Enabled);
-	CheckMenuItem(IDM_SCSI_HARD_DRIVE, SCSIDriveEnabled);
-	CheckMenuItem(IDM_IDE_HARD_DRIVE, IDEDriveEnabled);
+	UpdateHardDriveMenu();
 	CheckMenuItem(IDM_USER_PORT_RTC_MODULE, UserPortRTCEnabled);
 
 	// Options
@@ -1877,8 +1871,10 @@ void BeebWin::UpdateModelMenu()
 	EnableMenuItem(IDM_SELECT_TELETEXT_DATA_SOURCE, !IsMasterET);
 	EnableMenuItem(IDM_SET_KEYBOARD_LINKS, IsModelB);
 	EnableMenuItem(IDM_FLOPPY_DRIVE, !IsMasterET);
-	EnableMenuItem(IDM_SCSI_HARD_DRIVE, !IsMasterET);
-	EnableMenuItem(IDM_IDE_HARD_DRIVE, !IsMasterET);
+	EnableMenuItem(IDM_HARD_DRIVE_NONE, !IsMasterET);
+	EnableMenuItem(IDM_HARD_DRIVE_SCSI, !IsMasterET);
+	EnableMenuItem(IDM_HARD_DRIVE_IDE, !IsMasterET);
+	EnableMenuItem(IDM_HARD_DRIVE_TORCH_SASI, !IsMasterET);
 	EnableMenuItem(IDM_SELECT_HARD_DRIVE_FOLDER, !IsMasterET);
 	EnableMenuItem(IDM_BREAKOUT, !IsMasterET);
 	EnableMenuItem(IDM_USER_PORT_RTC_MODULE, !IsMasterET);
@@ -5038,25 +5034,20 @@ void BeebWin::HandleCommand(UINT MenuID)
 		break;
 	}
 
-	case IDM_SCSI_HARD_DRIVE:
-		SCSIDriveEnabled = !SCSIDriveEnabled;
-		SCSIReset();
-		SASIReset();
-		CheckMenuItem(IDM_SCSI_HARD_DRIVE, SCSIDriveEnabled);
-		if (SCSIDriveEnabled) {
-			IDEDriveEnabled = false;
-			CheckMenuItem(IDM_IDE_HARD_DRIVE, IDEDriveEnabled);
-		}
+	case IDM_HARD_DRIVE_NONE:
+		SetHardDrive(HardDriveType::None);
 		break;
 
-	case IDM_IDE_HARD_DRIVE:
-		IDEDriveEnabled = !IDEDriveEnabled;
-		IDEReset();
-		CheckMenuItem(IDM_IDE_HARD_DRIVE, IDEDriveEnabled);
-		if (IDEDriveEnabled) {
-			SCSIDriveEnabled = false;
-			CheckMenuItem(IDM_SCSI_HARD_DRIVE, SCSIDriveEnabled);
-		}
+	case IDM_HARD_DRIVE_SCSI:
+		SetHardDrive(HardDriveType::SCSI);
+		break;
+
+	case IDM_HARD_DRIVE_IDE:
+		SetHardDrive(HardDriveType::IDE);
+		break;
+
+	case IDM_HARD_DRIVE_TORCH_SASI:
+		SetHardDrive(HardDriveType::SASI);
 		break;
 
 	case IDM_SELECT_HARD_DRIVE_FOLDER:

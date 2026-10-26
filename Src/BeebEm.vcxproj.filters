@@ -132,6 +132,9 @@
     <ClCompile Include="FolderSelectDialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="HardDrive.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="IC32Latch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -438,6 +441,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="FolderSelectDialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HardDrive.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="IC32Latch.h">

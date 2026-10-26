@@ -24,9 +24,7 @@ Boston, MA  02110-1301, USA.
 #ifndef SCSI_HEADER
 #define SCSI_HEADER
 
-extern bool SCSIDriveEnabled;
-
-void SCSIReset();
+bool SCSIReset();
 void SCSIWrite(int Address, unsigned char Value);
 unsigned char SCSIRead(int Address);
 void SCSIClose();
