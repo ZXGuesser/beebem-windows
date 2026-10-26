@@ -146,9 +146,9 @@ bool BeebWin::ReadDisc(int Drive, bool bCheckForPrefs)
 
 	FileDialog Dialog(m_hWnd, FileName, sizeof(FileName), DefaultPath, Filter);
 
-	bool gotName = Dialog.Open();
+	bool Success = Dialog.Open();
 
-	if (gotName)
+	if (Success)
 	{
 		if (bCheckForPrefs)
 		{
@@ -272,14 +272,18 @@ bool BeebWin::ReadDisc(int Drive, bool bCheckForPrefs)
 			}
 		}
 
-		// Write protect the disc
-		if (m_WriteProtectOnLoad)
+		// Write protect the disc?
+		if (Type == FileType::FSD)
 		{
 			SetDiscWriteProtect(Drive, true);
 		}
+		else
+		{
+			SetDiscWriteProtect(Drive, m_WriteProtectOnLoad);
+		}
 	}
 
-	return(gotName);
+	return Success;
 }
 
 /****************************************************************************/
@@ -291,14 +295,12 @@ bool BeebWin::Load1770DiscImage(const char *FileName, int Drive, DiscType Type)
 	if (Result == Disc1770Result::OpenedReadWrite)
 	{
 		SetImageName(FileName, Drive, Type);
-		EnableMenuItem(Drive == 0 ? IDM_WRITE_PROTECT_DISC0 : IDM_WRITE_PROTECT_DISC1, true);
 
 		return true;
 	}
 	else if (Result == Disc1770Result::OpenedReadOnly)
 	{
 		SetImageName(FileName, Drive, Type);
-		EnableMenuItem(Drive == 0 ? IDM_WRITE_PROTECT_DISC0 : IDM_WRITE_PROTECT_DISC1, false);
 
 		return true;
 	}
@@ -552,7 +554,9 @@ void BeebWin::NewDiscImage(int Drive)
 		else if (FilterIndex == 5 || FilterIndex == 6)
 		{
 			const int Tracks = FilterIndex == 5 ? 80 : 160;
+
 			bool Success = CreateADFSImage(FileName, Tracks);
+
 			if (Success)
 			{
 				Load1770DiscImage(FileName, Drive, DiscType::ADFS);
@@ -642,9 +646,12 @@ void BeebWin::SetDiscWriteProtect(int Drive, bool WriteProtect)
 	DiscWriteEnable(Drive, !WriteProtect);
 	DWriteable[Drive] = !WriteProtect;
 
-	int MenuItemID = Drive == 0 ? IDM_WRITE_PROTECT_DISC0 : IDM_WRITE_PROTECT_DISC1;
+	const int MenuItemID = Drive == 0 ? IDM_WRITE_PROTECT_DISC0 :
+	                                    IDM_WRITE_PROTECT_DISC1;
 
 	CheckMenuItem(MenuItemID, m_WriteProtectDisc[Drive]);
+
+	EnableMenuItem(MenuItemID, DiscInfo[Drive].Type != DiscType::FSD);
 }
 
 void BeebWin::SetDiscWriteProtects()
@@ -653,15 +660,18 @@ void BeebWin::SetDiscWriteProtects()
 	{
 		m_WriteProtectDisc[0] = !IsDiscWritable(0);
 		m_WriteProtectDisc[1] = !IsDiscWritable(1);
-
-		CheckMenuItem(IDM_WRITE_PROTECT_DISC0, m_WriteProtectDisc[0]);
-		CheckMenuItem(IDM_WRITE_PROTECT_DISC1, m_WriteProtectDisc[1]);
 	}
 	else
 	{
-		CheckMenuItem(IDM_WRITE_PROTECT_DISC0, !DWriteable[0]);
-		CheckMenuItem(IDM_WRITE_PROTECT_DISC1, !DWriteable[1]);
+		m_WriteProtectDisc[0] = !DWriteable[0];
+		m_WriteProtectDisc[1] = !DWriteable[1];
 	}
+
+	CheckMenuItem(IDM_WRITE_PROTECT_DISC0, m_WriteProtectDisc[0]);
+	CheckMenuItem(IDM_WRITE_PROTECT_DISC1, m_WriteProtectDisc[1]);
+
+	EnableMenuItem(IDM_WRITE_PROTECT_DISC0, DiscInfo[0].Type != DiscType::FSD);
+	EnableMenuItem(IDM_WRITE_PROTECT_DISC1, DiscInfo[1].Type != DiscType::FSD);
 }
 
 /****************************************************************************/

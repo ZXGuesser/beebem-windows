@@ -880,6 +880,10 @@ void BeebWin::ResetBeebSystem(Model NewModelType, bool LoadRoms)
 	Type[0] = DiscInfo[0].Type;
 	Type[1] = DiscInfo[1].Type;
 
+	bool WriteProtected[2];
+	WriteProtected[0] = m_WriteProtectDisc[0];
+	WriteProtected[1] = m_WriteProtectDisc[1];
+
 	EjectDiscImage(0);
 	EjectDiscImage(1);
 
@@ -962,6 +966,15 @@ void BeebWin::ResetBeebSystem(Model NewModelType, bool LoadRoms)
 			{
 				Load1770DiscImage(szDiscName[1], 1, Type[1]);
 			}
+		}
+	}
+
+	// Restore the disc's write protected state.
+	for (int Drive = 0; Drive < 2; Drive++)
+	{
+		if (szDiscName[Drive][0] != '\0')
+		{
+			SetDiscWriteProtect(Drive, WriteProtected[Drive]);
 		}
 	}
 
@@ -1398,7 +1411,7 @@ void BeebWin::EnableMenuItem(UINT id, bool Enabled)
 
 /****************************************************************************/
 
-void BeebWin::InitMenu(void)
+void BeebWin::InitMenu()
 {
 	// File -> Video Options
 	UpdateVideoCaptureMenu();
@@ -5826,14 +5839,14 @@ void BeebWin::HandleCommandLineFile(int Drive, const char *FileName)
 		}
 		else if (Type == FileType::ADFS)
 		{
-			if (!NativeFDC)
+			if (NativeFDC)
 			{
-				Load1770DiscImage(FileName, Drive, DiscType::ADFS);
+				Report(MessageType::Error, "The native 8271 FDC cannot read ADFS discs");
+				return;
 			}
 			else
 			{
-				Report(MessageType::Error, "ADFS disc images are only supported with the 8271 FDC");
-				return;  // cannot load adfs with native DFS
+				Load1770DiscImage(FileName, Drive, DiscType::ADFS);
 			}
 		}
 		else if (Type == FileType::IMG)
@@ -5885,10 +5898,14 @@ void BeebWin::HandleCommandLineFile(int Drive, const char *FileName)
 		}
 	}
 
-	// Write protect the disc
-	if (m_WriteProtectOnLoad)
+	// Write protect the disc?
+	if (Type == FileType::FSD)
 	{
 		SetDiscWriteProtect(Drive, true);
+	}
+	else
+	{
+		SetDiscWriteProtect(Drive, m_WriteProtectOnLoad);
 	}
 
 	if (!m_NoAutoBoot && Drive == 0)

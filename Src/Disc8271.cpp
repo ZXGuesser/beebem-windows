@@ -2745,6 +2745,11 @@ void DiscWriteEnable(int DriveNum, bool WriteEnable)
 {
 	bool DiscOK = true;
 
+	if (DiscStatus[DriveNum].Writeable == WriteEnable)
+	{
+		return;
+	}
+
 	DiscStatus[DriveNum].Writeable = WriteEnable;
 
 	if (WriteEnable)
