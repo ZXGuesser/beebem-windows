@@ -49,8 +49,7 @@ void OpenLog(const char* FileName)
 		strcpy(PathName, mainWin->GetUserDataPath());
 		AppendPath(PathName, "BeebEm.log");
 	}
-
-	if (IsRelativePath(FileName))
+	else if (IsRelativePath(FileName))
 	{
 		strcpy(PathName, mainWin->GetUserDataPath());
 		AppendPath(PathName, FileName);
