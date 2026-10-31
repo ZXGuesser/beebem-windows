@@ -872,7 +872,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 
 		StretchBlt(hDC, xAdj, yAdj, m_XWinSize - xAdj * 2, win_nlines - yAdj * 2,
 		           m_hDCBitmap, 0, StartY,
-		           TeletextEnabled ? 552 : ActualScreenWidth,
+		           ActualScreenWidth,
 		           TeletextEnabled ? TeletextLines : NLines,
 		           SRCCOPY);
 
@@ -908,14 +908,14 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 					pSurface->ReleaseDC(hdc);
 
 					// Scale Beeb screen to fill the D3D texture
-					int width  = TeletextEnabled ? 552 : ActualScreenWidth;
-					int height = TeletextEnabled ? TeletextLines : NLines;
+					int Width  = ActualScreenWidth;
+					int Height = TeletextEnabled ? TeletextLines : NLines;
 					// D3DXMatrixScaling(&m_TextureMatrix,
-					//                   (float)BEEBEM_BITMAP_WIDTH / (float)width,
-					//                   (float)BEEBEM_BITMAP_HEIGHT / (float)height, 1.0f);
+					//                   (float)BEEBEM_BITMAP_WIDTH / (float)Width,
+					//                   (float)BEEBEM_BITMAP_HEIGHT / (float)Height, 1.0f);
 					D3DMatrixIdentity(&m_TextureMatrix);
-					m_TextureMatrix._11 = (float)BEEBEM_BITMAP_WIDTH  / (float)width;
-					m_TextureMatrix._22 = (float)BEEBEM_BITMAP_HEIGHT / (float)height;
+					m_TextureMatrix._11 = (float)BEEBEM_BITMAP_WIDTH  / (float)Width;
+					m_TextureMatrix._22 = (float)BEEBEM_BITMAP_HEIGHT / (float)Height;
 
 					if (m_FullScreen && m_MaintainAspectRatio)
 					{
@@ -994,7 +994,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 				RECT srcRect;
 				srcRect.left   = 0;
 				srcRect.top    = 0;
-				srcRect.right  = TeletextEnabled ? 552 : ActualScreenWidth;
+				srcRect.right  = ActualScreenWidth;
 				srcRect.bottom = TeletextEnabled ? TeletextLines : NLines;
 
 				hResult = m_DDS2Primary->Blt(&destRect, m_DDS2One, &srcRect, DDBLT_ASYNC, NULL);
@@ -1029,7 +1029,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 		           m_AviBitmapInfo.Header.biWidth,
 		           m_AviBitmapInfo.Header.biHeight,
 		           m_hDCBitmap, 0, StartY,
-		           TeletextEnabled ? 552 : ActualScreenWidth,
+		           ActualScreenWidth,
 		           TeletextEnabled ? TeletextLines : NLines,
 		           SRCCOPY);
 
@@ -1047,7 +1047,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 	{
 		CaptureBitmap(0,
 		              StartY,
-		              TeletextEnabled ? 552 : ActualScreenWidth,
+		              ActualScreenWidth,
 		              TeletextEnabled ? TeletextLines : NLines,
 		              TeletextEnabled);
 

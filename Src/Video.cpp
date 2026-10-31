@@ -154,8 +154,8 @@ static void LowLevelDoScanLineWide();
 static void LowLevelDoScanLineNarrowNot4Bytes();
 static void LowLevelDoScanLineWideNot4Bytes();
 static void VideoAddCursor();
-void AdjustVideo();
-void VideoAddLEDs();
+static void AdjustVideo();
+static void VideoAddLEDs();
 
 #define ENABLE_LOG 0
 
@@ -1474,23 +1474,57 @@ void VideoDoScanLine()
 
 /*--------------------------------------------------------------------------*/
 
-void AdjustVideo() {
-  ActualScreenWidth = CRTC_HorizontalDisplayed * HSyncModifier;
+static void AdjustVideo()
+{
+	if (TeletextEnabled)
+	{
+		const int MARGIN = 36;
+		const int CHAR_WIDTH = 12;
+		const int DEFAULT_TELETEXT_WIDTH = 2 * MARGIN + 40 * CHAR_WIDTH;
 
-  if (ActualScreenWidth > BEEBEM_BITMAP_WIDTH) {
-    ActualScreenWidth = BEEBEM_BITMAP_WIDTH;
-  }
-  else if (ActualScreenWidth < 640) {
-    ActualScreenWidth = 640;
-  }
+		ActualScreenWidth = 2 * MARGIN + CRTC_HorizontalDisplayed * CHAR_WIDTH;
 
-  int InitialOffset = 0 - (((CRTC_HorizontalTotal + 1) / 2) - (HSyncModifier == 8 ? 40 : 20));
-  int HStart = InitialOffset +
-               (CRTC_HorizontalTotal + 1 - (CRTC_HorizontalSyncPos + (CRTC_SyncWidth & 0x0f))) +
-               ((HSyncModifier == 8) ? 2 : 1);
-  if (TeletextEnabled) HStart += 2;
-  if (HStart < 0) HStart = 0;
-  ScreenAdjust = HStart * HSyncModifier + (VScreenAdjust > 0 ? VScreenAdjust * BEEBEM_BITMAP_WIDTH : 0);
+		if (ActualScreenWidth > BEEBEM_BITMAP_WIDTH)
+		{
+			ActualScreenWidth = BEEBEM_BITMAP_WIDTH;
+		}
+		else if (ActualScreenWidth < DEFAULT_TELETEXT_WIDTH)
+		{
+			ActualScreenWidth = DEFAULT_TELETEXT_WIDTH;
+		}
+	}
+	else
+	{
+		ActualScreenWidth = CRTC_HorizontalDisplayed * HSyncModifier;
+
+		if (ActualScreenWidth > BEEBEM_BITMAP_WIDTH)
+		{
+			ActualScreenWidth = BEEBEM_BITMAP_WIDTH;
+		}
+		else if (ActualScreenWidth < 640)
+		{
+			ActualScreenWidth = 640;
+		}
+	}
+
+	const int InitialOffset = 0 - (((CRTC_HorizontalTotal + 1) / 2) -
+	                               (HSyncModifier == 8 ? 40 : 20));
+
+	int HStart = InitialOffset +
+	             (CRTC_HorizontalTotal + 1 - (CRTC_HorizontalSyncPos + (CRTC_SyncWidth & 0x0f))) +
+	             ((HSyncModifier == 8) ? 2 : 1);
+
+	if (TeletextEnabled)
+	{
+		HStart += 2;
+	}
+
+	if (HStart < 0)
+	{
+		HStart = 0;
+	}
+
+	ScreenAdjust = HStart * HSyncModifier + (VScreenAdjust > 0 ? VScreenAdjust * BEEBEM_BITMAP_WIDTH : 0);
 }
 
 /*--------------------------------------------------------------------------*/
