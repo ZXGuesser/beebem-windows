@@ -659,8 +659,14 @@ unsigned char BeebReadMem(int Address) {
 	// it's id value to fcff - other Jim devices should similarly
 	// only return fcff..fcfc/fdxx when they have been selected
 	unsigned char ret;
-	if (Music5000Read(Address, &ret))
-		return ret;
+
+	if (Music5000Enabled)
+	{
+		if (Music5000Read(Address, &ret))
+		{
+			return ret;
+		}
+	}
 
 	if ((Address & ~0x3) == 0xFDF0 && HardDrive == HardDriveType::SASI)
 	{
@@ -1154,7 +1160,10 @@ void BeebWriteMem(int Address, unsigned char Value)
 		return;
 	}
 
-	Music5000Write(Address, Value);
+	if (Music5000Enabled)
+	{
+		Music5000Write(Address, Value);
+	}
 
 	if ((Address & ~0x3) == 0xFDF0 && HardDrive == HardDriveType::SASI)
 	{

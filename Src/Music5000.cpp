@@ -158,9 +158,6 @@ void Music5000Reset()
 
 void Music5000Write(int address, unsigned char value)
 {
-	if (!Music5000Enabled)
-		return;
-
 	if (address == 0xfcff)
 	{
 		JimPageSelectRegister = value;
@@ -183,9 +180,6 @@ void Music5000Write(int address, unsigned char value)
 
 bool Music5000Read(int address, unsigned char *value)
 {
-	if (!Music5000Enabled)
-		return false;
-
 	if ((JimPageSelectRegister & 0xf0) != 0x30)
 		return false;
 
