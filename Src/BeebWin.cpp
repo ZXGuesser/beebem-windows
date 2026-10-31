@@ -202,7 +202,7 @@ BeebWin::BeebWin()
 	m_screen = nullptr;
 	m_screen_blur = nullptr;
 	m_LastStartY = 0;
-	m_LastNLines = 256;
+	m_LastLines = 256;
 	m_MotionBlur = 0;
 	memcpy(m_BlurIntensities, DefaultBlurIntensities, sizeof(m_BlurIntensities));
 	m_MaintainAspectRatio = true;
@@ -2979,19 +2979,26 @@ bool BeebWin::StartOfFrame()
 	return UpdateScreen;
 }
 
-void BeebWin::doLED(int sx,bool on) {
-	int tsy;
-	int colbase = static_cast<int>(m_DiscLedColour) * 2 + LED_COL_BASE; // colour will be 0 for red, 1 for green.
-	if (sx<100) colbase=LED_COL_BASE; // Red leds for keyboard always
-	if (TeletextEnabled)
-		tsy=496;
-	else
-		tsy=m_LastStartY+m_LastNLines-2;
+/****************************************************************************/
+
+void BeebWin::doLED(int sx, bool on)
+{
+	// Colour will be 0 for red, 1 for green.
+	int colbase = static_cast<int>(m_DiscLedColour) * 2 + LED_COL_BASE;
+
+	if (sx < 100)
+	{
+		colbase = LED_COL_BASE; // Red LEDs for keyboard always.
+	}
+
+	const int tsy = TeletextEnabled ? 496 : m_LastStartY + m_LastLines - 2;
+
 	doUHorizLine((on ? 1 : 0) + colbase, tsy, sx, 8);
 	doUHorizLine((on ? 1 : 0) + colbase, tsy, sx, 8);
 }
 
 /****************************************************************************/
+
 void BeebWin::ResetTiming(void)
 {
 	m_LastTickCount = GetTickCount();

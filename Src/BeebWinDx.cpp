@@ -772,7 +772,7 @@ void BeebWin::DirectX9Failed(HRESULT hResult)
 
 /****************************************************************************/
 
-void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
+void BeebWin::UpdateLines(HDC hDC, int StartY, int Lines)
 {
 	static bool LastTeletextEnabled = false;
 	static bool First = true;
@@ -801,15 +801,15 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 	}
 
 	// Use last stored params?
-	if (StartY == 0 && NLines == 0)
+	if (StartY == 0 && Lines == 0)
 	{
 		StartY = m_LastStartY;
-		NLines = m_LastNLines;
+		Lines = m_LastLines;
 	}
 	else
 	{
 		m_LastStartY = StartY;
-		m_LastNLines = NLines;
+		m_LastLines = Lines;
 	}
 
 	++m_ScreenRefreshCount;
@@ -873,7 +873,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 		StretchBlt(hDC, xAdj, yAdj, m_XWinSize - xAdj * 2, win_nlines - yAdj * 2,
 		           m_hDCBitmap, 0, StartY,
 		           ActualScreenWidth,
-		           TeletextEnabled ? TeletextLines : NLines,
+		           TeletextEnabled ? TeletextLines : Lines,
 		           SRCCOPY);
 
 		DisplayFDCBoardInfo(hDC, 0, TextStart);
@@ -903,13 +903,13 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 
 				if (SUCCEEDED(hResult))
 				{
-					BitBlt(hdc, 0, 0, BEEBEM_BITMAP_WIDTH, NLines, m_hDCBitmap, 0, StartY, SRCCOPY);
+					BitBlt(hdc, 0, 0, BEEBEM_BITMAP_WIDTH, Lines, m_hDCBitmap, 0, StartY, SRCCOPY);
 					DisplayClientAreaText(hdc);
 					pSurface->ReleaseDC(hdc);
 
 					// Scale Beeb screen to fill the D3D texture
 					int Width  = ActualScreenWidth;
-					int Height = TeletextEnabled ? TeletextLines : NLines;
+					int Height = TeletextEnabled ? TeletextLines : Lines;
 					// D3DXMatrixScaling(&m_TextureMatrix,
 					//                   (float)BEEBEM_BITMAP_WIDTH / (float)Width,
 					//                   (float)BEEBEM_BITMAP_HEIGHT / (float)Height, 1.0f);
@@ -965,7 +965,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 
 			if (SUCCEEDED(hResult))
 			{
-				BitBlt(hdc, 0, 0, BEEBEM_BITMAP_WIDTH, NLines, m_hDCBitmap, 0, StartY, SRCCOPY);
+				BitBlt(hdc, 0, 0, BEEBEM_BITMAP_WIDTH, Lines, m_hDCBitmap, 0, StartY, SRCCOPY);
 				DisplayClientAreaText(hdc);
 				m_DDS2One->ReleaseDC(hdc);
 
@@ -995,7 +995,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 				srcRect.left   = 0;
 				srcRect.top    = 0;
 				srcRect.right  = ActualScreenWidth;
-				srcRect.bottom = TeletextEnabled ? TeletextLines : NLines;
+				srcRect.bottom = TeletextEnabled ? TeletextLines : Lines;
 
 				hResult = m_DDS2Primary->Blt(&destRect, m_DDS2One, &srcRect, DDBLT_ASYNC, NULL);
 
@@ -1030,7 +1030,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 		           m_AviBitmapInfo.Header.biHeight,
 		           m_hDCBitmap, 0, StartY,
 		           ActualScreenWidth,
-		           TeletextEnabled ? TeletextLines : NLines,
+		           TeletextEnabled ? TeletextLines : Lines,
 		           SRCCOPY);
 
 		HRESULT hResult = aviWriter->WriteVideo((BYTE*)m_AviScreen);
@@ -1048,7 +1048,7 @@ void BeebWin::UpdateLines(HDC hDC, int StartY, int NLines)
 		CaptureBitmap(0,
 		              StartY,
 		              ActualScreenWidth,
-		              TeletextEnabled ? TeletextLines : NLines,
+		              TeletextEnabled ? TeletextLines : Lines,
 		              TeletextEnabled);
 
 		m_CaptureBitmapPending = false;

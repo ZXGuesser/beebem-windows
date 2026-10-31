@@ -286,9 +286,9 @@ public:
 	unsigned char GetDriveControl();
 
 	// Image rendering
-	void UpdateLines(HDC hDC, int StartY, int NLines);
-	void UpdateLines(int StartY, int NLines) {
-		UpdateLines(m_hDC, StartY, NLines);
+	void UpdateLines(HDC hDC, int StartY, int Lines);
+	void UpdateLines(int StartY, int Lines) {
+		UpdateLines(m_hDC, StartY, Lines);
 	}
 
 	void doHorizLine(int Colour, int y, int sx, int width)
@@ -723,7 +723,7 @@ public:
 	char* m_screen;
 	char* m_screen_blur;
 	int m_LastStartY;
-	int m_LastNLines;
+	int m_LastLines;
 	int m_MotionBlur;
 	char m_BlurIntensities[8];
 	bool m_MaintainAspectRatio;
