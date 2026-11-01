@@ -1256,15 +1256,15 @@ void VideoDoScanLine()
       // Clear the next 20 scan lines.
       if (VScreenAdjust > 0 && VideoState.BitmapLine == 0)
       {
-        for (int l = -VScreenAdjust; l < 0; ++l)
+        for (int Line = -VScreenAdjust; Line < 0; ++Line)
         {
-          mainWin->doHorizLine(0, l, ScreenAdjust, -36, BEEBEM_BITMAP_WIDTH);
+          mainWin->doHorizLine(0, Line, ScreenAdjust, -36, BEEBEM_BITMAP_WIDTH);
         }
       }
 
-      for (int l = 0; l < 20 && VideoState.BitmapLine + l < BEEBEM_BITMAP_HEIGHT; ++l)
+      for (int Line = 0; Line < 20 && VideoState.BitmapLine + Line < BEEBEM_BITMAP_HEIGHT; ++Line)
       {
-        mainWin->doHorizLine(0, VideoState.BitmapLine + l, ScreenAdjust, -36, BEEBEM_BITMAP_WIDTH);
+        mainWin->doHorizLine(0, VideoState.BitmapLine + Line, ScreenAdjust, -36, BEEBEM_BITMAP_WIDTH);
       }
     }
 
@@ -1315,9 +1315,9 @@ void VideoDoScanLine()
         VideoAddLEDs();
 
         // Clear rest of screen below vertical total.
-        for (int l = VideoState.BitmapLine; l < 500 / TeletextStyle; ++l)
+        for (int Line = VideoState.BitmapLine; Line < 500 / TeletextStyle; ++Line)
         {
-          mainWin->doHorizLine(0, l, ScreenAdjust, -36, BEEBEM_BITMAP_WIDTH);
+          mainWin->doHorizLine(0, Line, ScreenAdjust, -36, BEEBEM_BITMAP_WIDTH);
         }
 
         mainWin->UpdateLines(0, 500 / TeletextStyle);
