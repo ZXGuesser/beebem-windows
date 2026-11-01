@@ -6,38 +6,44 @@ Unreleased changes
 
 Contributors: Chris Needham, Greg Cook
 
-* Implemented Timer 2 PB6 pulse counting mode in the 6522
-  System VIA. This is used to signal interrupts from the TMS5220
-  speech chip.
+* Implemented Timer 2 PB6 pulse counting mode in the 6522 System VIA.
+  This is used to signal interrupts from the TMS5220 speech chip.
 * Fixed VSync timing in teletext mode.
-* Fixed the .uef and .uefstate file type registrations in the
-  BeebEm installer.
+* Enabled support for extended width teletext display modes.
+  This fixes Firetrack, which has a 50 character width teletext display.
+* Fixed the .uef and .uefstate file type registrations in the BeebEm
+  installer.
 * Fixed -Data and -CustomData command line option handling.
 * Fixed pasting text from the clipboard.
+* Added a FixSerialULARead preferences setting. Some games have been patched
+  to detect BeebEm, e.g., to work around video emulation issues. Enabling this
+  setting implements the correct serial ULA behaviour, and bypasses the BeebEm
+  detection in those games.
+* Fixed log file output.
 
 Version 4.23 (6 April 2026)
 ------------
 
 Contributors: Chris Needham
 
-* Added support for modern game controllers, using XInput and
-  DirectInput. These are selected from a new dialog box, replacing
-  the Options -> Joystick menu options.
-* Added support for the Acorn Speech System. This uses code from
-  MAME 0.172, which is GPL2 licensed.
+* Added support for modern game controllers, using XInput and DirectInput.
+  These are selected from a new dialog box, replacing the
+  Options -> Joystick menu options.
+* Added support for the Acorn Speech System. This uses code from MAME 0.172,
+  which is GPL2 licensed.
 * Fixed the BBSn and BBRn 65C02 instructions in the Tube coprocessor.
-* Added an InitialRAMValue preferences setting that lets you control
-  how RAM is initialised on reset.
+* Added an InitialRAMValue preferences setting that lets you control how RAM
+  is initialised on reset.
 * Fixed the zip file distribution to include the Master ET ROMs.
 * Fixed the Quick Save to store the last 10 savestates.
-* Fixed the Tape Speed menu options to preserve state on reset and
-  when saved to the preferences file.
+* Fixed the Tape Speed menu options to preserve state on reset and when saved
+  to the preferences file.
 * Debugger improvements:
   - Fixed the "watch" debugger command as it was not possible to remove
     a watch if the maximum number of watches was reached.
   - The "file" debugger command now supports co-processor addresses.
-  - The debugger state (e.g., watches, breakpoints, etc) is now
-    preserved on closing and reopening the Debug window.
+  - The debugger state (e.g., watches, breakpoints, etc) is now preserved
+    on closing and reopening the Debug window.
   - Improved Z80 disassembler output.
   - Added disassembler support for the ARM coprocessor.
   - The memory address information display now supports co-processor
@@ -88,8 +94,8 @@ Contributors: Chris Needham, Ken Lowe
   2 and 6, and added mode 2 support to the User VIA shift register. Note that
   only the shift register interrupt is emulated, not the shift register
   itself, the CB1 output clock, or reading and writing bits to/from CB2.
-* Added -Log command line option to write a log file. This is intended
-  for debugging purposes only.
+* Added -Log command line option to write a log file. This is intended for
+  debugging purposes only.
 * Fixed the BeebEm installer to not delete existing files under Program Files
   while installing.
 * The SW RAM Board On/Off menu item has been renamed to Solidisk SW RAM Board
@@ -102,8 +108,8 @@ Contributors: Chris Needham, Mauro Varischetti, Bill Carr, Daniel Beardsmore,
 Steve Inglis, Alistair Cree, Ken Lowe, Mark Usher, Martin Mather, Tom Seddon,
 Andrew Hague
 
-* Added support for FSD format disk images. This currently only works
-  with the 8271 and not the 1770 disk controller.
+* Added support for FSD format disk images. This currently only works with the
+  8271 and not the 1770 disk controller.
 * Fixed support for double-sided SSD disk images (where side 1 tracks
   follow side 0, as opposed to DSD images, where tracks from side 0 and 1 are
   interleaved). This only works for 80-track double-sided SSDs, not 40-track.
