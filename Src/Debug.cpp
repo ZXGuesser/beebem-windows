@@ -95,6 +95,7 @@ static int DumpAddress = 0;     // Next address for memory dump command
 static int DisAddress = 0;      // Next address for disassemble command
 static int LastBreakAddr = 0;   // Address of last break
 static int DebugInfoWidth = 0;  // Width of debug info window
+static int LastAddressShown = -1;
 
 static bool DebugTraceEnable[(int)DebugType::Last];
 static bool DebugBreakEnable[(int)DebugType::Last];
@@ -1537,11 +1538,12 @@ void DebugBreakExecution(DebugType Type)
 	{
 		InstCount = 0;
 		LastBreakAddr = 0;
+		LastAddressShown = -1;
 		SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Break");
 	}
 	else
 	{
-		InstCount = 1;
+		InstCount = 0;
 		SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Continue");
 		LastAddrInBIOS = LastAddrInOS = LastAddrInROM = false;
 
@@ -1921,6 +1923,14 @@ static void DebugUpdateWatches(bool UpdateAll)
 
 /****************************************************************************/
 
+static bool DebugSkipAddress(int Addr)
+{
+	return (!DebugOS  && Addr >= 0xC000 && Addr <= 0xFBFF) ||
+	       (!DebugROM && Addr >= 0x8000 && Addr <= 0xBFFF);
+}
+
+/****************************************************************************/
+
 bool DebugDisassembler(int Addr,
                        int PrevAddr,
                        int Accumulator,
@@ -1943,8 +1953,29 @@ bool DebugDisassembler(int Addr,
 
 	// If this is the host and we're debugging that and have no further
 	// instructions to execute, halt.
-	if (Host && DebugHost && DebugSource != DebugType::None && InstCount == 0)
+	if (Host && DebugHost && DebugSource != DebugType::None && InstCount == 0 && !DebugSkipAddress(Addr))
 	{
+		if (LastAddressShown != Addr)
+		{
+			LastAddressShown = Addr;
+
+			DebugAssertBreak(Addr, PrevAddr, Host);
+			DebugUpdateWatches(true);
+
+			char str[150];
+
+			int Length = DebugDisassembleInstructionWithCPUStatus(
+				Addr, Host, Accumulator, XReg, YReg, StackReg, PSR, str
+			);
+
+			if (!Host)
+			{
+				strcpy(&str[Length], "  Parasite");
+			}
+
+			DebugDisplayInfo(str);
+		}
+
 		return false;
 	}
 
@@ -1961,7 +1992,6 @@ bool DebugDisassembler(int Addr,
 			if (DebugReadMem(Addr, Host) == 0)
 			{
 				DebugBreakExecution(DebugType::BRK);
-				ProgramCounter++;
 			}
 		}
 	}
@@ -2014,6 +2044,7 @@ bool DebugDisassembler(int Addr,
 
 	if (DebugSource == DebugType::None)
 	{
+		LastAddressShown = -1;
 		return true;
 	}
 	
@@ -2111,16 +2142,23 @@ bool DebugDisassembler(int Addr,
 
 	if (Host || (!Host && TubeType == TubeDevice::Acorn65C02))
 	{
-		int Length = DebugDisassembleInstructionWithCPUStatus(
-			Addr, Host, Accumulator, XReg, YReg, StackReg, PSR, str
-		);
-
-		if (!Host)
+		if (LastAddressShown == Addr)
 		{
-			strcpy(&str[Length], "  Parasite");
+			LastAddressShown = -1;
 		}
+		else
+		{
+			int Length = DebugDisassembleInstructionWithCPUStatus(
+				Addr, Host, Accumulator, XReg, YReg, StackReg, PSR, str
+			);
 
-		DebugDisplayInfo(str);
+			if (!Host)
+			{
+				strcpy(&str[Length], "  Parasite");
+			}
+
+			DebugDisplayInfo(str);
+		}
 	}
 	else
 	{
@@ -3582,16 +3620,15 @@ static bool DebugCmdOver(const char* args)
 {
 	// If current instruction is JSR, run to the following instruction,
 	// otherwise do a regular 'Next'
-	int Instruction = DebugReadMem(PrePC, true);
+	int Instruction = DebugReadMem(ProgramCounter, true);
 
 	if (Instruction == 0x20)
 	{
 		StepOver = true;
-		InstCount = 1;
 
 		const InstInfo* optable = GetOpcodeTable(true);
 
-		ReturnAddress = PrePC + optable[Instruction].bytes;
+		ReturnAddress = ProgramCounter + optable[Instruction].bytes;
 
 		// Resume execution
 		DebugBreakExecution(DebugType::None);
