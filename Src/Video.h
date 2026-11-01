@@ -49,7 +49,6 @@ extern unsigned char CRTC_LightPenHigh;        /* R16 */
 extern unsigned char CRTC_LightPenLow;         /* R17 */
 
 extern unsigned int ActualScreenWidth;
-extern long ScreenAdjust;
 
 extern bool TeletextEnabled;
 extern char TeletextStyle;

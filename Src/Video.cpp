@@ -87,8 +87,8 @@ unsigned char CRTC_LightPenHigh = 0;          // R16
 unsigned char CRTC_LightPenLow = 0;           // R17
 
 unsigned int ActualScreenWidth=640;
-long ScreenAdjust=0; // Mode 7 Defaults.
-long VScreenAdjust=0;
+static int ScreenAdjust = 0; // Mode 7 Defaults.
+static int VScreenAdjust = 0;
 unsigned char HSyncModifier=9;
 bool TeletextEnabled = false;
 char TeletextStyle = 1; // Defines whether teletext will skip intermediate lines in order to speed up
@@ -766,7 +766,7 @@ static void VideoStartOfFrame()
 
 static void LowLevelDoScanLineNarrow()
 {
-  EightUChars* vidPtr = mainWin->GetLinePtr(VideoState.BitmapLine);
+  EightUChars* vidPtr = mainWin->GetLinePtr(VideoState.BitmapLine, ScreenAdjust);
 
   // If the step is 4 then each byte corresponds to one entry in the fasttable
   // and thus we can copy it really easily (and fast!).
@@ -794,7 +794,7 @@ static void LowLevelDoScanLineNarrow()
 
 static void LowLevelDoScanLineNarrowNot4Bytes()
 {
-  EightUChars* vidPtr = mainWin->GetLinePtr(VideoState.BitmapLine);
+  EightUChars* vidPtr = mainWin->GetLinePtr(VideoState.BitmapLine, ScreenAdjust);
 
   // If the step is 4 then each byte corresponds to one entry in the fasttable
   // and thus we can copy it really easily (and fast!).
@@ -814,7 +814,7 @@ static void LowLevelDoScanLineNarrowNot4Bytes()
 
 static void LowLevelDoScanLineWide()
 {
-  SixteenUChars* vidPtr = mainWin->GetLinePtr16(VideoState.BitmapLine);
+  SixteenUChars* vidPtr = mainWin->GetLinePtr16(VideoState.BitmapLine, ScreenAdjust);
 
   // If the step is 4 then each byte corresponds to one entry in the fasttable
   // and thus we can copy it really easily (and fast!)
@@ -840,7 +840,7 @@ static void LowLevelDoScanLineWide()
 
 static void LowLevelDoScanLineWideNot4Bytes()
 {
-  SixteenUChars* vidPtr = mainWin->GetLinePtr16(VideoState.BitmapLine);
+  SixteenUChars* vidPtr = mainWin->GetLinePtr16(VideoState.BitmapLine, ScreenAdjust);
 
   const unsigned char* CurrentPtr = VideoState.DataPtr + VideoState.InCharLineUp;
 
@@ -1071,6 +1071,7 @@ static void DoMode7Row()
               mainWin->doHorizLine(
                 CurrentCol[CurrentScanLine],             // Colour
                 VideoState.BitmapLine + CurrentScanLine, // y
+                ScreenAdjust,                            // ScreenAdjust
                 CurrentStartX[CurrentScanLine],          // sx
                 CurrentLen[CurrentScanLine]              // width
               );
@@ -1101,6 +1102,7 @@ static void DoMode7Row()
                 mainWin->doHorizLine(
                   CurrentCol[CurrentScanLine],             // Colour
                   VideoState.BitmapLine + CurrentScanLine, // y
+                  ScreenAdjust,                            // ScreenAdjust
                   CurrentStartX[CurrentScanLine],          // sx
                   CurrentLen[CurrentScanLine]              // width
                 );
@@ -1151,6 +1153,7 @@ static void DoMode7Row()
               mainWin->doHorizLine(
                 CurrentCol[CurrentScanLine],             // Colour
                 VideoState.BitmapLine + CurrentScanLine, // y
+                ScreenAdjust,                            // ScreenAdjust
                 CurrentStartX[CurrentScanLine],          // sx
                 CurrentLen[CurrentScanLine]              // width
               );
@@ -1180,6 +1183,7 @@ static void DoMode7Row()
       mainWin->doHorizLine(
         CurrentCol[CurrentScanLine],             // Colour
         VideoState.BitmapLine + CurrentScanLine, // y
+        ScreenAdjust,                            // ScreenAdjust
         CurrentStartX[CurrentScanLine],          // sx
         CurrentLen[CurrentScanLine]              // width
       );
@@ -1254,13 +1258,13 @@ void VideoDoScanLine()
       {
         for (int l = -VScreenAdjust; l < 0; ++l)
         {
-          mainWin->doHorizLine(0, l, -36, BEEBEM_BITMAP_WIDTH);
+          mainWin->doHorizLine(0, l, ScreenAdjust, -36, BEEBEM_BITMAP_WIDTH);
         }
       }
 
       for (int l = 0; l < 20 && VideoState.BitmapLine + l < BEEBEM_BITMAP_HEIGHT; ++l)
       {
-        mainWin->doHorizLine(0, VideoState.BitmapLine + l, -36, BEEBEM_BITMAP_WIDTH);
+        mainWin->doHorizLine(0, VideoState.BitmapLine + l, ScreenAdjust, -36, BEEBEM_BITMAP_WIDTH);
       }
     }
 
@@ -1313,7 +1317,7 @@ void VideoDoScanLine()
         // Clear rest of screen below vertical total.
         for (int l = VideoState.BitmapLine; l < 500 / TeletextStyle; ++l)
         {
-          mainWin->doHorizLine(0, l, -36, BEEBEM_BITMAP_WIDTH);
+          mainWin->doHorizLine(0, l, ScreenAdjust, -36, BEEBEM_BITMAP_WIDTH);
         }
 
         mainWin->UpdateLines(0, 500 / TeletextStyle);
@@ -1369,7 +1373,7 @@ void VideoDoScanLine()
     if (RenderFrame)
     {
       // Clear the scan line.
-      memset(mainWin->GetLinePtr(VideoState.BitmapLine), 0, BEEBEM_BITMAP_WIDTH);
+      memset(mainWin->GetLinePtr(VideoState.BitmapLine, ScreenAdjust), 0, BEEBEM_BITMAP_WIDTH);
     }
 
     // RTW - changed so we are even able to plot vertical total adjust region
@@ -1819,7 +1823,7 @@ static void VideoAddCursor()
 		{
 			if (CurY + y >= 0)
 			{
-				mainWin->doInvHorizLine(7, CurY + y, CurX, CurSize);
+				mainWin->doInvHorizLine(7, CurY + y, ScreenAdjust, CurX, CurSize);
 			}
 		}
 	}

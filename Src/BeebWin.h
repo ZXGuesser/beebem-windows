@@ -291,7 +291,7 @@ public:
 		UpdateLines(m_hDC, StartY, Lines);
 	}
 
-	void doHorizLine(int Colour, int y, int sx, int width)
+	void doHorizLine(int Colour, int y, int ScreenAdjust, int sx, int width)
 	{
 		if (TeletextEnabled) y /= TeletextStyle;
 		int d = (y * BEEBEM_BITMAP_WIDTH) + sx + ScreenAdjust + (TeletextEnabled ? 36 : 0);
@@ -300,7 +300,7 @@ public:
 		memset(m_screen + d, Colour, width);
 	}
 
-	void doInvHorizLine(int Colour, int y, int sx, int width)
+	void doInvHorizLine(int Colour, int y, int ScreenAdjust, int sx, int width)
 	{
 		if (TeletextEnabled) y /= TeletextStyle;
 		int d = (y * BEEBEM_BITMAP_WIDTH) + sx + ScreenAdjust + (TeletextEnabled ? 36 : 0);
@@ -318,7 +318,7 @@ public:
 		memset(m_screen + (y * BEEBEM_BITMAP_WIDTH) + sx, Colour, width);
 	}
 
-	EightUChars *GetLinePtr(int y)
+	EightUChars *GetLinePtr(int y, int ScreenAdjust)
 	{
 		int Offset = (y * BEEBEM_BITMAP_WIDTH) + ScreenAdjust;
 
@@ -330,7 +330,7 @@ public:
 		return (EightUChars *)(m_screen + Offset);
 	}
 
-	SixteenUChars *GetLinePtr16(int y)
+	SixteenUChars *GetLinePtr16(int y, int ScreenAdjust)
 	{
 		int Offset = (y * BEEBEM_BITMAP_WIDTH) + ScreenAdjust;
 
