@@ -1498,7 +1498,6 @@ void Exec6502Instruction()
 		// Output debug info
 		if (DebugEnabled && !DebugDisassembler(ProgramCounter, PrePC, Accumulator, XReg, YReg, PSR, StackReg, true))
 		{
-			Sleep(10);  // Ease up on CPU when halted
 			continue;
 		}
 

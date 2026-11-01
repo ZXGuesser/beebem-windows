@@ -96,6 +96,7 @@ static int DisAddress = 0;      // Next address for disassemble command
 static int LastBreakAddr = 0;   // Address of last break
 static int DebugInfoWidth = 0;  // Width of debug info window
 static int LastAddressShown = -1;
+static bool DebugHalted = false;
 
 static bool DebugTraceEnable[(int)DebugType::Last];
 static bool DebugBreakEnable[(int)DebugType::Last];
@@ -1078,6 +1079,13 @@ static int DebugGetMaxAddress(bool Host)
 
 /****************************************************************************/
 
+bool DebugIsHalted()
+{
+	return DebugEnabled && DebugHalted;
+}
+
+/****************************************************************************/
+
 static bool DebugIsIOAddress(unsigned long Address, bool Host)
 {
 	if (Host)
@@ -1233,6 +1241,7 @@ void DebugCloseDialog()
 	LastAddrInOS = false;
 	LastAddrInBIOS = false;
 	LastAddrInROM = false;
+	DebugHalted = false;
 }
 
 /****************************************************************************/
@@ -1940,6 +1949,8 @@ bool DebugDisassembler(int Addr,
                        unsigned char StackReg,
                        bool Host)
 {
+	DebugHalted = false;
+
 	// Update memory watches. Prevent emulator slowdown by limiting updates
 	// to every 100ms, or on timer wrap-around.
 	static DWORD LastTickCount = 0;
@@ -1976,6 +1987,7 @@ bool DebugDisassembler(int Addr,
 			DebugDisplayInfo(str);
 		}
 
+		DebugHalted = true;
 		return false;
 	}
 
@@ -2133,6 +2145,7 @@ bool DebugDisassembler(int Addr,
 
 	if (Host && InstCount == 0)
 	{
+		DebugHalted = true;
 		return false;
 	}
 

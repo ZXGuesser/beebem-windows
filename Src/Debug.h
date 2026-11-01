@@ -140,6 +140,7 @@ bool DebugLoadLabels(const char *filename, bool host);
 
 unsigned char DebugReadMem(int addr, bool host);
 void DebugBreakExecution(DebugType Type);
+bool DebugIsHalted();
 
 void DebugInitMemoryMaps();
 bool DebugLoadMemoryMap(const char* filename, int bank);

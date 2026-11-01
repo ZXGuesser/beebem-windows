@@ -32,6 +32,7 @@ Boston, MA  02110-1301, USA.
 #include "Main.h"
 #include "6502core.h"
 #include "BeebWin.h"
+#include "Debug.h"
 #include "Log.h"
 #include "SelectKeyDialog.h"
 
@@ -67,7 +68,9 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE /* hPrevInstance */,
 	{
 		MSG msg;
 
-		if (PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE) || mainWin->IsFrozen())
+		if (PeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE) ||
+		    mainWin->IsFrozen() ||
+		    DebugIsHalted())
 		{
 			if (!GetMessage(&msg,   // message structure
 			                NULL,   // handle of window receiving the message
