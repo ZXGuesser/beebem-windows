@@ -1708,28 +1708,56 @@ unsigned char CRTCRead(int Address)
 
 /*--------------------------------------------------------------------------*/
 
-void VideoULAWrite(int Address, unsigned char Value) {
-  if (Address & 1) {
-    VideoULA_Palette[(Value & 0xf0)>>4]=(Value & 0xf) ^ 7;
-    FastTable_Valid = false;
-    //fprintf(crtclog,"Palette written to at line %d\n",VideoState.PixmapLine);
-  } else {
-    unsigned char oldValue = VideoULA_ControlReg;
-    VideoULA_ControlReg = Value;
-    FastTable_Valid = false; /* Could be more selective and only do it if no.of.cols bit changes */
-    // DebugTrace("Palette reg %d now has value %02X\n", (Value & 0xf0) >> 4, (Value & 0xf) ^ 7);
-    /* cerr << "VidULA Ctrl reg write " << hex << Value << "\n"; */
-    // Adjust HSyncModifier
-    if (VideoULA_ControlReg & VIDEOULA_CRTC_CLOCK_RATE_SELECT) HSyncModifier = 8; else HSyncModifier = 16;
-    if (VideoULA_ControlReg & VIDEOULA_TELETEXT_SELECT) HSyncModifier = 12;
-    // number of pixels per CRTC character (on our screen)
-    TeletextEnabled = (Value & VIDEOULA_TELETEXT_SELECT) != 0;
-    if ((Value & VIDEOULA_TELETEXT_SELECT) ^ (oldValue & VIDEOULA_TELETEXT_SELECT))
-    {
-      ScreenAdjust = 0;
-    }
-    AdjustVideo();
-  }
+void VideoULAWrite(int Address, unsigned char Value)
+{
+	if (Address & 1)
+	{
+		VideoULA_Palette[(Value & 0xF0) >> 4] = (Value & 0xF) ^ 7;
+
+		FastTable_Valid = false;
+	}
+	else
+	{
+		const unsigned char PrevControlRegValue = VideoULA_ControlReg;
+
+		VideoULA_ControlReg = Value;
+
+		// Check if we need to update the FastTable.
+		const unsigned char Mask = VIDEOULA_CRTC_CLOCK_RATE_SELECT |
+		                           VIDEOULA_CHARS_PER_LINE |
+		                           VIDEOULA_FLASH_COLOUR_SELECT;
+
+		if (((Value ^ PrevControlRegValue) & Mask) != 0)
+		{
+			FastTable_Valid = false;
+		}
+
+		// Adjust HSyncModifier - number of pixels per CRTC character (on our screen).
+
+		if (VideoULA_ControlReg & VIDEOULA_TELETEXT_SELECT)
+		{
+			HSyncModifier = 12;
+		}
+		else if (VideoULA_ControlReg & VIDEOULA_CRTC_CLOCK_RATE_SELECT)
+		{
+			// High frequency clock (modes 0-3).
+			HSyncModifier = 8;
+		}
+		else
+		{
+			// Low frequency clock (modes 4-7).
+			HSyncModifier = 16;
+		}
+
+		TeletextEnabled = (Value & VIDEOULA_TELETEXT_SELECT) != 0;
+
+		if (((Value ^ PrevControlRegValue) & VIDEOULA_TELETEXT_SELECT) != 0)
+		{
+			ScreenAdjust = 0;
+		}
+
+		AdjustVideo();
+	}
 }
 
 /*--------------------------------------------------------------------------*/
