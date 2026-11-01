@@ -86,6 +86,10 @@ unsigned char CRTC_CursorPosLow = 0;          // R15
 unsigned char CRTC_LightPenHigh = 0;          // R16
 unsigned char CRTC_LightPenLow = 0;           // R17
 
+const int TELETEXT_MARGIN = 36;
+const int TELETEXT_CHAR_WIDTH = 12;
+const int DEFAULT_TELETEXT_SCREEN_WIDTH = 2 * TELETEXT_MARGIN + 40 * TELETEXT_CHAR_WIDTH;
+
 unsigned int ActualScreenWidth=640;
 static int ScreenAdjust = 0; // Mode 7 Defaults.
 static int VScreenAdjust = 0;
@@ -897,6 +901,8 @@ static void DoMode7Row()
   int CurrentX = 0;
   int FontTypeIndex = 0; // 0=alpha, 1=contiguous graphics, 2=separated graphics
 
+  const int Adjust = ScreenAdjust + TELETEXT_MARGIN;
+
   // Reset double-height state for the first character row of the screen.
   if (VideoState.CharLine == 0)
   {
@@ -1071,8 +1077,7 @@ static void DoMode7Row()
               mainWin->doHorizLine(
                 CurrentCol[CurrentScanLine],             // Colour
                 VideoState.BitmapLine + CurrentScanLine, // y
-                ScreenAdjust,                            // ScreenAdjust
-                CurrentStartX[CurrentScanLine],          // sx
+                CurrentStartX[CurrentScanLine] + Adjust, // sx
                 CurrentLen[CurrentScanLine]              // width
               );
             }
@@ -1102,8 +1107,7 @@ static void DoMode7Row()
                 mainWin->doHorizLine(
                   CurrentCol[CurrentScanLine],             // Colour
                   VideoState.BitmapLine + CurrentScanLine, // y
-                  ScreenAdjust,                            // ScreenAdjust
-                  CurrentStartX[CurrentScanLine],          // sx
+                  CurrentStartX[CurrentScanLine] + Adjust, // sx
                   CurrentLen[CurrentScanLine]              // width
                 );
               }
@@ -1153,8 +1157,7 @@ static void DoMode7Row()
               mainWin->doHorizLine(
                 CurrentCol[CurrentScanLine],             // Colour
                 VideoState.BitmapLine + CurrentScanLine, // y
-                ScreenAdjust,                            // ScreenAdjust
-                CurrentStartX[CurrentScanLine],          // sx
+                CurrentStartX[CurrentScanLine] + Adjust, // sx
                 CurrentLen[CurrentScanLine]              // width
               );
             }
@@ -1183,8 +1186,7 @@ static void DoMode7Row()
       mainWin->doHorizLine(
         CurrentCol[CurrentScanLine],             // Colour
         VideoState.BitmapLine + CurrentScanLine, // y
-        ScreenAdjust,                            // ScreenAdjust
-        CurrentStartX[CurrentScanLine],          // sx
+        CurrentStartX[CurrentScanLine] + Adjust, // sx
         CurrentLen[CurrentScanLine]              // width
       );
     }
@@ -1258,13 +1260,14 @@ void VideoDoScanLine()
       {
         for (int Line = -VScreenAdjust; Line < 0; ++Line)
         {
-          mainWin->doHorizLine(0, Line, ScreenAdjust, -36, BEEBEM_BITMAP_WIDTH);
+          // -36 is to blank the whole screen width, see (TeletextEnabled ? 36 : 0) in doHorizLine()
+          mainWin->doHorizLine(0, Line, ScreenAdjust, BEEBEM_BITMAP_WIDTH);
         }
       }
 
       for (int Line = 0; Line < 20 && VideoState.BitmapLine + Line < BEEBEM_BITMAP_HEIGHT; ++Line)
       {
-        mainWin->doHorizLine(0, VideoState.BitmapLine + Line, ScreenAdjust, -36, BEEBEM_BITMAP_WIDTH);
+        mainWin->doHorizLine(0, VideoState.BitmapLine + Line, ScreenAdjust, BEEBEM_BITMAP_WIDTH);
       }
     }
 
@@ -1317,7 +1320,7 @@ void VideoDoScanLine()
         // Clear rest of screen below vertical total.
         for (int Line = VideoState.BitmapLine; Line < 500 / TeletextStyle; ++Line)
         {
-          mainWin->doHorizLine(0, Line, ScreenAdjust, -36, BEEBEM_BITMAP_WIDTH);
+          mainWin->doHorizLine(0, Line, ScreenAdjust, BEEBEM_BITMAP_WIDTH);
         }
 
         mainWin->UpdateLines(0, 500 / TeletextStyle);
@@ -1482,19 +1485,15 @@ static void AdjustVideo()
 {
 	if (TeletextEnabled)
 	{
-		const int MARGIN = 36;
-		const int CHAR_WIDTH = 12;
-		const int DEFAULT_TELETEXT_WIDTH = 2 * MARGIN + 40 * CHAR_WIDTH;
-
-		ActualScreenWidth = 2 * MARGIN + CRTC_HorizontalDisplayed * CHAR_WIDTH;
+		ActualScreenWidth = 2 * TELETEXT_MARGIN + CRTC_HorizontalDisplayed * TELETEXT_CHAR_WIDTH;
 
 		if (ActualScreenWidth > BEEBEM_BITMAP_WIDTH)
 		{
 			ActualScreenWidth = BEEBEM_BITMAP_WIDTH;
 		}
-		else if (ActualScreenWidth < DEFAULT_TELETEXT_WIDTH)
+		else if (ActualScreenWidth < DEFAULT_TELETEXT_SCREEN_WIDTH)
 		{
-			ActualScreenWidth = DEFAULT_TELETEXT_WIDTH;
+			ActualScreenWidth = DEFAULT_TELETEXT_SCREEN_WIDTH;
 		}
 	}
 	else
@@ -1823,7 +1822,9 @@ static void VideoAddCursor()
 		{
 			if (CurY + y >= 0)
 			{
-				mainWin->doInvHorizLine(7, CurY + y, ScreenAdjust, CurX, CurSize);
+				const int Adjust = VideoState.IsTeletext ? ScreenAdjust + TELETEXT_MARGIN : ScreenAdjust;
+
+				mainWin->doInvHorizLine(7, CurY + y, CurX + Adjust, CurSize);
 			}
 		}
 	}

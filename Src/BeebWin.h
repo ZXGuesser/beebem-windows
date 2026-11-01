@@ -291,24 +291,27 @@ public:
 		UpdateLines(m_hDC, StartY, Lines);
 	}
 
-	void doHorizLine(int Colour, int y, int ScreenAdjust, int sx, int width)
+	void doHorizLine(int Colour, int y, int sx, int width)
 	{
 		if (TeletextEnabled) y /= TeletextStyle;
-		int d = (y * BEEBEM_BITMAP_WIDTH) + sx + ScreenAdjust + (TeletextEnabled ? 36 : 0);
+		int d = (y * BEEBEM_BITMAP_WIDTH) + sx;
 		if ((d + width) > (500 * BEEBEM_BITMAP_WIDTH)) return;
 		if (d < 0) return;
+
 		memset(m_screen + d, Colour, width);
 	}
 
-	void doInvHorizLine(int Colour, int y, int ScreenAdjust, int sx, int width)
+	void doInvHorizLine(int Colour, int y, int sx, int width)
 	{
 		if (TeletextEnabled) y /= TeletextStyle;
-		int d = (y * BEEBEM_BITMAP_WIDTH) + sx + ScreenAdjust + (TeletextEnabled ? 36 : 0);
-		char *vaddr;
+		int d = (y * BEEBEM_BITMAP_WIDTH) + sx;
 		if ((d + width) > (500 * BEEBEM_BITMAP_WIDTH)) return;
 		if (d < 0) return;
-		vaddr = m_screen + d;
-		for (int n = 0; n < width; n++) *(vaddr + n) ^= Colour;
+
+		for (int n = 0; n < width; n++)
+		{
+			m_screen[d + n] ^= Colour;
+		}
 	}
 
 	void doUHorizLine(int Colour, int y, int sx, int width)
