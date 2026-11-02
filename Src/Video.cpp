@@ -1567,7 +1567,7 @@ void CRTCWrite(int Address, unsigned char Value)
     if (DebugEnabled && CRTCControlReg < 14)
     {
         DebugDisplayTraceF(DebugType::Video, true,
-                           "CRTC: Write register %X value %02X",
+                           "CRTC: Write register %02X value %02X",
                            (int)CRTCControlReg, Value);
     }
 

@@ -98,8 +98,8 @@ void UserVIAWrite(int Address, unsigned char Value)
 	if (DebugEnabled)
 	{
 		DebugDisplayTraceF(DebugType::UserVIA, true,
-		                   "UserVia: Write address %X value %02X",
-		                   Address & 0xf, Value);
+		                   "UserVia: Write address %02X value %02X",
+		                   Address, Value);
 	}
 
 	switch (Address)
@@ -401,8 +401,8 @@ unsigned char UserVIARead(int Address)
 	if (DebugEnabled)
 	{
 	  DebugDisplayTraceF(DebugType::UserVIA, true,
-	                     "UserVia: Read address %X value %02X",
-	                     Address & 0xf, Value & 0xff);
+	                     "UserVia: Read address %02X value %02X",
+	                     Address, Value);
 	}
 
 	return Value;

@@ -422,8 +422,8 @@ void SysVIAWrite(int Address, unsigned char Value)
 	if (DebugEnabled)
 	{
 		DebugDisplayTraceF(DebugType::SysVIA, true,
-		                   "SysVia: Write address %X value %02X",
-		                   Address & 0xf, Value);
+		                   "SysVia: Write address %02X value %02X",
+		                   Address, Value);
 	}
 
 	switch (Address)
@@ -755,8 +755,8 @@ unsigned char SysVIARead(int Address)
 	if (DebugEnabled)
 	{
 		DebugDisplayTraceF(DebugType::SysVIA, true,
-		                   "SysVia: Read address %X value %02X",
-		                   Address & 0xf, Value & 0xff);
+		                   "SysVia: Read address %02X value %02X",
+		                   Address, Value);
 	}
 
 	return Value;

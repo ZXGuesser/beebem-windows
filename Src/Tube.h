@@ -26,6 +26,8 @@ Boston, MA  02110-1301, USA.
 #ifndef TUBE6502_HEADER
 #define TUBE6502_HEADER
 
+#include "Port.h"
+
 enum class TubeDevice
 {
 	None,
@@ -38,6 +40,7 @@ enum class TubeDevice
 };
 
 extern TubeDevice TubeType;
+extern CycleCountT TotalTubeCycles;
 
 extern unsigned char R1Status;
 void ResetTube(void);
@@ -59,7 +62,8 @@ constexpr int TUBE_NMI_R3 = 0x01;
 void Init65C02Core();
 
 // Execute one 6502 instruction, move program counter on.
-void Exec65C02Instruction();
+bool Exec65C02Instruction();
+void DebugStepTube();
 
 void WrapTubeCycles(void);
 void SyncTubeProcessor(void);

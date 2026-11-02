@@ -140,12 +140,17 @@ bool DebugLoadLabels(const char *filename, bool host);
 
 unsigned char DebugReadMem(int addr, bool host);
 void DebugBreakExecution(DebugType Type);
+
 bool DebugIsHalted();
+bool DebugIsStepping();
+bool DebugParasiteIsStepping();
 
 void DebugInitMemoryMaps();
 bool DebugLoadMemoryMap(const char* filename, int bank);
 
 extern bool DebugEnabled;
+extern bool DebugHost;
+
 extern HWND hwndDebug;
 
 #endif

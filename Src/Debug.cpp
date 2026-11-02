@@ -95,7 +95,7 @@ static int DumpAddress = 0;     // Next address for memory dump command
 static int DisAddress = 0;      // Next address for disassemble command
 static int LastBreakAddr = 0;   // Address of last break
 static int DebugInfoWidth = 0;  // Width of debug info window
-static int LastAddressShown = -1;
+static int PendingAddrShown = -1;
 static bool DebugHalted = false;
 
 static bool DebugTraceEnable[(int)DebugType::Last];
@@ -109,11 +109,23 @@ static bool LastAddrInOS = false;
 static bool LastAddrInBIOS = false;
 static bool DebugROM = false;
 static bool LastAddrInROM = false;
-static bool DebugHost = true;
-static bool DebugParasite = false;
+bool DebugHost = true; // Host (true) or Parasite (false)
 static bool WatchDecimal = false;
 static bool WatchRefresh = false;
 static bool WatchBigEndian = false;
+
+struct CPU6502State
+{
+	int Addr;
+	int Accumulator;
+	int XReg;
+	int YReg;
+	unsigned char PSR;
+	unsigned char StackReg;
+};
+
+static CPU6502State LastHostInstr = { -1, 0, 0, 0, 0, 0 };
+static int LastTraceAddr = -1;
 
 HWND hwndDebug;
 static HWND hwndInvisibleOwner;
@@ -136,6 +148,16 @@ static int DebugHistoryIndex = 0;
 /****************************************************************************/
 
 static INT_PTR CALLBACK DebugDlgProc(HWND hwndDlg, UINT message, WPARAM wParam, LPARAM lParam);
+
+static void DebugSetTarget(bool Host);
+
+static void DebugPrintInstruction(int Addr,
+                                  bool Host,
+                                  int Accumulator,
+                                  int XReg,
+                                  int YReg,
+                                  unsigned char PSR,
+                                  unsigned char StackReg);
 
 static void DebugParseCommand(const char *command);
 static void DebugWriteMem(int addr, bool host, unsigned char data);
@@ -1079,13 +1101,6 @@ static int DebugGetMaxAddress(bool Host)
 
 /****************************************************************************/
 
-bool DebugIsHalted()
-{
-	return DebugEnabled && DebugHalted;
-}
-
-/****************************************************************************/
-
 static bool DebugIsIOAddress(unsigned long Address, bool Host)
 {
 	if (Host)
@@ -1117,6 +1132,27 @@ static bool DebugIsIOAddress(unsigned long Address, bool Host)
 	}
 
 	return false;
+}
+
+/****************************************************************************/
+
+static bool DebugIsHardwareBreak(DebugType Type)
+{
+	switch (Type)
+	{
+		case DebugType::Video:
+		case DebugType::SysVIA:
+		case DebugType::UserVIA:
+		case DebugType::Tube:
+		case DebugType::Serial:
+		case DebugType::Econet:
+		case DebugType::Teletext:
+		case DebugType::CMOS:
+			return true;
+
+		default:
+			return false;
+	}
 }
 
 /****************************************************************************/
@@ -1236,12 +1272,23 @@ void DebugCloseDialog()
 	DebugInfoWidth = 0;
 
 	InstCount = 0;
+	PendingAddrShown = -1;
+	DebugHalted = false;
+
 	StepOver = false;
 	ReturnAddress = 0;
 	LastAddrInOS = false;
 	LastAddrInBIOS = false;
 	LastAddrInROM = false;
-	DebugHalted = false;
+
+	LastHostInstr.Addr = -1;
+	LastHostInstr.Accumulator = 0;
+	LastHostInstr.XReg = 0;
+	LastHostInstr.YReg = 0;
+	LastHostInstr.PSR = 0;
+	LastHostInstr.StackReg = 0;
+
+	LastTraceAddr = -1;
 }
 
 /****************************************************************************/
@@ -1330,7 +1377,7 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hWnd, UINT Message, WPARAM wParam, LPA
 			SetDlgItemChecked(hWnd, IDC_DEBUG_CMOS_BRK,     DebugBreakEnable[(int)DebugType::CMOS]);
 			SetDlgItemChecked(hWnd, IDC_DEBUGBRK,           DebugBreakEnable[(int)DebugType::BRK]);
 			SetDlgItemChecked(hWnd, IDC_DEBUGHOST,          DebugHost);
-			SetDlgItemChecked(hWnd, IDC_DEBUGPARASITE,      DebugParasite);
+			SetDlgItemChecked(hWnd, IDC_DEBUGPARASITE,      !DebugHost);
 			SetDlgItemChecked(hWnd, IDC_DEBUGOS,            DebugOS);
 			SetDlgItemChecked(hWnd, IDC_DEBUGROM,           DebugROM);
 			SetDlgItemChecked(hWnd, IDC_WATCHDECIMAL,       WatchDecimal);
@@ -1425,11 +1472,11 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hWnd, UINT Message, WPARAM wParam, LPA
 					break;
 
 				case IDC_DEBUGHOST:
-					DebugHost = IsDlgItemChecked(hWnd, IDC_DEBUGHOST);
+					DebugSetTarget(true);
 					break;
 
 				case IDC_DEBUGPARASITE:
-					DebugParasite = IsDlgItemChecked(hWnd, IDC_DEBUGPARASITE);
+					DebugSetTarget(false);
 					break;
 
 				case IDC_WATCHDECIMAL:
@@ -1541,20 +1588,33 @@ static void DebugToggleRun()
 
 void DebugBreakExecution(DebugType Type)
 {
+	const bool WasRunning = DebugSource == DebugType::None;
+
 	DebugSource = Type;
+
+	LastTraceAddr = -1;
 
 	if (Type == DebugType::None)
 	{
 		InstCount = 0;
 		LastBreakAddr = 0;
-		LastAddressShown = -1;
+		PendingAddrShown = -1;
+		DebugHalted = false;
+
 		SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Break");
 	}
 	else
 	{
-		InstCount = 0;
+		if (WasRunning)
+		{
+			InstCount = 0;
+		}
+
 		SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Continue");
-		LastAddrInBIOS = LastAddrInOS = LastAddrInROM = false;
+
+		LastAddrInBIOS = false;
+		LastAddrInOS = false;
+		LastAddrInROM = false;
 
 		DebugUpdateWatches(true);
 	}
@@ -1742,8 +1802,27 @@ static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 
 void DebugDisplayTrace(DebugType Type, bool Host, const char *Info)
 {
-	if (DebugEnabled && ((DebugHost && Host) || (DebugParasite && !Host)))
+	if (DebugEnabled && DebugHost == Host)
 	{
+		if (DebugBreakEnable[(int)Type])
+		{
+			if (DebugSource == DebugType::None && // Running
+			    DebugIsHardwareBreak(Type) &&
+			    LastHostInstr.Addr != -1 &&
+			    LastTraceAddr != LastHostInstr.Addr)
+			{
+				LastTraceAddr = LastHostInstr.Addr;
+
+				DebugPrintInstruction(LastHostInstr.Addr,
+				                      Host,
+				                      LastHostInstr.Accumulator,
+				                      LastHostInstr.XReg,
+				                      LastHostInstr.YReg,
+				                      LastHostInstr.PSR,
+				                      LastHostInstr.StackReg);
+			}
+		}
+
 		if (DebugTraceEnable[(int)Type])
 		{
 			DebugDisplayInfo(Info);
@@ -1932,10 +2011,83 @@ static void DebugUpdateWatches(bool UpdateAll)
 
 /****************************************************************************/
 
-static bool DebugSkipAddress(int Addr)
+bool DebugIsHalted()
 {
-	return (!DebugOS  && Addr >= 0xC000 && Addr <= 0xFBFF) ||
-	       (!DebugROM && Addr >= 0x8000 && Addr <= 0xBFFF);
+	return DebugEnabled && DebugHalted;
+}
+
+/****************************************************************************/
+
+bool DebugIsStepping()
+{
+	return DebugEnabled && DebugSource != DebugType::None;
+}
+
+/****************************************************************************/
+
+bool DebugParasiteIsStepping()
+{
+	return DebugEnabled && !DebugHost && DebugSource != DebugType::None;
+}
+
+/****************************************************************************/
+
+static void DebugSetTarget(bool Host)
+{
+	DebugHost = Host;
+
+	SetDlgItemChecked(hwndDebug, IDC_DEBUGHOST, DebugHost);
+	SetDlgItemChecked(hwndDebug, IDC_DEBUGPARASITE, !DebugHost);
+
+	InstCount = 0;
+	PendingAddrShown = -1;
+	DebugHalted = false;
+
+	LastHostInstr.Addr = -1;
+	LastHostInstr.Accumulator = 0;
+	LastHostInstr.XReg = 0;
+	LastHostInstr.YReg = 0;
+	LastHostInstr.PSR = 0;
+	LastHostInstr.StackReg = 0;
+
+	LastTraceAddr = -1;
+}
+
+/****************************************************************************/
+
+static void DebugPrintInstruction(int Addr,
+                                  bool Host,
+                                  int Accumulator,
+                                  int XReg,
+                                  int YReg,
+                                  unsigned char PSR,
+                                  unsigned char StackReg)
+{
+	if (Host || TubeType == TubeDevice::Acorn65C02)
+	{
+		char Str[150];
+
+		int Length = DebugDisassembleInstructionWithCPUStatus(
+			Addr, Host, Accumulator, XReg, YReg, StackReg, PSR, Str
+		);
+
+		if (!Host)
+		{
+			strcpy(&Str[Length], "  Parasite");
+		}
+
+		DebugDisplayInfo(Str);
+	}
+	else if (TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80)
+	{
+		char Str[128];
+		Z80Disassemble(Addr, Str);
+		DebugDisplayInfo(Str);
+	}
+	else
+	{
+		// TODO: Implement for Master512CoPro, AcornArm, SprowArm.
+	}
 }
 
 /****************************************************************************/
@@ -1949,7 +2101,11 @@ bool DebugDisassembler(int Addr,
                        unsigned char StackReg,
                        bool Host)
 {
-	DebugHalted = false;
+	if (Host != DebugHost)
+	{
+		// Not debugging this processor.
+		return !DebugHalted;
+	}
 
 	// Update memory watches. Prevent emulator slowdown by limiting updates
 	// to every 100ms, or on timer wrap-around.
@@ -1962,93 +2118,65 @@ bool DebugDisassembler(int Addr,
 		DebugUpdateWatches(false);
 	}
 
-	// If this is the host and we're debugging that and have no further
-	// instructions to execute, halt.
-	if (Host && DebugHost && DebugSource != DebugType::None && InstCount == 0 && !DebugSkipAddress(Addr))
+	if (Host)
 	{
-		if (LastAddressShown != Addr)
+		LastHostInstr.Addr = Addr;
+		LastHostInstr.Accumulator = Accumulator;
+		LastHostInstr.XReg = XReg;
+		LastHostInstr.YReg = YReg;
+		LastHostInstr.PSR = PSR;
+		LastHostInstr.StackReg = StackReg;
+
+		// BRK trigger. Only while running, otherwise you could never step off a BRK.
+		if (DebugSource == DebugType::None &&
+		    DebugBreakEnable[(int)DebugType::BRK] &&
+		    DebugReadMem(Addr, Host) == 0)
 		{
-			LastAddressShown = Addr;
-
-			DebugAssertBreak(Addr, PrevAddr, Host);
-			DebugUpdateWatches(true);
-
-			char str[150];
-
-			int Length = DebugDisassembleInstructionWithCPUStatus(
-				Addr, Host, Accumulator, XReg, YReg, StackReg, PSR, str
-			);
-
-			if (!Host)
-			{
-				strcpy(&str[Length], "  Parasite");
-			}
-
-			DebugDisplayInfo(str);
+			DebugBreakExecution(DebugType::BRK);
 		}
 
-		DebugHalted = true;
-		return false;
-	}
-
-	// Don't process further if we're not debugging the parasite either
-	if (!Host && !DebugParasite)
-	{
-		return true;
-	}
-
-	if (DebugBreakEnable[(int)DebugType::BRK])
-	{
-		if (Host)
+		// Stop when we reach the instruction after the JSR.
+		if (StepOver && Addr == ReturnAddress)
 		{
-			if (DebugReadMem(Addr, Host) == 0)
-			{
-				DebugBreakExecution(DebugType::BRK);
-			}
+			StepOver = false;
+			DebugBreakExecution(DebugType::Breakpoint);
 		}
-	}
 
-	if (Host && StepOver && Addr == ReturnAddress)
-	{
-		StepOver = false;
-		DebugBreakExecution(DebugType::Breakpoint);
-	}
-
-	// Check breakpoints
-
-	if (BPSOn && DebugSource != DebugType::Breakpoint)
-	{
-		// TODO: Allow for host/copro breakpoints
-		for (size_t i = 0; i < Breakpoints.size(); i++)
+		// Check breakpoints
+		if (BPSOn && DebugSource != DebugType::Breakpoint)
 		{
-			const Breakpoint& bp = Breakpoints[i];
+			// TODO: Allow for host/copro breakpoints
+			for (size_t i = 0; i < Breakpoints.size(); i++)
+			{
+				const Breakpoint& bp = Breakpoints[i];
 
-			if (bp.end == -1)
-			{
-				if (Addr >= 0x8000 && Addr < 0xC000 &&
-				    Addr == bp.start &&
-				    ROMSEL == bp.SWRBank)
+				if (bp.end == -1)
 				{
-					DebugBreakExecution(DebugType::Breakpoint);
+					if (Addr >= 0x8000 && Addr < 0xC000 &&
+					    Addr == bp.start &&
+					    ROMSEL == bp.SWRBank)
+					{
+						DebugBreakExecution(DebugType::Breakpoint);
+					}
+					else if ((Addr < 0x8000 || Addr >= 0xC000) &&
+					         Addr == bp.start)
+					{
+						DebugBreakExecution(DebugType::Breakpoint);
+					}
 				}
-				else if ((Addr < 0x8000 || Addr >= 0xC000) &&
-				         Addr == bp.start)
+				else
 				{
-					DebugBreakExecution(DebugType::Breakpoint);
-				}
-			}
-			else
-			{
-				if (Addr >= 0x8000 && Addr < 0xC000 &&
-				    Addr >= bp.start && Addr <= bp.end &&
-				    ROMSEL == bp.SWRBank)
-				{
-					DebugBreakExecution(DebugType::Breakpoint);
-				}
-				else if ((Addr < 0x8000 || Addr >= 0xC000) &&
-				         Addr >= bp.start && Addr <= bp.end)
-				{
-					DebugBreakExecution(DebugType::Breakpoint);
+					if (Addr >= 0x8000 && Addr < 0xC000 &&
+					    Addr >= bp.start && Addr <= bp.end &&
+					    ROMSEL == bp.SWRBank)
+					{
+						DebugBreakExecution(DebugType::Breakpoint);
+					}
+					else if ((Addr < 0x8000 || Addr >= 0xC000) &&
+					         Addr >= bp.start && Addr <= bp.end)
+					{
+						DebugBreakExecution(DebugType::Breakpoint);
+					}
 				}
 			}
 		}
@@ -2056,7 +2184,7 @@ bool DebugDisassembler(int Addr,
 
 	if (DebugSource == DebugType::None)
 	{
-		LastAddressShown = -1;
+		DebugHalted = false;
 		return true;
 	}
 	
@@ -2114,7 +2242,7 @@ bool DebugDisassembler(int Addr,
 	{
 		if (TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80)
 		{
-			if (!DebugOS && Addr >= 0xf800 && Addr <= 0xffff)
+			if (!DebugOS && Addr >= 0xF800 && Addr <= 0xFFFF)
 			{
 				if (!LastAddrInBIOS)
 				{
@@ -2143,72 +2271,35 @@ bool DebugDisassembler(int Addr,
 		}
 	}
 
-	if (Host && InstCount == 0)
+	if (InstCount == 0)
 	{
 		DebugHalted = true;
+
+		if (PendingAddrShown != Addr)
+		{
+			PendingAddrShown = Addr;
+
+			DebugAssertBreak(Addr, PrevAddr, Host);
+			DebugUpdateWatches(true);
+			DebugPrintInstruction(Addr, Host, Accumulator, XReg, YReg, PSR, StackReg);
+		}
+
 		return false;
 	}
 
-	DebugAssertBreak(Addr, PrevAddr, Host);
+	DebugHalted = false;
 
-	char str[150];
-
-	if (Host || (!Host && TubeType == TubeDevice::Acorn65C02))
+	if (PendingAddrShown == Addr)
 	{
-		if (LastAddressShown == Addr)
-		{
-			LastAddressShown = -1;
-		}
-		else
-		{
-			int Length = DebugDisassembleInstructionWithCPUStatus(
-				Addr, Host, Accumulator, XReg, YReg, StackReg, PSR, str
-			);
-
-			if (!Host)
-			{
-				strcpy(&str[Length], "  Parasite");
-			}
-
-			DebugDisplayInfo(str);
-		}
+		// Already displayed.
+		PendingAddrShown = -1;
 	}
 	else
 	{
-		switch (TubeType)
-		{
-			case TubeDevice::Acorn65C02:
-				// Already handled.
-				break;
-
-			case TubeDevice::AcornZ80:
-			case TubeDevice::TorchZ80: {
-				char Str[128];
-				Z80Disassemble(Addr, Str);
-				DebugDisplayInfo(Str);
-				break;
-			}
-
-			case TubeDevice::Master512CoPro:
-			case TubeDevice::AcornArm:
-			case TubeDevice::SprowArm:
-				// Not implemented.
-				break;
-
-			case TubeDevice::None:
-				break;
-		}
+		DebugPrintInstruction(Addr, Host, Accumulator, XReg, YReg, PSR, StackReg);
 	}
 
-	// If host debug is enabled then only count host instructions
-	// and display all parasite instructions (otherwise we lose them).
-	if ((DebugHost && Host) || !DebugHost)
-	{
-		if (InstCount > 0)
-		{
-			InstCount--;
-		}
-	}
+	InstCount--;
 
 	return true;
 }
@@ -3600,13 +3691,19 @@ static bool DebugCmdNext(const char* args)
 
 	if (Args.size() == 1)
 	{
+		bool Valid = true;
+
 		if (!ParseNumber(Args[0], &Count))
 		{
-			DebugDisplayInfoF("Invalid count: %s", Args[0].c_str());
-			return true;
+			Valid = false;
 		}
 
 		if (Count < 1)
+		{
+			Valid = false;
+		}
+
+		if (!Valid)
 		{
 			DebugDisplayInfoF("Invalid count: %s", Args[0].c_str());
 			return true;
@@ -3618,7 +3715,14 @@ static bool DebugCmdNext(const char* args)
 		Count = MAX_LINES;
 	}
 
+	if (DebugSource == DebugType::None)
+	{
+		DebugDisplayInfo("Invalid state: processor is running");
+		return true;
+	}
+
 	InstCount = Count;
+	DebugHalted = false;
 
 	DebugSetCommandString("next");
 
@@ -3631,6 +3735,12 @@ static bool DebugCmdNext(const char* args)
 
 static bool DebugCmdOver(const char* args)
 {
+	if (!DebugHost)
+	{
+		DebugDisplayInfo("Not implemented for this coprocessor");
+		return true;
+	}
+
 	// If current instruction is JSR, run to the following instruction,
 	// otherwise do a regular 'Next'
 	int Instruction = DebugReadMem(ProgramCounter, true);
@@ -3678,13 +3788,13 @@ static bool DebugCmdSet(const char* args)
 
 	if (StrCaseCmp(pszFlag, "host") == 0)
 	{
-		DlgItemID = IDC_DEBUGHOST;
-		DebugHost = Checked;
+		DebugSetTarget(true);
+		return true;
 	}
 	else if (StrCaseCmp(pszFlag, "parasite") == 0)
 	{
-		DlgItemID = IDC_DEBUGPARASITE;
-		DebugParasite = Checked;
+		DebugSetTarget(false);
+		return true;
 	}
 	else if (StrCaseCmp(pszFlag, "rom") == 0)
 	{

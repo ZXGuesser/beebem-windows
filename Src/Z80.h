@@ -75,7 +75,7 @@ extern FASTWORK simz80(FASTREG PC);
 extern unsigned char Z80ReadIO(unsigned int port);
 extern void Z80WriteIO(unsigned int port, unsigned char value);
 
-void Z80Execute();
+bool Z80Execute();
 void Z80Init();
 void Z80Debug();
 int Z80Disassemble(int adr, char *s);

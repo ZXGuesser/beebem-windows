@@ -52,7 +52,9 @@ static int CurrentInstruction;
 static unsigned char TubeRam[65536];
 TubeDevice TubeType;
 
-static CycleCountT TotalTubeCycles = 0;
+static bool DebugSteppingTube = false;
+
+CycleCountT TotalTubeCycles = 0;
 
 static int old_readHIOAddr = 0;
 static unsigned char old_readHTmpData = 0;
@@ -1650,17 +1652,17 @@ static void DoTubeNMI()
 
 // Execute one 6502 instruction, move program counter on
 
-void Exec65C02Instruction()
+bool Exec65C02Instruction()
 {
 	static int tmpaddr;
 
-	// Output debug info
-	if (DebugEnabled)
+	// Output debug info.
+	if (DebugEnabled && !DebugDisassembler(TubeProgramCounter, TubePrePC, Accumulator, XReg, YReg, PSR, StackReg, false))
 	{
-		DebugDisassembler(TubeProgramCounter, TubePrePC, Accumulator, XReg, YReg, PSR, StackReg, false);
+		return false;
 	}
 
-	// For the Master, check Shadow Ram Presence
+	// For the Master, check Shadow RAM presence.
 	// Note, this has to be done BEFORE reading an instruction due to Bit E and the PC
 	TubePrePC = TubeProgramCounter;
 
@@ -2620,34 +2622,51 @@ void Exec65C02Instruction()
 	IRQCycles = 0; // IRQ Timing
 	// End of cycle correction
 
-	if (TubeIntStatus && !GETIFLAG) {
+	if (TubeIntStatus && !GETIFLAG)
+	{
 		DoTubeInterrupt();
 	}
 
 	TotalTubeCycles += TubeCycles;
 
-	if (TubeNMIStatus && !OldTubeNMIStatus) {
+	if (TubeNMIStatus && !OldTubeNMIStatus)
+	{
 		DoTubeNMI();
 	}
 
 	OldTubeNMIStatus = TubeNMIStatus;
+
+	return true;
 }
 
 /*-------------------------------------------------------------------------*/
-void WrapTubeCycles(void) {
-	TotalTubeCycles -= CycleCountWrap/2*3;
+
+void WrapTubeCycles()
+{
+	TotalTubeCycles -= CycleCountWrap / 2 * 3;
 }
+
+/*-------------------------------------------------------------------------*/
+
+// Synchronise the two processors on a cycle based timing. The second
+// processor runs at 3MHz.
 
 void SyncTubeProcessor()
 {
-	// This proc synchronises the two processors on a cycle based timing.
-	// Second pro runs at 3MHz
-	while (TotalTubeCycles<(TotalCycles/2*3)) {
-		Exec65C02Instruction();
+	const bool Stepping = DebugParasiteIsStepping();
+
+	while (TotalTubeCycles < (TotalCycles / 2 * 3))
+	{
+		if (!Exec65C02Instruction() || Stepping)
+		{
+			// Halted by the debugger.
+			break;
+		}
 	}
 }
 
 /*-------------------------------------------------------------------------*/
+
 void DebugTubeState(void)
 {
 	DebugDisplayInfo("");

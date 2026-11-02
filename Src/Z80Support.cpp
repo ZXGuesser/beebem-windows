@@ -155,12 +155,12 @@ void Z80WriteIO(unsigned int addr, unsigned char value)
 	}
 }
 
-void Z80Execute()
+bool Z80Execute()
 {
 	// Output debug info
-	if (DebugEnabled)
+	if (DebugEnabled && !DebugDisassembler(pc, PreZPC, 0, 0, 0, 0, 0, false))
 	{
-		DebugDisassembler(pc, PreZPC, 0, 0, 0, 0, 0, false);
+		return false;
 	}
 
 	PreZPC = pc;
@@ -192,6 +192,8 @@ void Z80Execute()
 			Z80SetNMILine(false);
 		}
 	}
+
+	return true;
 }
 
 void Z80Init()

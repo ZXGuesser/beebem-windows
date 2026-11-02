@@ -1491,14 +1491,29 @@ static void ClipboardCNPVHandler()
 
 void Exec6502Instruction()
 {
-	const int Count = DebugEnabled ? 1 : 1024; // Makes debug window more responsive
+	const int Count = DebugIsStepping() ? 1 : 1024; // Makes debug window more responsive
 
 	for (int i = 0; i < Count; i++)
 	{
 		// Output debug info
-		if (DebugEnabled && !DebugDisassembler(ProgramCounter, PrePC, Accumulator, XReg, YReg, PSR, StackReg, true))
+		if (DebugEnabled)
 		{
-			continue;
+			if (!DebugDisassembler(ProgramCounter, PrePC, Accumulator, XReg, YReg, PSR, StackReg, true))
+			{
+				return;
+			}
+
+			// If debugging the parasite and it's due to execute, step it instead
+			// of running a host instruction.
+
+			if (!DebugHost &&
+			    TubeType == TubeDevice::Acorn65C02 &&
+				DebugIsStepping() &&
+				TotalTubeCycles < (TotalCycles / 2 * 3)) // Tube is behind host
+			{
+				SyncTubeProcessor(); // Run one parasite instruction, or halt.
+				continue;
+			}
 		}
 
 		bool iFlagJustCleared = false;
