@@ -184,7 +184,7 @@ static void DebugChompString(char* str);
 
 // Command handlers
 static bool DebugCmdBreakContinue(const char* args);
-static bool DebugCmdToggleBreak(const char* args);
+static bool DebugCmdBreakpoint(const char* args);
 static bool DebugCmdLabels(const char* args);
 static bool DebugCmdHelp(const char* args);
 static bool DebugCmdSet(const char* args);
@@ -206,13 +206,15 @@ static void DebugRomState();
 
 /****************************************************************************/
 
-// Debugger commands go here. Format is COMMAND, HANDLER, ARGSPEC, HELPSTRING
-// Aliases are supported, put these below the command they reference and leave argspec/help
-// empty.
-static const DebugCmd DebugCmdTable[] = {
-	{ "bp",         DebugCmdToggleBreak,   "<start>[-<end>] [<bank>] [<name>]", "Set or clear a breakpoint or break range" },
-	{ "b",          DebugCmdToggleBreak,   "", ""}, // Alias of "bp"
-	{ "breakpoint", DebugCmdToggleBreak,   "", ""}, // Alias of "bp"
+// Debugger commands go here. Format is Command, Handler, ArgSpec, HelpString
+// Aliases are supported, put these below the command they reference and leave
+// ArgSpec and HelpString empty.
+
+static const DebugCmd DebugCmdTable[] =
+{
+	{ "bp",         DebugCmdBreakpoint,   "[p] <start>[-<end>] [<bank>] [<name>]", "Set or clear a breakpoint or break range" },
+	{ "b",          DebugCmdBreakpoint,   "", ""}, // Alias of "bp"
+	{ "breakpoint", DebugCmdBreakpoint,   "", ""}, // Alias of "bp"
 	{ "labels",     DebugCmdLabels,        "<load|show|clear> [p] [<filename>]", "Load labels from file, display known labels, or clear all labels" },
 	{ "l",          DebugCmdLabels,        "", ""}, // Alias of "labels"
 	{ "help",       DebugCmdHelp,          "[<item>]", "Display help for the specified command or address" },
@@ -1886,6 +1888,11 @@ static int DebugFindBreakpoint(const Breakpoint& bp)
 	char Info[64];
 	char* psz = Info;
 
+	if (!bp.host)
+	{
+		*psz++ = 'p';
+	}
+
 	psz += sprintf(psz, "%04X", bp.start);
 
 	if (bp.SWRBank != -1)
@@ -1902,6 +1909,11 @@ static void DebugAddBreakpoint(const Breakpoint& bp)
 {
 	char Info[64];
 	char* psz = Info;
+
+	if (!bp.host)
+	{
+		*psz++ = 'p';
+	}
 
 	if (bp.end >= 0)
 	{
@@ -2106,6 +2118,29 @@ static void DebugPrintInstruction(int Addr,
 
 /****************************************************************************/
 
+static bool DebugBreakpointHit(const Breakpoint& bp, int Addr, bool Host)
+{
+	if (bp.host != Host)
+	{
+		return false;
+	}
+
+	if (bp.end == -1 ? (Addr != bp.start) : (Addr < bp.start || Addr > bp.end))
+	{
+		return false;
+	}
+
+	// Check for breakpoint in paged ROM space (host only).
+	if (Host && Addr >= 0x8000 && Addr < 0xC000)
+	{
+		return bp.SWRBank == ROMSEL;
+	}
+
+	return true;
+}
+
+/****************************************************************************/
+
 bool DebugDisassembler(int Addr,
                        int PrevAddr,
                        int Accumulator,
@@ -2148,38 +2183,25 @@ bool DebugDisassembler(int Addr,
 		// Check breakpoints
 		if (BPSOn && DebugSource != DebugType::Breakpoint)
 		{
-			// TODO: Allow for host/copro breakpoints
 			for (size_t i = 0; i < Breakpoints.size(); i++)
 			{
-				const Breakpoint& bp = Breakpoints[i];
-
-				if (bp.end == -1)
+				if (DebugBreakpointHit(Breakpoints[i], Addr, Host))
 				{
-					if (Addr >= 0x8000 && Addr < 0xC000 &&
-					    Addr == bp.start &&
-					    ROMSEL == bp.SWRBank)
-					{
-						DebugBreakExecution(DebugType::Breakpoint);
-					}
-					else if ((Addr < 0x8000 || Addr >= 0xC000) &&
-					         Addr == bp.start)
-					{
-						DebugBreakExecution(DebugType::Breakpoint);
-					}
+					DebugBreakExecution(DebugType::Breakpoint);
 				}
-				else
+			}
+		}
+	}
+	else
+	{
+		// Check breakpoints
+		if (BPSOn && DebugSource != DebugType::Breakpoint)
+		{
+			for (size_t i = 0; i < Breakpoints.size(); i++)
+			{
+				if (DebugBreakpointHit(Breakpoints[i], Addr, Host))
 				{
-					if (Addr >= 0x8000 && Addr < 0xC000 &&
-					    Addr >= bp.start && Addr <= bp.end &&
-					    ROMSEL == bp.SWRBank)
-					{
-						DebugBreakExecution(DebugType::Breakpoint);
-					}
-					else if ((Addr < 0x8000 || Addr >= 0xC000) &&
-					         Addr >= bp.start && Addr <= bp.end)
-					{
-						DebugBreakExecution(DebugType::Breakpoint);
-					}
+					DebugBreakExecution(DebugType::Breakpoint);
 				}
 			}
 		}
@@ -4237,7 +4259,9 @@ static bool DebugCmdWatch(const char* args)
 
 /****************************************************************************/
 
-static bool DebugCmdToggleBreak(const char* args)
+// Toggle a breakpoint.
+
+static bool DebugCmdBreakpoint(const char* args)
 {
 	std::vector<std::string> Args;
 
@@ -4248,16 +4272,32 @@ static bool DebugCmdToggleBreak(const char* args)
 		return false;
 	}
 
-	const char* pszLabel = nullptr;
+	int Index = 0;
+
 	Breakpoint bp;
 
-	std::size_t SeparatorPos = Args[0].find('-');
+	if (StrCaseCmp(Args[Index].c_str(), "p") == 0) // Parasite
+	{
+		bp.host = false;
+
+		Index++;
+	}
+
+	if (Index == (int)Args.size())
+	{
+		return false;
+	}
+
+	const char* pszLabel = nullptr;
+
+	const std::string& Arg = Args[Index++];
+	std::size_t SeparatorPos = Arg.find('-');
 
 	unsigned long Address;
 
 	if (SeparatorPos == std::string::npos)
 	{
-		if (ParseAddressOrLabel(Args[0].c_str(), true, &Address, &pszLabel))
+		if (ParseAddressOrLabel(Arg.c_str(), true, &Address, &pszLabel))
 		{
 			bp.start = (int)Address;
 		}
@@ -4268,8 +4308,8 @@ static bool DebugCmdToggleBreak(const char* args)
 	}
 	else
 	{
-		std::string Start = Args[0].substr(0, SeparatorPos);
-		std::string End   = Args[0].substr(SeparatorPos + 1);
+		std::string Start = Arg.substr(0, SeparatorPos);
+		std::string End   = Arg.substr(SeparatorPos + 1);
 
 		if (ParseAddressOrLabel(Start.c_str(), true, &Address, &pszLabel))
 		{
@@ -4288,13 +4328,31 @@ static bool DebugCmdToggleBreak(const char* args)
 		{
 			return true;
 		}
+
+		if (bp.end < bp.start)
+		{
+			DebugDisplayInfo("Error: Invalid breakpoint range.");
+			return true;
+		}
 	}
 
-	if (Args.size() == 3)
+	const size_t ArgsRemaining = Args.size() - Index;
+
+	if (ArgsRemaining > 2)
 	{
+		return false;
+	}
+	else if (ArgsRemaining == 2)
+	{
+		if (!bp.host)
+		{
+			DebugDisplayInfo("Banks only apply to host breakpoints.");
+			return true;
+		}
+
 		int Bank = 0;
 
-		if (ParseNumber(Args[1], &Bank))
+		if (ParseNumber(Args[Index], &Bank))
 		{
 			if (Bank >= 0 && Bank <= 15)
 			{
@@ -4307,33 +4365,26 @@ static bool DebugCmdToggleBreak(const char* args)
 			}
 		}
 
-		bp.name = Args[2];
+		bp.name = Args[Index + 1];
 	}
-	else if (Args.size() == 2)
+	else if (ArgsRemaining == 1)
 	{
-		// Args[1] could be bank or label
+		// Args[Index] could be bank or label.
 		int Bank = 0;
-		bool Label = false;
+		bool Label = true;
 
-		if (ParseNumber(Args[1], &Bank))
+		if (bp.host && ParseNumber(Args[1], &Bank))
 		{
 			if (Bank >= 0 && Bank <= 15)
 			{
 				bp.SWRBank = Bank;
+				Label = false;
 			}
-			else
-			{
-				Label = true;
-			}
-		}
-		else
-		{
-			Label = true;
 		}
 
 		if (Label)
 		{
-			bp.name = Args[1];
+			bp.name = Args[Index];
 		}
 	}
 
@@ -4344,7 +4395,7 @@ static bool DebugCmdToggleBreak(const char* args)
 
 	// Check if breakpoint already exists.
 
-	int Index = DebugFindBreakpoint(bp);
+	Index = DebugFindBreakpoint(bp);
 
 	if (Index != LB_ERR)
 	{
@@ -4352,7 +4403,7 @@ static bool DebugCmdToggleBreak(const char* args)
 		SendMessage(hwndBP, LB_DELETESTRING, Index, 0);
 
 		auto it = std::find_if(Breakpoints.begin(), Breakpoints.end(), [&bp](const Breakpoint& b) {
-			return b.start == bp.start && b.SWRBank == bp.SWRBank;
+			return b.start == bp.start && b.host == bp.host && b.SWRBank == bp.SWRBank;
 		});
 
 		assert(it != Breakpoints.end());
@@ -4366,12 +4417,6 @@ static bool DebugCmdToggleBreak(const char* args)
 		if (Breakpoints.size() >= MAX_BPS)
 		{
 			DebugDisplayInfo("You have too many breakpoints!");
-			return true;
-		}
-
-		if (bp.end >= 0 && bp.end < bp.start)
-		{
-			DebugDisplayInfo("Error: Invalid breakpoint range.");
 			return true;
 		}
 
