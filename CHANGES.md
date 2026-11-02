@@ -20,6 +20,19 @@ Contributors: Chris Needham, Greg Cook
   setting implements the correct serial ULA behaviour, and bypasses the BeebEm
   detection in those games.
 * Fixed log file output.
+* Debugger improvements:
+  - The debugger now shows the next instruction to be executed instead of the
+    last instruction that was executed.
+  - The debugger can now only be attached to either the host or the parasite
+    CPU at once.
+  - Break on I/O hardware access now shows the previous instruction, which
+    read or write the I/O address, before the next (pending) instruction.
+  - The host and parasite CPUs are kept in sync. (Note that only the Acorn
+    65C02, Acorn Z80, and Torch Z80 coprocessors are currently supported.)
+  - Added support for parasite debugger breakpoints.
+  - The debugger now prevents watches from being set on I/O addresses.
+  - Optimisations to improve emulation speed while the Debug window is open.
+
 
 Version 4.23 (6 April 2026)
 ------------
