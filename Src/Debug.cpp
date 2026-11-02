@@ -114,6 +114,9 @@ static bool WatchDecimal = false;
 static bool WatchRefresh = false;
 static bool WatchBigEndian = false;
 
+constexpr UINT_PTR TIMER_WATCH_UPDATE = 1;
+constexpr UINT TIMER_WATCH_PERIOD = 250; // Milliseconds
+
 struct CPU6502State
 {
 	int Addr;
@@ -1261,6 +1264,7 @@ void DebugOpenDialog(HINSTANCE hInstance, HWND /* hwndParent */)
 
 void DebugCloseDialog()
 {
+	KillTimer(hwndDebug, TIMER_WATCH_UPDATE);
 	DestroyWindow(hwndDebug);
 	hwndDebug = nullptr;
 	hwndInfo = nullptr;
@@ -1413,6 +1417,8 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hWnd, UINT Message, WPARAM wParam, LPA
 
 			DebugUpdateWatches(true);
 
+			SetTimer(hWnd, TIMER_WATCH_UPDATE, TIMER_WATCH_PERIOD, nullptr);
+
 			return TRUE;
 		}
 
@@ -1561,6 +1567,14 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hWnd, UINT Message, WPARAM wParam, LPA
 				case IDCANCEL:
 					DebugCloseDialog();
 					break;
+			}
+			break;
+
+		case WM_TIMER:
+			if (wParam == TIMER_WATCH_UPDATE)
+			{
+				DebugUpdateWatches(false);
+				return TRUE;
 			}
 			break;
 	}
@@ -2105,17 +2119,6 @@ bool DebugDisassembler(int Addr,
 	{
 		// Not debugging this processor.
 		return !DebugHalted;
-	}
-
-	// Update memory watches. Prevent emulator slowdown by limiting updates
-	// to every 100ms, or on timer wrap-around.
-	static DWORD LastTickCount = 0;
-	const DWORD TickCount = GetTickCount();
-
-	if (TickCount - LastTickCount > 100 || TickCount < LastTickCount)
-	{
-		LastTickCount = TickCount;
-		DebugUpdateWatches(false);
 	}
 
 	if (Host)
