@@ -176,11 +176,52 @@ static HWND hwndBP;
 static HWND hwndW;
 static HACCEL haccelDebug;
 
-static std::vector<Label> Labels[2]; // Host and copro
-static std::vector<Breakpoint> Breakpoints;
-static std::vector<Watch> Watches;
+struct DebugLabel
+{
+	std::string Name;
+	int Addr;
 
-typedef std::vector<AddrInfo> MemoryMap;
+	DebugLabel() : Addr(0)
+	{
+	}
+
+	DebugLabel(const std::string& n, int a) : Name(n), Addr(a)
+	{
+	}
+};
+
+static std::vector<DebugLabel> Labels[2]; // Host and copro
+
+struct DebugBreakpoint
+{
+	int StartAddr = -1;
+	int EndAddr = -1;
+	int SWRBank = -1;
+	bool Host = true;
+	std::string Name;
+};
+
+static std::vector<DebugBreakpoint> Breakpoints;
+
+struct DebugWatch
+{
+	int StartAddr = -1;
+	char Type = 'w';
+	int Value = -1;
+	bool Host = true;
+	std::string Name;
+};
+
+static std::vector<DebugWatch> Watches;
+
+struct DebugAddrInfo
+{
+	int StartAddr = -1;
+	int EndAddr = -1;
+	std::string Desc;
+};
+
+typedef std::vector<DebugAddrInfo> MemoryMap;
 
 static MemoryMap MemoryMaps[17];
 
@@ -201,7 +242,7 @@ static void DebugPrintInstruction(int Addr,
                                   unsigned char PSR,
                                   unsigned char StackReg);
 
-static bool DebugBreakpointHit(const Breakpoint& bp, int Addr, bool Host);
+static bool DebugBreakpointHit(const DebugBreakpoint& Breakpoint, int Addr, bool Host);
 
 static void DebugParseCommand(const char *command);
 static void DebugWriteMem(int addr, bool host, unsigned char data);
@@ -214,14 +255,14 @@ static void DebugResume();
 static void DebugRequestBreak(DebugType Type);
 static void DebugToggleRun();
 
-static std::vector<Breakpoint>::iterator DebugFindBreakpoint(const Breakpoint& bp);
+static std::vector<DebugBreakpoint>::iterator DebugFindBreakpoint(const DebugBreakpoint& Breakpoint);
 static void DebugAddBreakpoints();
 
-static std::vector<Watch>::iterator DebugFindWatch(const Watch& watch);
+static std::vector<DebugWatch>::iterator DebugFindWatch(const DebugWatch& watch);
 static void DebugAddWatches();
 static void DebugUpdateWatches(bool UpdateAll);
 
-static bool DebugLookupAddress(int Addr, bool Host, AddrInfo* addrInfo);
+static bool DebugLookupAddress(int Addr, bool Host, DebugAddrInfo* pAddrInfo);
 static void DebugHistoryMove(int delta);
 static void DebugHistoryAdd(const char* command);
 static void DebugSetCommandString(const char* str);
@@ -251,9 +292,16 @@ static void DebugRomState();
 
 /****************************************************************************/
 
-// Debugger commands go here. Format is Command, Handler, ArgSpec, HelpString
-// Aliases are supported, put these below the command they reference and leave
-// ArgSpec and HelpString empty.
+// Debugger commands go here. Aliases are supported, put these below the
+// command they reference and leave argdesc help empty.
+
+struct DebugCmd
+{
+	const char* name;
+	bool (*handler)(const char* args);
+	const char* argdesc;
+	const char* help;
+};
 
 static const DebugCmd DebugCmdTable[] =
 {
@@ -295,6 +343,13 @@ static const DebugCmd DebugCmdTable[] =
 };
 
 /****************************************************************************/
+
+struct InstInfo
+{
+	const char* opcode;
+	int bytes;
+	int flag;
+};
 
 static const InstInfo optable_6502[256] =
 {
@@ -1211,7 +1266,7 @@ static int DebugFindLabel(const char* pszLabel, bool Host)
 {
 	for (int i = 0; i < (int)Labels[(int)Host].size(); ++i)
 	{
-		if (StrCaseCmp(pszLabel, Labels[(int)Host][i].name.c_str()) == 0)
+		if (StrCaseCmp(pszLabel, Labels[(int)Host][i].Name.c_str()) == 0)
 		{
 			return i;
 		}
@@ -1237,11 +1292,11 @@ static bool ParseAddressOrLabel(const char* pszAddress,
 
 		if (Index >= 0)
 		{
-			*pAddress = (unsigned long)Labels[(int)Host][Index].addr;
+			*pAddress = (unsigned long)Labels[(int)Host][Index].Addr;
 
 			if (ppszLabel != nullptr)
 			{
-				*ppszLabel = Labels[(int)Host][Index].name.c_str();
+				*ppszLabel = Labels[(int)Host][Index].Name.c_str();
 			}
 		}
 		else
@@ -1744,11 +1799,11 @@ static void DebugDisplayPreviousAddress(int PrevAddr, bool Host)
 {
 	if (PrevAddr > 0)
 	{
-		AddrInfo Info;
+		DebugAddrInfo Info;
 
 		if (DebugLookupAddress(PrevAddr, Host, &Info))
 		{
-			DebugDisplayInfoF("  Previous PC 0x%04X (%s)", PrevAddr, Info.desc.c_str());
+			DebugDisplayInfoF("  Previous PC 0x%04X (%s)", PrevAddr, Info.Desc.c_str());
 		}
 		else
 		{
@@ -1761,7 +1816,7 @@ static void DebugDisplayPreviousAddress(int PrevAddr, bool Host)
 
 static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 {
-	AddrInfo Info;
+	DebugAddrInfo Info;
 
 	DebugUpdateWatches(false);
 
@@ -1780,9 +1835,9 @@ static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 	{
 		for (size_t i = 0; i < Breakpoints.size(); ++i)
 		{
-			const Breakpoint& bp = Breakpoints[i];
+			const DebugBreakpoint& Breakpoint = Breakpoints[i];
 
-			if (!DebugBreakpointHit(bp, Addr, Host))
+			if (!DebugBreakpointHit(Breakpoint, Addr, Host))
 			{
 				continue;
 			}
@@ -1790,7 +1845,7 @@ static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 			char Bank[32];
 			Bank[0] = '\0';
 
-			if (bp.SWRBank != -1)
+			if (Breakpoint.SWRBank != -1)
 			{
 				sprintf(Bank, " [Bank %d]", ROMSEL);
 			}
@@ -1801,8 +1856,8 @@ static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 				                  CPUName,
 				                  Addr,
 				                  Bank,
-				                  bp.name.c_str(),
-				                  Info.desc.c_str());
+				                  Breakpoint.Name.c_str(),
+				                  Info.Desc.c_str());
 			}
 			else
 			{
@@ -1810,7 +1865,7 @@ static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 				                  CPUName,
 				                  Addr,
 				                  ROMSEL,
-				                  bp.name.c_str());
+				                  Breakpoint.Name.c_str());
 			}
 
 			DebugDisplayPreviousAddress(PrevAddr, Host);
@@ -1824,7 +1879,7 @@ static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 		                  CPUName,
 		                  Addr,
 		                  GetDebugSourceString(),
-		                  Info.desc.c_str());
+		                  Info.Desc.c_str());
 	}
 	else
 	{
@@ -1839,7 +1894,7 @@ static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 
 /****************************************************************************/
 
-void DebugDisplayTrace(DebugType Type, bool Host, const char *Info)
+void DebugDisplayTrace(DebugType Type, bool Host, const char* Info)
 {
 	if (DebugEnabled && DebugHost == Host)
 	{
@@ -1876,7 +1931,7 @@ void DebugDisplayTrace(DebugType Type, bool Host, const char *Info)
 
 /****************************************************************************/
 
-void DebugDisplayTraceF(DebugType Type, bool Host, const char *Format, ...)
+void DebugDisplayTraceF(DebugType Type, bool Host, const char* Format, ...)
 {
 	va_list Args;
 	va_start(Args, Format);
@@ -1888,7 +1943,7 @@ void DebugDisplayTraceF(DebugType Type, bool Host, const char *Format, ...)
 
 /****************************************************************************/
 
-void DebugDisplayTraceV(DebugType Type, bool Host, const char *Format, va_list Args)
+void DebugDisplayTraceV(DebugType Type, bool Host, const char* Format, va_list Args)
 {
 	// _vscprintf doesn't count terminating '\0'
 	int Length = _vscprintf(Format, Args) + 1;
@@ -1909,27 +1964,27 @@ void DebugDisplayTraceV(DebugType Type, bool Host, const char *Format, va_list A
 class CompareBreakpoints
 {
 	public:
-		CompareBreakpoints(const Breakpoint& breakpoint)
-			: m_breakpoint(breakpoint)
+		CompareBreakpoints(const DebugBreakpoint& Breakpoint)
+			: m_Breakpoint(Breakpoint)
 		{
 		}
 
 	public:
-		bool operator()(const Breakpoint& breakpoint)
+		bool operator()(const DebugBreakpoint& Breakpoint)
 		{
-			return m_breakpoint.host == breakpoint.host &&
-			       m_breakpoint.start == breakpoint.start &&
-			       m_breakpoint.end == breakpoint.end &&
-			       m_breakpoint.SWRBank == breakpoint.SWRBank;
+			return m_Breakpoint.Host == Breakpoint.Host &&
+			       m_Breakpoint.StartAddr == Breakpoint.StartAddr &&
+			       m_Breakpoint.EndAddr == Breakpoint.EndAddr &&
+			       m_Breakpoint.SWRBank == Breakpoint.SWRBank;
 		}
 
 	private:
-		const Breakpoint& m_breakpoint;
+		const DebugBreakpoint& m_Breakpoint;
 };
 
-static std::vector<Breakpoint>::iterator DebugFindBreakpoint(const Breakpoint& breakpoint)
+static std::vector<DebugBreakpoint>::iterator DebugFindBreakpoint(const DebugBreakpoint& Breakpoint)
 {
-	return std::find_if(Breakpoints.begin(), Breakpoints.end(), CompareBreakpoints(breakpoint));
+	return std::find_if(Breakpoints.begin(), Breakpoints.end(), CompareBreakpoints(Breakpoint));
 }
 
 /****************************************************************************/
@@ -1937,31 +1992,31 @@ static std::vector<Breakpoint>::iterator DebugFindBreakpoint(const Breakpoint& b
 class SortBreakpoints
 {
 	public:
-		bool operator()(const Breakpoint& bp1, const Breakpoint& bp2)
+		bool operator()(const DebugBreakpoint& Breakpoint1, const DebugBreakpoint& Breakpoint2)
 		{
-			if (bp1.host > bp2.host)
+			if (Breakpoint1.Host > Breakpoint2.Host)
 			{
 				return true;
 			}
-			else if (bp2.host > bp1.host)
+			else if (Breakpoint2.Host > Breakpoint1.Host)
 			{
 				return false;
 			}
 
-			if (bp1.start < bp2.start)
+			if (Breakpoint1.StartAddr < Breakpoint2.StartAddr)
 			{
 				return true;
 			}
-			else if (bp1.start > bp2.start)
+			else if (Breakpoint1.StartAddr > Breakpoint2.StartAddr)
 			{
 				return false;
 			}
 
-			if (bp1.SWRBank > bp2.SWRBank)
+			if (Breakpoint1.SWRBank > Breakpoint2.SWRBank)
 			{
 				return true;
 			}
-			else if (bp2.SWRBank > bp1.SWRBank)
+			else if (Breakpoint2.SWRBank > Breakpoint1.SWRBank)
 			{
 				return false;
 			}
@@ -1978,31 +2033,31 @@ static void DebugAddBreakpoints()
 
 	for (size_t i = 0; i < Breakpoints.size(); i++)
 	{
-		const Breakpoint& breakpoint = Breakpoints[i];
+		const DebugBreakpoint& Breakpoint = Breakpoints[i];
 
 		char Info[64];
 		char* psz = Info;
 
-		if (!breakpoint.host)
+		if (!Breakpoint.Host)
 		{
 			*psz++ = 'p';
 		}
 
-		if (breakpoint.end >= 0)
+		if (Breakpoint.EndAddr >= 0)
 		{
-			psz += sprintf(psz, "%04X-%04X", breakpoint.start, breakpoint.end);
+			psz += sprintf(psz, "%04X-%04X", Breakpoint.StartAddr, Breakpoint.EndAddr);
 		}
 		else
 		{
-			psz += sprintf(psz, "%04X", breakpoint.start);
+			psz += sprintf(psz, "%04X", Breakpoint.StartAddr);
 		}
 
-		if (breakpoint.SWRBank != -1)
+		if (Breakpoint.SWRBank != -1)
 		{
-			psz += sprintf(psz, " [Bank %d]", breakpoint.SWRBank);
+			psz += sprintf(psz, " [Bank %d]", Breakpoint.SWRBank);
 		}
 
-		std::string str = std::string(Info) + " " + breakpoint.name;
+		std::string str = std::string(Info) + " " + Breakpoint.Name;
 
 		SendMessage(hwndBP, LB_ADDSTRING, 0, (LPARAM)str.c_str());
 	}
@@ -2013,25 +2068,25 @@ static void DebugAddBreakpoints()
 class CompareWatches
 {
 	public:
-		CompareWatches(const Watch& watch)
-			: m_watch(watch)
+		CompareWatches(const DebugWatch& Watch)
+			: m_Watch(Watch)
 		{
 		}
 
 	public:
-		bool operator()(const Watch& watch)
+		bool operator()(const DebugWatch& Watch)
 		{
-			return m_watch.start == watch.start &&
-			       m_watch.host == watch.host;
+			return m_Watch.StartAddr == Watch.StartAddr &&
+			       m_Watch.Host == Watch.Host;
 		}
 
 	private:
-		const Watch& m_watch;
+		const DebugWatch& m_Watch;
 };
 
-static std::vector<Watch>::iterator DebugFindWatch(const Watch& watch)
+static std::vector<DebugWatch>::iterator DebugFindWatch(const DebugWatch& Watch)
 {
-	return std::find_if(Watches.begin(), Watches.end(), CompareWatches(watch));
+	return std::find_if(Watches.begin(), Watches.end(), CompareWatches(Watch));
 }
 
 /****************************************************************************/
@@ -2039,22 +2094,22 @@ static std::vector<Watch>::iterator DebugFindWatch(const Watch& watch)
 class SortWatches
 {
 	public:
-		bool operator()(const Watch& w1, const Watch& w2)
+		bool operator()(const DebugWatch& Watch1, const DebugWatch& Watch2)
 		{
-			if (w1.host > w2.host)
+			if (Watch1.Host > Watch2.Host)
 			{
 				return true;
 			}
-			else if (w2.host > w1.host)
+			else if (Watch2.Host > Watch1.Host)
 			{
 				return false;
 			}
 
-			if (w1.start < w2.start)
+			if (Watch1.StartAddr < Watch2.StartAddr)
 			{
 				return true;
 			}
-			else if (w1.start > w2.start)
+			else if (Watch1.StartAddr > Watch2.StartAddr)
 			{
 				return false;
 			}
@@ -2071,19 +2126,19 @@ static void DebugAddWatches()
 
 	for (size_t i = 0; i < Watches.size(); i++)
 	{
-		const Watch& watch = Watches[i];
+		const DebugWatch& Watch = Watches[i];
 
 		char Info[64];
 		char* psz = Info;
 
-		if (!watch.host)
+		if (!Watch.Host)
 		{
 			*psz++ = 'p';
 		}
 
-		sprintf(psz, "%04X", watch.start);
+		sprintf(psz, "%04X", Watch.StartAddr);
 
-		std::string str = std::string(Info) + " " + watch.name;
+		std::string str = std::string(Info) + " " + Watch.Name;
 
 		SendMessage(hwndW, LB_ADDSTRING, 0, (LPARAM)str.c_str());
 	}
@@ -2097,69 +2152,86 @@ static void DebugUpdateWatches(bool UpdateAll)
 
 	for (size_t i = 0; i < Watches.size(); ++i)
 	{
-		Watch& watch = Watches[i];
+		DebugWatch& Watch = Watches[i];
 
-		switch (watch.type)
+		switch (Watch.Type)
 		{
 			case 'b':
-				Value = DebugReadMem(watch.start, watch.host);
+				Value = DebugReadMem(Watch.StartAddr, Watch.Host);
 				break;
 
 			case 'w':
 				if (WatchBigEndian)
 				{
-					Value = (DebugReadMem(watch.start,     watch.host) << 8) +
-					         DebugReadMem(watch.start + 1, watch.host);
+					Value = (DebugReadMem(Watch.StartAddr,     Watch.Host) << 8) +
+					         DebugReadMem(Watch.StartAddr + 1, Watch.Host);
 				}
 				else
 				{
-					Value = (DebugReadMem(watch.start + 1, watch.host) << 8) +
-					         DebugReadMem(watch.start,     watch.host);
+					Value = (DebugReadMem(Watch.StartAddr + 1, Watch.Host) << 8) +
+					         DebugReadMem(Watch.StartAddr,     Watch.Host);
 				}
 				break;
 
 			case 'd':
 				if (WatchBigEndian)
 				{
-					Value = (DebugReadMem(watch.start,     watch.host) << 24) +
-					        (DebugReadMem(watch.start + 1, watch.host) << 16) +
-					        (DebugReadMem(watch.start + 2, watch.host) << 8) +
-					         DebugReadMem(watch.start + 3, watch.host);
+					Value = (DebugReadMem(Watch.StartAddr,     Watch.Host) << 24) +
+					        (DebugReadMem(Watch.StartAddr + 1, Watch.Host) << 16) +
+					        (DebugReadMem(Watch.StartAddr + 2, Watch.Host) << 8) +
+					         DebugReadMem(Watch.StartAddr + 3, Watch.Host);
 				}
 				else
 				{
-					Value = (DebugReadMem(watch.start + 3, watch.host) << 24) +
-					        (DebugReadMem(watch.start + 2, watch.host) << 16) +
-					        (DebugReadMem(watch.start + 1, watch.host) << 8) +
-					         DebugReadMem(watch.start,     watch.host);
+					Value = (DebugReadMem(Watch.StartAddr + 3, Watch.Host) << 24) +
+					        (DebugReadMem(Watch.StartAddr + 2, Watch.Host) << 16) +
+					        (DebugReadMem(Watch.StartAddr + 1, Watch.Host) << 8) +
+					         DebugReadMem(Watch.StartAddr,     Watch.Host);
 				}
 				break;
 		}
 
-		if (UpdateAll || Value != watch.value)
+		if (UpdateAll || Value != Watch.Value)
 		{
-			watch.value = Value;
+			Watch.Value = Value;
 
 			char str[256];
 
 			if (WatchDecimal)
 			{
-				sprintf(str, "%s%04X %s=%d (%c)", (watch.host ? "" : "p"), watch.start, watch.name.c_str(), watch.value, watch.type);
+				sprintf(str, "%s%04X %s=%d (%c)",
+				        Watch.Host ? "" : "p",
+				        Watch.StartAddr,
+				        Watch.Name.c_str(),
+				        Watch.Value,
+				        Watch.Type);
 			}
 			else
 			{
-				switch (watch.type)
+				switch (Watch.Type)
 				{
 					case 'b':
-						sprintf(str, "%s%04X %s=$%02X", watch.host ? "" : "p", watch.start, watch.name.c_str(), watch.value);
+						sprintf(str, "%s%04X %s=$%02X",
+						        Watch.Host ? "" : "p",
+						        Watch.StartAddr,
+						        Watch.Name.c_str(),
+						        Watch.Value);
 						break;
 
 					case 'w':
-						sprintf(str, "%s%04X %s=$%04X", watch.host ? "" : "p", watch.start, watch.name.c_str(), watch.value);
+						sprintf(str, "%s%04X %s=$%04X",
+						        Watch.Host ? "" : "p",
+						        Watch.StartAddr,
+						        Watch.Name.c_str(),
+						        Watch.Value);
 						break;
 
 					case 'd':
-						sprintf(str, "%s%04X %s=$%08X", watch.host ? "" : "p", watch.start, watch.name.c_str(), watch.value);
+						sprintf(str, "%s%04X %s=$%08X",
+						        Watch.Host ? "" : "p",
+						        Watch.StartAddr,
+						        Watch.Name.c_str(),
+						        Watch.Value);
 						break;
 				}
 			}
@@ -2252,14 +2324,15 @@ static void DebugPrintInstruction(int Addr,
 
 /****************************************************************************/
 
-static bool DebugBreakpointHit(const Breakpoint& bp, int Addr, bool Host)
+static bool DebugBreakpointHit(const DebugBreakpoint& Breakpoint, int Addr, bool Host)
 {
-	if (bp.host != Host)
+	if (Breakpoint.Host != Host)
 	{
 		return false;
 	}
 
-	if (bp.end == -1 ? (Addr != bp.start) : (Addr < bp.start || Addr > bp.end))
+	if (Breakpoint.EndAddr == -1 ? (Addr != Breakpoint.StartAddr) :
+	                               (Addr < Breakpoint.StartAddr || Addr > Breakpoint.EndAddr))
 	{
 		return false;
 	}
@@ -2267,7 +2340,7 @@ static bool DebugBreakpointHit(const Breakpoint& bp, int Addr, bool Host)
 	// Check for breakpoint in paged ROM space (host only).
 	if (Host && Addr >= 0x8000 && Addr < 0xC000)
 	{
-		return bp.SWRBank == ROMSEL;
+		return Breakpoint.SWRBank == ROMSEL;
 	}
 
 	return true;
@@ -2285,11 +2358,11 @@ static bool DebugInSkippedRegion(int Addr, bool Host)
 		{
 			if (!LastAddrInOS)
 			{
-				AddrInfo Info;
+				DebugAddrInfo Info;
 
 				if (DebugLookupAddress(Addr, Host, &Info))
 				{
-					DebugDisplayInfoF("Entered OS (0xC000-0xFBFF) at 0x%04X (%s)", Addr, Info.desc.c_str());
+					DebugDisplayInfoF("Entered OS (0xC000-0xFBFF) at 0x%04X (%s)", Addr, Info.Desc.c_str());
 				}
 				else
 				{
@@ -2337,13 +2410,13 @@ static bool DebugInSkippedRegion(int Addr, bool Host)
 		{
 			if (!LastAddrInBIOS)
 			{
-				AddrInfo Info;
+				DebugAddrInfo Info;
 
 				if (DebugLookupAddress(Addr, Host, &Info))
 				{
 					DebugDisplayInfoF("Entered BIOS (0xF800-0xFFFF) at 0x%04X (%s)",
 					                  Addr,
-					                  Info.desc.c_str());
+					                  Info.Desc.c_str());
 				}
 				else
 				{
@@ -2481,32 +2554,32 @@ bool DebugDisassembler(int Addr,
 
 /****************************************************************************/
 
-static void DebugLookupSWRAddress(AddrInfo* addrInfo)
+static void DebugLookupSWRAddress(DebugAddrInfo* pAddrInfo)
 {
-	addrInfo->start = 0x8000;
-	addrInfo->end   = 0xbfff;
+	pAddrInfo->StartAddr = 0x8000;
+	pAddrInfo->EndAddr   = 0xBFFF;
 
 	RomInfo rom;
-	char desc[100];
+	char Desc[100];
 
 	const char* ROMType = RomWritable[ROMSEL] ? "Paged ROM" : "Sideways RAM";
 
 	// Try ROM info:
 	if (ReadRomInfo(ROMSEL, &rom))
 	{
-		sprintf(desc, "%s bank %d: %.80s", ROMType, ROMSEL, rom.Title);
+		sprintf(Desc, "%s bank %d: %.80s", ROMType, ROMSEL, rom.Title);
 	}
 	else
 	{
-		sprintf(desc, "%s bank %d", ROMType, ROMSEL);
+		sprintf(Desc, "%s bank %d", ROMType, ROMSEL);
 	}
 
-	addrInfo->desc = desc;
+	pAddrInfo->Desc = Desc;
 }
 
 /****************************************************************************/
 
-static bool DebugLookupAddress(int Addr, bool Host, AddrInfo* addrInfo)
+static bool DebugLookupAddress(int Addr, bool Host, DebugAddrInfo* pAddrInfo)
 {
 	if (Host)
 	{
@@ -2517,14 +2590,14 @@ static bool DebugLookupAddress(int Addr, bool Host, AddrInfo* addrInfo)
 		{
 			for (size_t i = 0; i < MemoryMaps[ROMSEL].size(); i++)
 			{
-				if (Addr >= MemoryMaps[ROMSEL][i].start && Addr <= MemoryMaps[ROMSEL][i].end)
+				if (Addr >= MemoryMaps[ROMSEL][i].StartAddr && Addr <= MemoryMaps[ROMSEL][i].EndAddr)
 				{
-					addrInfo->start = MemoryMaps[ROMSEL][i].start;
-					addrInfo->end   = MemoryMaps[ROMSEL][i].end;
+					pAddrInfo->StartAddr = MemoryMaps[ROMSEL][i].StartAddr;
+					pAddrInfo->EndAddr   = MemoryMaps[ROMSEL][i].EndAddr;
 
-					char desc[100];
-					sprintf(desc, "%.99s", ReadRomInfo(ROMSEL, &rom) ? rom.Title : "ROM");
-					addrInfo->desc = desc;
+					char Desc[100];
+					sprintf(Desc, "%.99s", ReadRomInfo(ROMSEL, &rom) ? rom.Title : "ROM");
+					pAddrInfo->Desc = Desc;
 
 					return true;
 				}
@@ -2536,9 +2609,9 @@ static bool DebugLookupAddress(int Addr, bool Host, AddrInfo* addrInfo)
 		{
 			for (size_t i = 0; i < MemoryMaps[16].size(); i++)
 			{
-				if (Addr >= MemoryMaps[16][i].start && Addr <= MemoryMaps[16][i].end)
+				if (Addr >= MemoryMaps[16][i].StartAddr && Addr <= MemoryMaps[16][i].EndAddr)
 				{
-					*addrInfo = MemoryMaps[16][i];
+					*pAddrInfo = MemoryMaps[16][i];
 
 					return true;
 				}
@@ -2549,132 +2622,132 @@ static bool DebugLookupAddress(int Addr, bool Host, AddrInfo* addrInfo)
 		{
 			if (Addr >= 0x8000 && Addr < 0xc000)
 			{
-				DebugLookupSWRAddress(addrInfo);
+				DebugLookupSWRAddress(pAddrInfo);
 				return true;
 			}
 		}
 		else if (MachineType == Model::IntegraB)
 		{
-			if (ShEn && !MemSel && Addr >= 0x3000 && Addr <= 0x7fff)
+			if (ShEn && !MemSel && Addr >= 0x3000 && Addr <= 0x7FFF)
 			{
-				addrInfo->start = 0x3000;
-				addrInfo->end   = 0x7fff;
-				addrInfo->desc  = "Shadow RAM";
+				pAddrInfo->StartAddr = 0x3000;
+				pAddrInfo->EndAddr   = 0x7FFF;
+				pAddrInfo->Desc      = "Shadow RAM";
 				return true;
 			}
 
 			if (PrvEn)
 			{
-				if (Prvs8 && Addr >= 0x8000 && Addr <= 0x83ff)
+				if (Prvs8 && Addr >= 0x8000 && Addr <= 0x83FF)
 				{
-					addrInfo->start = 0x8000;
-					addrInfo->end   = 0x83ff;
-					addrInfo->desc  = "1K private area";
+					pAddrInfo->StartAddr = 0x8000;
+					pAddrInfo->EndAddr   = 0x83FF;
+					pAddrInfo->Desc      = "1K private area";
 					return true;
 				}
-				else if (Prvs4 && Addr >= 0x8000 && Addr <= 0x8fff)
+				else if (Prvs4 && Addr >= 0x8000 && Addr <= 0x8FFF)
 				{
-					addrInfo->start = 0x8400;
-					addrInfo->end   = 0x8fff;
-					addrInfo->desc  = "4K private area";
+					pAddrInfo->StartAddr = 0x8400;
+					pAddrInfo->EndAddr   = 0x8FFF;
+					pAddrInfo->Desc      = "4K private area";
 					return true;
 				}
-				else if (Prvs1 && Addr >= 0x9000 && Addr <= 0xafff)
+				else if (Prvs1 && Addr >= 0x9000 && Addr <= 0xAFFF)
 				{
-					addrInfo->start = 0x9000;
-					addrInfo->end   = 0xafff;
-					addrInfo->desc  = "8K private area";
+					pAddrInfo->StartAddr = 0x9000;
+					pAddrInfo->EndAddr   = 0xAFFF;
+					pAddrInfo->Desc      = "8K private area";
 					return true;
 				}
 			}
 
 			if (Addr >= 0x8000 && Addr < 0xc000)
 			{
-				DebugLookupSWRAddress(addrInfo);
+				DebugLookupSWRAddress(pAddrInfo);
 				return true;
 			}
 		}
 		else if (MachineType == Model::BPlus)
 		{
-			if (Addr >= 0x3000 && Addr <= 0x7fff)
+			if (Addr >= 0x3000 && Addr <= 0x7FFF)
 			{
-				addrInfo->start = 0x3000;
-				addrInfo->end   = 0x7fff;
+				pAddrInfo->StartAddr = 0x3000;
+				pAddrInfo->EndAddr   = 0x7FFF;
 
 				if (ShadowDisplay && PrePC >= 0xC000 && PrePC <= 0xDFFF)
 				{
-					addrInfo->desc = "Shadow RAM (PC in VDU driver)";
+					pAddrInfo->Desc = "Shadow RAM (PC in VDU driver)";
 					return true;
 				}
 				else if (ShadowDisplay && MemSel && PrePC >= 0xA000 && PrePC <= 0xAFFF)
 				{
-					addrInfo->start = 0x3000;
-					addrInfo->end   = 0x7fff;
-					addrInfo->desc  = "Shadow RAM (PC in upper 4K of ROM and shadow selected)";
+					pAddrInfo->StartAddr = 0x3000;
+					pAddrInfo->EndAddr   = 0x7FFF;
+					pAddrInfo->Desc      = "Shadow RAM (PC in upper 4K of ROM and shadow selected)";
 					return true;
 				}
 			}
-			else if (Addr >= 0x8000 && Addr <= 0xafff && MemSel)
+			else if (Addr >= 0x8000 && Addr <= 0xAFFF && MemSel)
 			{
-				addrInfo->start = 0x8000;
-				addrInfo->end   = 0xafff;
-				addrInfo->desc  = "Paged RAM";
+				pAddrInfo->StartAddr = 0x8000;
+				pAddrInfo->EndAddr   = 0xAFFF;
+				pAddrInfo->Desc      = "Paged RAM";
 				return true;
 			}
-			else if (Addr >= 0x8000 && Addr < 0xc000)
+			else if (Addr >= 0x8000 && Addr < 0xC000)
 			{
-				DebugLookupSWRAddress(addrInfo);
+				DebugLookupSWRAddress(pAddrInfo);
 				return true;
 			}
 		}
 		else if (MachineType == Model::Master128 || MachineType == Model::MasterET)
 		{
 			// Master cartridge (not implemented in BeebEm yet)
-			if ((ACCCON & 0x20) && Addr >= 0xfc00 && Addr <= 0xfdff)
+			if ((ACCCON & 0x20) && Addr >= 0xFC00 && Addr <= 0xFDFF)
 			{
-				addrInfo->start = 0xfc00;
-				addrInfo->end   = 0xfdff;
-				addrInfo->desc  = "Cartridge (ACCCON bit 5 set)";
+				pAddrInfo->StartAddr = 0xFC00;
+				pAddrInfo->EndAddr   = 0xFDFF;
+				pAddrInfo->Desc      = "Cartridge (ACCCON bit 5 set)";
 				return true;
 			}
 
 			// Master private and shadow RAM.
-			if ((ACCCON & 0x08) && Addr >= 0xc000 && Addr <= 0xdfff)
+			if ((ACCCON & 0x08) && Addr >= 0xC000 && Addr <= 0xDFFF)
 			{
-				addrInfo->start = 0xc000;
-				addrInfo->end   = 0xdfff;
-				addrInfo->desc  = "8K Private RAM (ACCCON bit 3 set)";
+				pAddrInfo->StartAddr = 0xC000;
+				pAddrInfo->EndAddr   = 0xDFFF;
+				pAddrInfo->Desc      = "8K Private RAM (ACCCON bit 3 set)";
 				return true;
 			}
 
-			if ((ACCCON & 0x04) && Addr >= 0x3000 && Addr <= 0x7fff)
+			if ((ACCCON & 0x04) && Addr >= 0x3000 && Addr <= 0x7FFF)
 			{
-				addrInfo->start = 0x3000;
-				addrInfo->end   = 0x7fff;
-				addrInfo->desc  = "Shadow RAM (ACCCON bit 2 set)";
+				pAddrInfo->StartAddr = 0x3000;
+				pAddrInfo->EndAddr   = 0x7FFF;
+				pAddrInfo->Desc      = "Shadow RAM (ACCCON bit 2 set)";
 				return true;
 			}
 
 			if ((ACCCON & 0x02) && PrePC >= 0xC000 && PrePC <= 0xDFFF && Addr >= 0x3000 && Addr <= 0x7FFF)
 			{
-				addrInfo->start = 0x3000;
-				addrInfo->end   = 0x7fff;
-				addrInfo->desc  = "Shadow RAM (ACCCON bit 1 set and PC in VDU driver)";
+				pAddrInfo->StartAddr = 0x3000;
+				pAddrInfo->EndAddr   = 0x7FFF;
+				pAddrInfo->Desc      = "Shadow RAM (ACCCON bit 1 set and PC in VDU driver)";
 				return true;
 			}
 
 			// Master private RAM.
-			if ((PagedRomReg & 0x80) && Addr >= 0x8000 && Addr <= 0x8fff)
+			if ((PagedRomReg & 0x80) && Addr >= 0x8000 && Addr <= 0x8FFF)
 			{
-				addrInfo->start = 0x8000;
-				addrInfo->end   = 0x8fff;
-				addrInfo->desc  = "4K Private RAM (ROMSEL bit 7 set)";
+				pAddrInfo->StartAddr = 0x8000;
+				pAddrInfo->EndAddr   = 0x8FFF;
+				pAddrInfo->Desc      = "4K Private RAM (ROMSEL bit 7 set)";
 				return true;
 			}
 
-			if (Addr >= 0x8000 && Addr < 0xc000)
+			if (Addr >= 0x8000 && Addr < 0xC000)
 			{
-				DebugLookupSWRAddress(addrInfo);
+				DebugLookupSWRAddress(pAddrInfo);
 				return true;
 			}
 		}
@@ -2704,45 +2777,50 @@ void DebugInitMemoryMaps()
 
 /****************************************************************************/
 
-bool DebugLoadMemoryMap(const char* filename, int bank)
+bool DebugLoadMemoryMap(const char* Filename, int Bank)
 {
-	if (bank < 0 || bank > 16)
+	if (Bank < 0 || Bank > 16)
 	{
 		return false;
 	}
 
-	MemoryMap* map = &MemoryMaps[bank];
+	MemoryMap* map = &MemoryMaps[Bank];
 
-	FILE *infile = fopen(filename, "r");
+	FILE* pFile = fopen(Filename, "r");
 
-	if (infile != nullptr)
+	if (pFile != nullptr)
 	{
 		map->clear();
 
-		char line[1024];
+		char Line[1024];
 
-		while (fgets(line, _countof(line), infile) != nullptr)
+		while (fgets(Line, _countof(Line), pFile) != nullptr)
 		{
-			DebugChompString(line);
-			char *buf = line;
+			DebugChompString(Line);
 
-			while(buf[0] == ' ' || buf[0] == '\t' || buf[0] == '\r' || buf[0] == '\n')
+			char* buf = Line;
+
+			while (buf[0] == ' ' || buf[0] == '\t' || buf[0] == '\r' || buf[0] == '\n')
+			{
 				buf++;
+			}
 
 			if (buf[0] == ';' || buf[0] == '\0') // Skip comments and empty lines
-				continue;
-
-			AddrInfo entry;
-
-			char desc[256];
-			memset(desc, 0, sizeof(desc));
-
-			int result = sscanf(buf, "%x %x %99c", (unsigned int*)&entry.start, (unsigned int*)&entry.end, desc);
-
-			if (result >= 2 && strlen(desc) > 0)
 			{
-				entry.desc = desc;
-				map->push_back(entry);
+				continue;
+			}
+
+			DebugAddrInfo Info;
+
+			char Desc[256];
+			ZeroMemory(Desc, sizeof(Desc));
+
+			int result = sscanf(buf, "%x %x %99c", (unsigned int*)&Info.StartAddr, (unsigned int*)&Info.EndAddr, Desc);
+
+			if (result >= 2 && strlen(Desc) > 0)
+			{
+				Info.Desc = Desc;
+				map->push_back(Info);
 			}
 			else
 			{
@@ -2750,12 +2828,12 @@ bool DebugLoadMemoryMap(const char* filename, int bank)
 
 				map->clear();
 
-				fclose(infile);
+				fclose(pFile);
 				return false;
 			}
 		}
 
-		fclose(infile);
+		fclose(pFile);
 	}
 	else
 	{
@@ -2802,22 +2880,22 @@ static bool DebugParseSwiftLabels(const std::string& Line, bool Host)
 			std::string address = Line.substr(i + 1, end - (i + 1));
 			i = end + 1;
 
-			Label label;
-			label.name = symbol;
+			DebugLabel Label;
+			Label.Name = symbol;
 
-			if (!ParseNumber(address, &label.addr))
+			if (!ParseNumber(address, &Label.Addr))
 			{
 				Valid = false;
 				break;
 			}
 
-			if (label.addr < 0 || label.addr > 0xFFFF)
+			if (Label.Addr < 0 || Label.Addr > 0xFFFF)
 			{
 				Valid = false;
 				break;
 			}
 
-			Labels[Index].push_back(label);
+			Labels[Index].push_back(Label);
 		}
 
 		if (Line[i] == ',')
@@ -4029,10 +4107,10 @@ static bool DebugCmdBreakContinue(const char* /* args */)
 
 static bool DebugCmdHelp(const char* args)
 {
-	int addr;
+	int Addr;
 	int li = 0;
-	char aliasInfo[300];
-	aliasInfo[0] = 0;
+	char AliasInfo[300];
+	AliasInfo[0] = '\0';
 
 	if (args[0] == '\0')
 	{
@@ -4069,27 +4147,27 @@ static bool DebugCmdHelp(const char* args)
 		{
 			if (strlen(DebugCmdTable[i].help) > 0)
 			{
-				if(strlen(aliasInfo) > 0)
+				if (strlen(AliasInfo) > 0)
 				{
-					aliasInfo[strlen(aliasInfo) - 2] = 0;
-					DebugDisplayInfoF("%8s: %s",DebugCmdTable[li].name, aliasInfo);
+					AliasInfo[strlen(AliasInfo) - 2] = '\0';
+					DebugDisplayInfoF("%8s: %s", DebugCmdTable[li].name, AliasInfo);
 				}
-				aliasInfo[0] = 0;
+				AliasInfo[0] = '\0';
 				li = i;
 			}
 			else if (strlen(DebugCmdTable[i].help) == 0 &&
 			         strlen(DebugCmdTable[i].argdesc) == 0 &&
 			         DebugCmdTable[li].handler == DebugCmdTable[i].handler)
 			{
-				strcat(aliasInfo, DebugCmdTable[i].name);
-				strcat(aliasInfo, ", ");
+				strcat(AliasInfo, DebugCmdTable[i].name);
+				strcat(AliasInfo, ", ");
 			}
 		}
 
-		if (aliasInfo[0] != 0)
+		if (AliasInfo[0] != '\0')
 		{
-			aliasInfo[strlen(aliasInfo) - 2] = 0;
-			DebugDisplayInfoF("%8s: %s",DebugCmdTable[li].name, aliasInfo);
+			AliasInfo[strlen(AliasInfo) - 2] = '\0';
+			DebugDisplayInfoF("%8s: %s", DebugCmdTable[li].name, AliasInfo);
 		}
 
 		DebugDisplayInfo("");
@@ -4126,17 +4204,17 @@ static bool DebugCmdHelp(const char* args)
 		}
 
 		// Display help for address
-		if (sscanf(args, "%x", &addr) == 1)
+		if (sscanf(args, "%x", &Addr) == 1)
 		{
-			AddrInfo Info;
+			DebugAddrInfo Info;
 
-			if (DebugLookupAddress(addr, true, &Info))
+			if (DebugLookupAddress(Addr, true, &Info))
 			{
-				DebugDisplayInfoF("0x%04X: %s (0x%04X-0x%04X)", addr, Info.desc.c_str(), Info.start, Info.end);
+				DebugDisplayInfoF("0x%04X: %s (0x%04X-0x%04X)", Addr, Info.Desc.c_str(), Info.StartAddr, Info.EndAddr);
 			}
 			else
 			{
-				DebugDisplayInfoF("0x%04X: No description", addr);
+				DebugDisplayInfoF("0x%04X: No description", Addr);
 			}
 		}
 		else
@@ -4198,11 +4276,11 @@ static void DebugShowLabels(bool Host)
 	}
 	else
 	{
-		DebugDisplayInfoF("%d known labels:", Labels[Index].size());
+		DebugDisplayInfoF("%u known labels:", Labels[Index].size());
 
 		for (std::size_t i = 0; i < Labels[Index].size(); i++)
 		{
-			DebugDisplayInfoF("%04X %s", Labels[Index][i].addr, Labels[Index][i].name.c_str());
+			DebugDisplayInfoF("%04X %s", Labels[Index][i].Addr, Labels[Index][i].Name.c_str());
 		}
 	}
 }
@@ -4305,11 +4383,11 @@ static bool DebugCmdWatch(const char* args)
 	size_t Index = 0;
 	const char* pszLabel = nullptr;
 
-	Watch w;
+	DebugWatch Watch;
 
 	if (StrCaseCmp(Args[Index].c_str(), "p") == 0) // Parasite
 	{
-		w.host = false;
+		Watch.Host = false;
 
 		Index++;
 	}
@@ -4323,12 +4401,12 @@ static bool DebugCmdWatch(const char* args)
 
 	unsigned long Address;
 
-	if (!ParseAddressOrLabel(Args[Index].c_str(), w.host, &Address, &pszLabel))
+	if (!ParseAddressOrLabel(Args[Index].c_str(), Watch.Host, &Address, &pszLabel))
 	{
 		return true;
 	}
 
-	w.start = (int)Address;
+	Watch.StartAddr = (int)Address;
 
 	Index++;
 
@@ -4342,23 +4420,23 @@ static bool DebugCmdWatch(const char* args)
 			return true;
 		}
 
-		w.type = (char)tolower(Args[Index][0]);
+		Watch.Type = (char)tolower(Args[Index][0]);
 
 		// Check type is valid.
-		if (w.type != 'b' && w.type != 'w' && w.type != 'd')
+		if (Watch.Type != 'b' && Watch.Type != 'w' && Watch.Type != 'd')
 		{
 			DebugDisplayInfoF("Invalid watch type: %s", Args[Index].c_str());
 			return true;
 		}
 
 		// Prevent watches on I/O addresses.
-		const int Size = (w.type == 'd') ? 4 : (w.type == 'w') ? 2 : 1;
+		const int Size = (Watch.Type == 'd') ? 4 : (Watch.Type == 'w') ? 2 : 1;
 
 		for (int i = 0; i < Size; i++)
 		{
-			if (DebugIsIOAddress(w.start + i, w.host))
+			if (DebugIsIOAddress(Watch.StartAddr + i, Watch.Host))
 			{
-				DebugDisplayInfoF("Cannot set a watch on I/O address %04X", w.start + i);
+				DebugDisplayInfoF("Cannot set a watch on I/O address %04X", Watch.StartAddr + i);
 				return true;
 			}
 		}
@@ -4370,18 +4448,18 @@ static bool DebugCmdWatch(const char* args)
 
 	if (Index < Args.size())
 	{
-		w.name = Args[Index];
+		Watch.Name = Args[Index];
 	}
 	else
 	{
 		if (pszLabel != nullptr)
 		{
-			w.name = pszLabel;
+			Watch.Name = pszLabel;
 		}
 	}
 
 	// Check if watch in list
-	std::vector<Watch>::iterator it = DebugFindWatch(w);
+	std::vector<DebugWatch>::iterator it = DebugFindWatch(Watch);
 
 	if (it != Watches.end())
 	{
@@ -4397,7 +4475,7 @@ static bool DebugCmdWatch(const char* args)
 	}
 	else
 	{
-		Watches.push_back(w);
+		Watches.push_back(Watch);
 
 		DebugAddWatches();
 		DebugUpdateWatches(true);
@@ -4425,11 +4503,11 @@ static bool DebugCmdBreakpoint(const char* args)
 
 	int Index = 0;
 
-	Breakpoint bp;
+	DebugBreakpoint Breakpoint;
 
 	if (StrCaseCmp(Args[Index].c_str(), "p") == 0) // Parasite
 	{
-		bp.host = false;
+		Breakpoint.Host = false;
 
 		Index++;
 	}
@@ -4448,9 +4526,9 @@ static bool DebugCmdBreakpoint(const char* args)
 
 	if (SeparatorPos == std::string::npos)
 	{
-		if (ParseAddressOrLabel(Arg.c_str(), bp.host, &Address, &pszLabel))
+		if (ParseAddressOrLabel(Arg.c_str(), Breakpoint.Host, &Address, &pszLabel))
 		{
-			bp.start = (int)Address;
+			Breakpoint.StartAddr = (int)Address;
 		}
 		else
 		{
@@ -4462,25 +4540,25 @@ static bool DebugCmdBreakpoint(const char* args)
 		std::string Start = Arg.substr(0, SeparatorPos);
 		std::string End   = Arg.substr(SeparatorPos + 1);
 
-		if (ParseAddressOrLabel(Start.c_str(), bp.host, &Address, &pszLabel))
+		if (ParseAddressOrLabel(Start.c_str(), Breakpoint.Host, &Address, &pszLabel))
 		{
-			bp.start = (int)Address;
+			Breakpoint.StartAddr = (int)Address;
 		}
 		else
 		{
 			return true;
 		}
 
-		if (ParseAddressOrLabel(End.c_str(), bp.host, &Address, nullptr))
+		if (ParseAddressOrLabel(End.c_str(), Breakpoint.Host, &Address, nullptr))
 		{
-			bp.end = (int)Address;
+			Breakpoint.EndAddr = (int)Address;
 		}
 		else
 		{
 			return true;
 		}
 
-		if (bp.end < bp.start)
+		if (Breakpoint.EndAddr < Breakpoint.StartAddr)
 		{
 			DebugDisplayInfo("Error: Invalid breakpoint range.");
 			return true;
@@ -4495,7 +4573,7 @@ static bool DebugCmdBreakpoint(const char* args)
 	}
 	else if (ArgsRemaining == 2)
 	{
-		if (!bp.host)
+		if (!Breakpoint.Host)
 		{
 			DebugDisplayInfo("Banks only apply to host breakpoints.");
 			return true;
@@ -4507,7 +4585,7 @@ static bool DebugCmdBreakpoint(const char* args)
 		{
 			if (Bank >= 0 && Bank <= 15)
 			{
-				bp.SWRBank = Bank;
+				Breakpoint.SWRBank = Bank;
 			}
 			else
 			{
@@ -4516,7 +4594,7 @@ static bool DebugCmdBreakpoint(const char* args)
 			}
 		}
 
-		bp.name = Args[Index + 1];
+		Breakpoint.Name = Args[Index + 1];
 	}
 	else if (ArgsRemaining == 1)
 	{
@@ -4524,29 +4602,29 @@ static bool DebugCmdBreakpoint(const char* args)
 		int Bank = 0;
 		bool Label = true;
 
-		if (bp.host && ParseNumber(Args[Index], &Bank))
+		if (Breakpoint.Host && ParseNumber(Args[Index], &Bank))
 		{
 			if (Bank >= 0 && Bank <= 15)
 			{
-				bp.SWRBank = Bank;
+				Breakpoint.SWRBank = Bank;
 				Label = false;
 			}
 		}
 
 		if (Label)
 		{
-			bp.name = Args[Index];
+			Breakpoint.Name = Args[Index];
 		}
 	}
 
-	if (bp.name.empty() && pszLabel != nullptr)
+	if (Breakpoint.Name.empty() && pszLabel != nullptr)
 	{
-		bp.name = pszLabel;
+		Breakpoint.Name = pszLabel;
 	}
 
 	// Check if breakpoint already exists.
 
-	std::vector<Breakpoint>::iterator it = DebugFindBreakpoint(bp);
+	std::vector<DebugBreakpoint>::iterator it = DebugFindBreakpoint(Breakpoint);
 
 	if (it != Breakpoints.end())
 	{
@@ -4565,7 +4643,7 @@ static bool DebugCmdBreakpoint(const char* args)
 			return true;
 		}
 
-		Breakpoints.push_back(bp);
+		Breakpoints.push_back(Breakpoint);
 
 		DebugAddBreakpoints();
 	}
@@ -4661,7 +4739,7 @@ static void DebugWriteMem(int Address, bool Host, unsigned char Data)
 
 /****************************************************************************/
 
-int DebugDisassembleInstruction(int Addr, bool Host, char *pszOutput)
+int DebugDisassembleInstruction(int Addr, bool Host, char* pszOutput)
 {
 	int operand = 0;
 	int zpaddr = 0;
@@ -4802,7 +4880,7 @@ int DebugDisassembleInstructionWithCPUStatus(int Addr,
                                              int YReg,
                                              unsigned char StackReg,
                                              unsigned char PSR,
-                                             char *pszOutput)
+                                             char* pszOutput)
 {
 	DebugDisassembleInstruction(Addr, Host, pszOutput);
 

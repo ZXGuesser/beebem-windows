@@ -27,11 +27,7 @@ Boston, MA  02110-1301, USA.
 #ifndef DEBUG_HEADER
 #define DEBUG_HEADER
 
-#include <windows.h>
 #include <stdarg.h>
-#include <string>
-
-#include "Via.h"
 
 enum class DebugType
 {
@@ -52,63 +48,6 @@ enum class DebugType
 	Last
 };
 
-//*******************************************************************
-// Data structs
-
-struct Label
-{
-	std::string name;
-	int addr;
-
-	Label() : addr(0)
-	{
-	}
-
-	Label(const std::string& n, int a) : name(n), addr(a)
-	{
-	}
-};
-
-struct Breakpoint
-{
-	int start = -1;
-	int end = -1;
-	int SWRBank = -1;
-	bool host = true;
-	std::string name;
-};
-
-struct Watch
-{
-	int start = -1;
-	char type = 'w';
-	int value = -1;
-	bool host = true;
-	std::string name;
-};
-
-struct InstInfo
-{
-	const char* opcode;
-	int bytes;
-	int flag;
-};
-
-struct AddrInfo
-{
-	int start = -1;
-	int end = -1;
-	std::string desc;
-};
-
-struct DebugCmd
-{
-	const char *name;
-	bool (*handler)(const char* arguments);
-	const char *argdesc;
-	const char *help;
-};
-
 bool DebugDisassembler(int Addr,
                        int PrevAddr,
                        int Accumulator,
@@ -117,7 +56,7 @@ bool DebugDisassembler(int Addr,
                        unsigned char PSR,
                        unsigned char StackReg,
                        bool Host);
-int DebugDisassembleInstruction(int Addr, bool Host, char *pszOutput);
+int DebugDisassembleInstruction(int Addr, bool Host, char* pszOutput);
 int DebugDisassembleInstructionWithCPUStatus(int Addr,
                                              bool Host,
                                              int Accumulator,
@@ -125,22 +64,22 @@ int DebugDisassembleInstructionWithCPUStatus(int Addr,
                                              int YReg,
                                              unsigned char StackReg,
                                              unsigned char PSR,
-                                             char *pszOutput);
+                                             char* pszOutput);
 
 void DebugOpenDialog(HINSTANCE hInstance, HWND hwndParent);
 void DebugCloseDialog();
 
-void DebugDisplayTrace(DebugType Type, bool Host, const char *Info);
-void DebugDisplayTraceF(DebugType Type, bool Host, const char *Format, ...);
-void DebugDisplayTraceV(DebugType Type, bool Host, const char *Format, va_list Args);
+void DebugDisplayTrace(DebugType Type, bool Host, const char* Info);
+void DebugDisplayTraceF(DebugType Type, bool Host, const char* Format, ...);
+void DebugDisplayTraceV(DebugType Type, bool Host, const char* Format, va_list Args);
 
-void DebugDisplayInfo(const char *info);
-void DebugDisplayInfoF(const char *format, ...);
+void DebugDisplayInfo(const char* Info);
+void DebugDisplayInfoF(const char* Format, ...);
 
-void DebugRunScript(const char *filename);
-bool DebugLoadLabels(const char *filename, bool host);
+void DebugRunScript(const char* Filename);
+bool DebugLoadLabels(const char* Filename, bool Host);
 
-unsigned char DebugReadMem(int addr, bool host);
+unsigned char DebugReadMem(int Addr, bool Host);
 void DebugBreakExecution(DebugType Type);
 
 bool DebugIsHalted();
@@ -148,7 +87,7 @@ bool DebugIsStepping();
 bool DebugParasiteIsStepping();
 
 void DebugInitMemoryMaps();
-bool DebugLoadMemoryMap(const char* filename, int bank);
+bool DebugLoadMemoryMap(const char* Filename, int Bank);
 
 extern bool DebugEnabled;
 extern bool DebugHost;
