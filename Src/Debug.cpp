@@ -169,11 +169,11 @@ static void DebugMemoryDump(int addr, int count, bool host);
 static void DebugExecuteCommand();
 static void DebugToggleRun();
 
-static int DebugFindBreakpoint(const Breakpoint& bp);
-static void DebugAddBreakpoint(const Breakpoint& bp);
+static std::vector<Breakpoint>::iterator DebugFindBreakpoint(const Breakpoint& bp);
+static void DebugAddBreakpoints();
 
-static int DebugFindWatch(const Watch& w);
-static void DebugAddWatch(const Watch& w);
+static std::vector<Watch>::iterator DebugFindWatch(const Watch& watch);
+static void DebugAddWatches();
 static void DebugUpdateWatches(bool UpdateAll);
 
 static bool DebugLookupAddress(int Addr, bool Host, AddrInfo* addrInfo);
@@ -1402,21 +1402,9 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hWnd, UINT Message, WPARAM wParam, LPA
 			SendMessage(hwndW, WM_SETFONT, (WPARAM)GetStockObject(ANSI_FIXED_FONT),
 			            MAKELPARAM(FALSE, 0));
 
-			for (size_t i = 0; i < Breakpoints.size(); i++)
-			{
-				DebugAddBreakpoint(Breakpoints[i]);
-			}
+			DebugAddBreakpoints();
 
-			for (size_t i = 0; i < Watches.size(); i++)
-			{
-				const Watch& w = Watches[i];
-
-				char Info[64];
-				sprintf(Info, "%s%04X", (w.host ? "" : "p"), w.start);
-
-				SendMessage(hwndW, LB_ADDSTRING, 0, (LPARAM)Info);
-			}
-
+			DebugAddWatches();
 			DebugUpdateWatches(true);
 
 			SetTimer(hWnd, TIMER_WATCH_UPDATE, TIMER_WATCH_PERIOD, nullptr);
@@ -1883,75 +1871,187 @@ void DebugDisplayTraceV(DebugType Type, bool Host, const char *Format, va_list A
 
 /****************************************************************************/
 
-static int DebugFindBreakpoint(const Breakpoint& bp)
+class CompareBreakpoints
 {
-	char Info[64];
-	char* psz = Info;
+	public:
+		CompareBreakpoints(const Breakpoint& breakpoint)
+			: m_breakpoint(breakpoint)
+		{
+		}
 
-	if (!bp.host)
-	{
-		*psz++ = 'p';
-	}
+	public:
+		bool operator()(const Breakpoint& breakpoint)
+		{
+			return m_breakpoint.host == breakpoint.host &&
+			       m_breakpoint.start == breakpoint.start &&
+			       m_breakpoint.end == breakpoint.end &&
+			       m_breakpoint.SWRBank == breakpoint.SWRBank;
+		}
 
-	psz += sprintf(psz, "%04X", bp.start);
+	private:
+		const Breakpoint& m_breakpoint;
+};
 
-	if (bp.SWRBank != -1)
-	{
-		sprintf(psz, " [Bank %d]", bp.SWRBank);
-	}
-
-	return (int)SendMessage(hwndBP, LB_FINDSTRING, 0, (LPARAM)Info);
+static std::vector<Breakpoint>::iterator DebugFindBreakpoint(const Breakpoint& breakpoint)
+{
+	return std::find_if(Breakpoints.begin(), Breakpoints.end(), CompareBreakpoints(breakpoint));
 }
 
 /****************************************************************************/
 
-static void DebugAddBreakpoint(const Breakpoint& bp)
+class SortBreakpoints
 {
-	char Info[64];
-	char* psz = Info;
+	public:
+		bool operator()(const Breakpoint& bp1, const Breakpoint& bp2)
+		{
+			if (bp1.host > bp2.host)
+			{
+				return true;
+			}
+			else if (bp2.host > bp1.host)
+			{
+				return false;
+			}
 
-	if (!bp.host)
+			if (bp1.start < bp2.start)
+			{
+				return true;
+			}
+			else if (bp1.start > bp2.start)
+			{
+				return false;
+			}
+
+			if (bp1.SWRBank > bp2.SWRBank)
+			{
+				return true;
+			}
+			else if (bp2.SWRBank > bp1.SWRBank)
+			{
+				return false;
+			}
+
+			return false;
+		}
+};
+
+static void DebugAddBreakpoints()
+{
+	SendMessage(hwndBP, LB_RESETCONTENT, 0, 0);
+
+	std::sort(Breakpoints.begin(), Breakpoints.end(), SortBreakpoints());
+
+	for (size_t i = 0; i < Breakpoints.size(); i++)
 	{
-		*psz++ = 'p';
-	}
+		const Breakpoint& breakpoint = Breakpoints[i];
 
-	if (bp.end >= 0)
-	{
-		psz += sprintf(psz, "%04X-%04X", bp.start, bp.end);
-	}
-	else
-	{
-		psz += sprintf(psz, "%04X", bp.start);
-	}
+		char Info[64];
+		char* psz = Info;
 
-	if (bp.SWRBank != -1)
-	{
-		psz += sprintf(psz, " [Bank %d]", bp.SWRBank);
+		if (!breakpoint.host)
+		{
+			*psz++ = 'p';
+		}
+
+		if (breakpoint.end >= 0)
+		{
+			psz += sprintf(psz, "%04X-%04X", breakpoint.start, breakpoint.end);
+		}
+		else
+		{
+			psz += sprintf(psz, "%04X", breakpoint.start);
+		}
+
+		if (breakpoint.SWRBank != -1)
+		{
+			psz += sprintf(psz, " [Bank %d]", breakpoint.SWRBank);
+		}
+
+		std::string str = std::string(Info) + " " + breakpoint.name;
+
+		SendMessage(hwndBP, LB_ADDSTRING, 0, (LPARAM)str.c_str());
 	}
-
-	std::string str = std::string(Info) + " " + bp.name;
-
-	SendMessage(hwndBP, LB_ADDSTRING, 0, (LPARAM)str.c_str());
 }
 
 /****************************************************************************/
 
-static int DebugFindWatch(const Watch& w)
+class CompareWatches
 {
-	char Info[64];
-	sprintf(Info, "%s%04X", (w.host ? "" : "p"), w.start);
+	public:
+		CompareWatches(const Watch& watch)
+			: m_watch(watch)
+		{
+		}
 
-	return (int)SendMessage(hwndW, LB_FINDSTRING, 0, (LPARAM)Info);
+	public:
+		bool operator()(const Watch& watch)
+		{
+			return m_watch.start == watch.start &&
+			       m_watch.host == watch.host;
+		}
+
+	private:
+		const Watch& m_watch;
+};
+
+static std::vector<Watch>::iterator DebugFindWatch(const Watch& watch)
+{
+	return std::find_if(Watches.begin(), Watches.end(), CompareWatches(watch));
 }
 
 /****************************************************************************/
 
-static void DebugAddWatch(const Watch& w)
+class SortWatches
 {
-	char Info[64];
-	sprintf(Info, "%s%04X", (w.host ? "" : "p"), w.start);
+	public:
+		bool operator()(const Watch& w1, const Watch& w2)
+		{
+			if (w1.host > w2.host)
+			{
+				return true;
+			}
+			else if (w2.host > w1.host)
+			{
+				return false;
+			}
 
-	SendMessage(hwndW, LB_ADDSTRING, 0, (LPARAM)Info);
+			if (w1.start < w2.start)
+			{
+				return true;
+			}
+			else if (w1.start > w2.start)
+			{
+				return false;
+			}
+
+			return false;
+		}
+};
+
+static void DebugAddWatches()
+{
+	SendMessage(hwndW, LB_RESETCONTENT, 0, 0);
+
+	std::sort(Watches.begin(), Watches.end(), SortWatches());
+
+	for (size_t i = 0; i < Watches.size(); i++)
+	{
+		const Watch& watch = Watches[i];
+
+		char Info[64];
+		char* psz = Info;
+
+		if (!watch.host)
+		{
+			*psz++ = 'p';
+		}
+
+		sprintf(psz, "%04X", watch.start);
+
+		std::string str = std::string(Info) + " " + watch.name;
+
+		SendMessage(hwndW, LB_ADDSTRING, 0, (LPARAM)str.c_str());
+	}
 }
 
 /****************************************************************************/
@@ -2005,7 +2105,7 @@ static void DebugUpdateWatches(bool UpdateAll)
 		{
 			watch.value = Value;
 
-			char str[200];
+			char str[256];
 
 			if (WatchDecimal)
 			{
@@ -4227,17 +4327,14 @@ static bool DebugCmdWatch(const char* args)
 	}
 
 	// Check if watch in list
-	int i = DebugFindWatch(w);
+	std::vector<Watch>::iterator it = DebugFindWatch(w);
 
-	if (i != LB_ERR)
+	if (it != Watches.end())
 	{
-		SendMessage(hwndW, LB_DELETESTRING, i, 0);
-
-		auto it = std::find_if(Watches.begin(), Watches.end(), [&w](const Watch& watch){
-			return watch.start == w.start;
-		});
-
 		Watches.erase(it);
+
+		DebugAddWatches();
+		DebugUpdateWatches(true);
 	}
 	else if (Watches.size() >= MAX_BPS)
 	{
@@ -4247,8 +4344,8 @@ static bool DebugCmdWatch(const char* args)
 	else
 	{
 		Watches.push_back(w);
-		DebugAddWatch(w);
 
+		DebugAddWatches();
 		DebugUpdateWatches(true);
 	}
 
@@ -4395,20 +4492,14 @@ static bool DebugCmdBreakpoint(const char* args)
 
 	// Check if breakpoint already exists.
 
-	Index = DebugFindBreakpoint(bp);
+	std::vector<Breakpoint>::iterator it = DebugFindBreakpoint(bp);
 
-	if (Index != LB_ERR)
+	if (it != Breakpoints.end())
 	{
 		// Yes, delete it.
-		SendMessage(hwndBP, LB_DELETESTRING, Index, 0);
-
-		auto it = std::find_if(Breakpoints.begin(), Breakpoints.end(), [&bp](const Breakpoint& b) {
-			return b.start == bp.start && b.host == bp.host && b.SWRBank == bp.SWRBank;
-		});
-
-		assert(it != Breakpoints.end());
-
 		Breakpoints.erase(it);
+
+		DebugAddBreakpoints();
 	}
 	else
 	{
@@ -4422,7 +4513,7 @@ static bool DebugCmdBreakpoint(const char* args)
 
 		Breakpoints.push_back(bp);
 
-		DebugAddBreakpoint(bp);
+		DebugAddBreakpoints();
 	}
 
 	SetDlgItemText(hwndDebug, IDC_DEBUGCOMMAND, "");
