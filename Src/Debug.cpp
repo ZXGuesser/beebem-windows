@@ -4168,11 +4168,23 @@ static bool DebugCmdWatch(const char* args)
 
 		w.type = (char)tolower(Args[Index][0]);
 
-		// Check type is valid
+		// Check type is valid.
 		if (w.type != 'b' && w.type != 'w' && w.type != 'd')
 		{
 			DebugDisplayInfoF("Invalid watch type: %s", Args[Index].c_str());
 			return true;
+		}
+
+		// Prevent watches on I/O addresses.
+		const int Size = (w.type == 'd') ? 4 : (w.type == 'w') ? 2 : 1;
+
+		for (int i = 0; i < Size; i++)
+		{
+			if (DebugIsIOAddress(w.start + i, w.host))
+			{
+				DebugDisplayInfoF("Cannot set a watch on I/O address %04X", w.start + i);
+				return true;
+			}
 		}
 
 		Index++;
