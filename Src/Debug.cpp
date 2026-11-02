@@ -4394,7 +4394,7 @@ static bool DebugCmdBreakpoint(const char* args)
 
 	if (SeparatorPos == std::string::npos)
 	{
-		if (ParseAddressOrLabel(Arg.c_str(), true, &Address, &pszLabel))
+		if (ParseAddressOrLabel(Arg.c_str(), bp.host, &Address, &pszLabel))
 		{
 			bp.start = (int)Address;
 		}
@@ -4408,7 +4408,7 @@ static bool DebugCmdBreakpoint(const char* args)
 		std::string Start = Arg.substr(0, SeparatorPos);
 		std::string End   = Arg.substr(SeparatorPos + 1);
 
-		if (ParseAddressOrLabel(Start.c_str(), true, &Address, &pszLabel))
+		if (ParseAddressOrLabel(Start.c_str(), bp.host, &Address, &pszLabel))
 		{
 			bp.start = (int)Address;
 		}
@@ -4417,7 +4417,7 @@ static bool DebugCmdBreakpoint(const char* args)
 			return true;
 		}
 
-		if (ParseAddressOrLabel(End.c_str(), true, &Address, nullptr))
+		if (ParseAddressOrLabel(End.c_str(), bp.host, &Address, nullptr))
 		{
 			bp.end = (int)Address;
 		}
@@ -4457,7 +4457,7 @@ static bool DebugCmdBreakpoint(const char* args)
 			}
 			else
 			{
-				DebugDisplayInfoF("Invalid SWR bank value: %s", Args[1].c_str());
+				DebugDisplayInfoF("Invalid SWR bank value: %s", Args[Index].c_str());
 				return false;
 			}
 		}
@@ -4470,7 +4470,7 @@ static bool DebugCmdBreakpoint(const char* args)
 		int Bank = 0;
 		bool Label = true;
 
-		if (bp.host && ParseNumber(Args[1], &Bank))
+		if (bp.host && ParseNumber(Args[Index], &Bank))
 		{
 			if (Bank >= 0 && Bank <= 15)
 			{
