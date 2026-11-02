@@ -88,28 +88,67 @@ constexpr int ILL = 0x80000;
 constexpr int ADRMASK = IMM | ABS | ACC | IMP | INX | INY | ZPX | ABX | ABY | REL | IND | ZPY | ZPG | ZPR | ILL;
 
 bool DebugEnabled = false; // Debug dialog visible
-static DebugType DebugSource = DebugType::None; // Debugging active?
+
+enum class DebugState
+{
+	Running, // Execution continues as normal
+	BreakPending, // Break requested, execution continues until outside a ROM
+	              // or OS region (depending on the DebugROM and DebugOS settings)
+	Stepping, // Executes StepsRemaining instructions, then halts
+	Halted // Stopped before executing the instruction at ShownAddr
+};
+
+class DebugControlType
+{
+	public:
+		DebugControlType();
+
+	public:
+		void Reset();
+
+	public:
+		DebugState State;
+		DebugType Reason; // The reason for exiting the Running state.
+		int StepsRemaining; // In the Stepping state, the number of instructions still to execute.
+		int PendingAddr; // Pending instruction printed but not yet executed.
+		int ResumeAddr; // Address we resumed from on exiting the Halted state.
+		int ReturnAddress; // For the "over" command.
+		bool BreakReported; // Flag set when a "break at" message is shown since the last resume.
+};
+
+DebugControlType::DebugControlType()
+{
+	Reset();
+}
+
+void DebugControlType::Reset()
+{
+	State = DebugState::Running;
+	Reason = DebugType::None;
+	StepsRemaining = 0;
+	PendingAddr = -1;
+	ResumeAddr = -1;
+	ReturnAddress = -1;
+	BreakReported = false;
+}
+
+static DebugControlType DebugControl;
+
 static int LinesDisplayed = 0;  // Lines in info window
-static int InstCount = 0;       // Instructions to execute before breaking
 static int DumpAddress = 0;     // Next address for memory dump command
 static int DisAddress = 0;      // Next address for disassemble command
-static int LastBreakAddr = 0;   // Address of last break
 static int DebugInfoWidth = 0;  // Width of debug info window
-static int PendingAddrShown = -1;
-static bool DebugHalted = false;
 
 static bool DebugTraceEnable[(int)DebugType::Last];
 static bool DebugBreakEnable[(int)DebugType::Last];
 
+bool DebugHost = true; // Host (true) or Parasite (false)
 static bool BPSOn = true;
-static bool StepOver = false;
-static int ReturnAddress = 0;
 static bool DebugOS = false;
 static bool LastAddrInOS = false;
 static bool LastAddrInBIOS = false;
 static bool DebugROM = false;
 static bool LastAddrInROM = false;
-bool DebugHost = true; // Host (true) or Parasite (false)
 static bool WatchDecimal = false;
 static bool WatchRefresh = false;
 static bool WatchBigEndian = false;
@@ -162,11 +201,17 @@ static void DebugPrintInstruction(int Addr,
                                   unsigned char PSR,
                                   unsigned char StackReg);
 
+static bool DebugBreakpointHit(const Breakpoint& bp, int Addr, bool Host);
+
 static void DebugParseCommand(const char *command);
 static void DebugWriteMem(int addr, bool host, unsigned char data);
 static int DebugDisassembleCommand(int Addr, int Count, bool Host);
 static void DebugMemoryDump(int addr, int count, bool host);
 static void DebugExecuteCommand();
+
+static void DebugResetLastInstr();
+static void DebugResume();
+static void DebugRequestBreak(DebugType Type);
 static void DebugToggleRun();
 
 static std::vector<Breakpoint>::iterator DebugFindBreakpoint(const Breakpoint& bp);
@@ -1273,28 +1318,16 @@ void DebugCloseDialog()
 	hCurrentDialog = nullptr;
 	hCurrentAccelTable = nullptr;
 	DebugEnabled = false;
-	DebugSource = DebugType::None;
 	LinesDisplayed = 0;
 	DebugInfoWidth = 0;
 
-	InstCount = 0;
-	PendingAddrShown = -1;
-	DebugHalted = false;
+	DebugControl.Reset();
 
-	StepOver = false;
-	ReturnAddress = 0;
 	LastAddrInOS = false;
 	LastAddrInBIOS = false;
 	LastAddrInROM = false;
 
-	LastHostInstr.Addr = -1;
-	LastHostInstr.Accumulator = 0;
-	LastHostInstr.XReg = 0;
-	LastHostInstr.YReg = 0;
-	LastHostInstr.PSR = 0;
-	LastHostInstr.StackReg = 0;
-
-	LastTraceAddr = -1;
+	DebugResetLastInstr();
 }
 
 /****************************************************************************/
@@ -1574,17 +1607,93 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hWnd, UINT Message, WPARAM wParam, LPA
 
 //*******************************************************************
 
-static void DebugToggleRun()
+static void DebugResetLastInstr()
 {
-	if (DebugSource != DebugType::None)
+	LastHostInstr.Addr = -1;
+	LastHostInstr.Accumulator = 0;
+	LastHostInstr.XReg = 0;
+	LastHostInstr.YReg = 0;
+	LastHostInstr.PSR = 0;
+	LastHostInstr.StackReg = 0;
+
+	LastTraceAddr = -1;
+}
+
+/****************************************************************************/
+
+static void DebugResume()
+{
+	// If the debugger is currently halted, don't immediately break again
+	// on the same instruction.
+	if (DebugControl.State == DebugState::Halted)
 	{
-		// Resume execution
-		DebugBreakExecution(DebugType::None);
+		DebugControl.ResumeAddr = DebugControl.PendingAddr;
 	}
 	else
 	{
-		// Cause manual break
-		DebugBreakExecution(DebugType::Manual);
+		DebugControl.ResumeAddr = -1;
+	}
+
+	DebugControl.State = DebugState::Running;
+	DebugControl.Reason = DebugType::None;
+	DebugControl.StepsRemaining = 0;
+	DebugControl.PendingAddr = -1;
+	DebugControl.BreakReported = false;
+
+	DebugResetLastInstr();
+
+	SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Break");
+}
+
+/****************************************************************************/
+
+static void DebugRequestBreak(DebugType Type)
+{
+	if (DebugControl.State == DebugState::BreakPending)
+	{
+		// A breakpoint turns a deferred break into an immediate one
+		if (Type == DebugType::Breakpoint)
+		{
+			DebugControl.Reason = Type;
+		}
+
+		return;
+	}
+
+	if (DebugControl.State != DebugState::Running)
+	{
+		// We're already in the Halted or Stepping state.
+		return;
+	}
+
+	DebugControl.State = DebugState::BreakPending;
+	DebugControl.Reason = Type;
+	DebugControl.StepsRemaining = 0;
+	DebugControl.PendingAddr = -1;
+	DebugControl.BreakReported = false;
+
+	LastTraceAddr = -1;
+
+	LastAddrInBIOS = false;
+	LastAddrInOS = false;
+	LastAddrInROM = false;
+
+	SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Continue");
+
+	DebugUpdateWatches(true);
+}
+
+/****************************************************************************/
+
+static void DebugToggleRun()
+{
+	if (DebugControl.State != DebugState::Running)
+	{
+		DebugResume();
+	}
+	else
+	{
+		DebugRequestBreak(DebugType::Manual);
 	}
 }
 
@@ -1592,99 +1701,41 @@ static void DebugToggleRun()
 
 void DebugBreakExecution(DebugType Type)
 {
-	const bool WasRunning = DebugSource == DebugType::None;
-
-	DebugSource = Type;
-
-	LastTraceAddr = -1;
-
 	if (Type == DebugType::None)
 	{
-		InstCount = 0;
-		LastBreakAddr = 0;
-		PendingAddrShown = -1;
-		DebugHalted = false;
-
-		SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Break");
+		DebugResume();
 	}
 	else
 	{
-		if (WasRunning)
-		{
-			InstCount = 0;
-		}
-
-		SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Continue");
-
-		LastAddrInBIOS = false;
-		LastAddrInOS = false;
-		LastAddrInROM = false;
-
-		DebugUpdateWatches(true);
+		DebugRequestBreak(Type);
 	}
 }
 
 /****************************************************************************/
 
+// See DebugType in Debug.h.
+
+static const char* DebugSourceStr[] =
+{
+	"None",
+	"Video",
+	"System VIA",
+	"User VIA",
+	"Tube",
+	"Serial",
+	"Econet",
+	"Remote server",
+	"Teletext",
+	"CMOS",
+	"BRK instruction",
+	"Manual",
+	"Breakpoint",
+	"Step over",
+};
+
 static const char* GetDebugSourceString()
 {
-	const char* source = "Unknown";
-
-	switch(DebugSource)
-	{
-	case DebugType::None:
-		break;
-
-	case DebugType::Video:
-		source = "Video";
-		break;
-
-	case DebugType::UserVIA:
-		source = "User VIA";
-		break;
-
-	case DebugType::SysVIA:
-		source = "System VIA";
-		break;
-
-	case DebugType::Tube:
-		source = "Tube";
-		break;
-
-	case DebugType::Serial:
-		source = "Serial";
-		break;
-
-	case DebugType::Econet:
-		source = "Econet";
-		break;
-
-	case DebugType::Teletext:
-		source = "Teletext";
-		break;
-
-	case DebugType::RemoteServer:
-		source = "Remote server";
-		break;
-
-	case DebugType::Manual:
-		source = "Manual";
-		break;
-
-	case DebugType::Breakpoint:
-		source = "Breakpoint";
-		break;
-
-	case DebugType::CMOS:
-		source = "CMOS";
-		break;
-
-	case DebugType::BRK:
-		source = "BRK instruction";
-		break;
-	}
-
-	return source;
+	return DebugSourceStr[(int)DebugControl.Reason];
 }
 
 /****************************************************************************/
@@ -1713,80 +1764,64 @@ static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 	AddrInfo Info;
 
 	DebugUpdateWatches(false);
+
 	SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Continue");
 
-	if (LastBreakAddr == 0)
-	{
-		LastBreakAddr = Addr;
-	}
-	else
+	if (DebugControl.BreakReported)
 	{
 		return;
 	}
 
-	if (DebugSource == DebugType::Breakpoint)
+	DebugControl.BreakReported = true;
+
+	const char* CPUName = Host ? "Host" : "Parasite";
+
+	if (DebugControl.Reason == DebugType::Breakpoint)
 	{
 		for (size_t i = 0; i < Breakpoints.size(); ++i)
 		{
 			const Breakpoint& bp = Breakpoints[i];
 
+			if (!DebugBreakpointHit(bp, Addr, Host))
+			{
+				continue;
+			}
+
+			char Bank[32];
+			Bank[0] = '\0';
+
 			if (bp.SWRBank != -1)
 			{
-				if (bp.start == Addr && bp.SWRBank == ROMSEL)
-				{
-					if (DebugLookupAddress(Addr, Host, &Info))
-					{
-						DebugDisplayInfoF("%s break at 0x%04X [Bank %d] (Breakpoint '%s' / %s)",
-						                  Host ? "Host" : "Parasite",
-						                  Addr,
-						                  ROMSEL,
-						                  bp.name.c_str(),
-						                  Info.desc.c_str());
-					}
-					else
-					{
-						DebugDisplayInfoF("%s break at 0x%04X [Bank %d] (Breakpoint '%s')",
-						                  Host ? "Host" : "Parasite",
-						                  Addr,
-						                  ROMSEL,
-						                  bp.name.c_str());
-					}
+				sprintf(Bank, " [Bank %d]", ROMSEL);
+			}
 
-					DebugDisplayPreviousAddress(PrevAddr, Host);
-					return;
-				}
+			if (DebugLookupAddress(Addr, Host, &Info))
+			{
+				DebugDisplayInfoF("%s break at 0x%04X%s (Breakpoint '%s' / %s)",
+				                  CPUName,
+				                  Addr,
+				                  Bank,
+				                  bp.name.c_str(),
+				                  Info.desc.c_str());
 			}
 			else
 			{
-				if (bp.start == Addr)
-				{
-					if (DebugLookupAddress(Addr, Host, &Info))
-					{
-						DebugDisplayInfoF("%s break at 0x%04X (Breakpoint '%s' / %s)",
-						                  Host ? "Host" : "Parasite",
-						                  Addr,
-						                  bp.name.c_str(),
-						                  Info.desc.c_str());
-					}
-					else
-					{
-						DebugDisplayInfoF("%s break at 0x%04X (Breakpoint '%s')",
-						                  Host ? "Host" : "Parasite",
-						                  Addr,
-						                  bp.name.c_str());
-					}
-
-					DebugDisplayPreviousAddress(PrevAddr, Host);
-					return;
-				}
+				DebugDisplayInfoF("%s break at 0x%04X%s (Breakpoint '%s')",
+				                  CPUName,
+				                  Addr,
+				                  ROMSEL,
+				                  bp.name.c_str());
 			}
+
+			DebugDisplayPreviousAddress(PrevAddr, Host);
+			return;
 		}
 	}
 
 	if (DebugLookupAddress(Addr, Host, &Info))
 	{
 		DebugDisplayInfoF("%s break at 0x%04X (%s / %s)",
-		                  Host ? "Host" : "Parasite",
+		                  CPUName,
 		                  Addr,
 		                  GetDebugSourceString(),
 		                  Info.desc.c_str());
@@ -1794,7 +1829,7 @@ static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 	else
 	{
 		DebugDisplayInfoF("%s break at 0x%04X (%s)",
-		                  Host ? "Host" : "Parasite",
+		                  CPUName,
 		                  Addr,
 		                  GetDebugSourceString());
 	}
@@ -1810,7 +1845,7 @@ void DebugDisplayTrace(DebugType Type, bool Host, const char *Info)
 	{
 		if (DebugBreakEnable[(int)Type])
 		{
-			if (DebugSource == DebugType::None && // Running
+			if (DebugControl.State == DebugState::Running &&
 			    DebugIsHardwareBreak(Type) &&
 			    LastHostInstr.Addr != -1 &&
 			    LastTraceAddr != LastHostInstr.Addr)
@@ -2139,21 +2174,21 @@ static void DebugUpdateWatches(bool UpdateAll)
 
 bool DebugIsHalted()
 {
-	return DebugEnabled && DebugHalted;
+	return DebugEnabled && DebugControl.State == DebugState::Halted;
 }
 
 /****************************************************************************/
 
 bool DebugIsStepping()
 {
-	return DebugEnabled && DebugSource != DebugType::None;
+	return DebugEnabled && DebugControl.State != DebugState::Running;
 }
 
 /****************************************************************************/
 
 bool DebugParasiteIsStepping()
 {
-	return DebugEnabled && !DebugHost && DebugSource != DebugType::None;
+	return DebugEnabled && !DebugHost && DebugControl.State != DebugState::Running;
 }
 
 /****************************************************************************/
@@ -2165,18 +2200,17 @@ static void DebugSetTarget(bool Host)
 	SetDlgItemChecked(hwndDebug, IDC_DEBUGHOST, DebugHost);
 	SetDlgItemChecked(hwndDebug, IDC_DEBUGPARASITE, !DebugHost);
 
-	InstCount = 0;
-	PendingAddrShown = -1;
-	DebugHalted = false;
+	if (DebugControl.State != DebugState::Running)
+	{
+		DebugControl.State = DebugState::BreakPending;
+		DebugControl.StepsRemaining = 0;
+		DebugControl.PendingAddr = -1;
+	}
 
-	LastHostInstr.Addr = -1;
-	LastHostInstr.Accumulator = 0;
-	LastHostInstr.XReg = 0;
-	LastHostInstr.YReg = 0;
-	LastHostInstr.PSR = 0;
-	LastHostInstr.StackReg = 0;
+	DebugControl.ResumeAddr = -1;
+	DebugControl.ReturnAddress = -1;
 
-	LastTraceAddr = -1;
+	DebugResetLastInstr();
 }
 
 /****************************************************************************/
@@ -2241,81 +2275,13 @@ static bool DebugBreakpointHit(const Breakpoint& bp, int Addr, bool Host)
 
 /****************************************************************************/
 
-bool DebugDisassembler(int Addr,
-                       int PrevAddr,
-                       int Accumulator,
-                       int XReg,
-                       int YReg,
-                       unsigned char PSR,
-                       unsigned char StackReg,
-                       bool Host)
+// Returns true if the address is in an OS or ROM region.
+
+static bool DebugInSkippedRegion(int Addr, bool Host)
 {
-	if (Host != DebugHost)
-	{
-		// Not debugging this processor.
-		return !DebugHalted;
-	}
-
 	if (Host)
 	{
-		LastHostInstr.Addr = Addr;
-		LastHostInstr.Accumulator = Accumulator;
-		LastHostInstr.XReg = XReg;
-		LastHostInstr.YReg = YReg;
-		LastHostInstr.PSR = PSR;
-		LastHostInstr.StackReg = StackReg;
-
-		// BRK trigger. Only while running, otherwise you could never step off a BRK.
-		if (DebugSource == DebugType::None &&
-		    DebugBreakEnable[(int)DebugType::BRK] &&
-		    DebugReadMem(Addr, Host) == 0)
-		{
-			DebugBreakExecution(DebugType::BRK);
-		}
-
-		// Stop when we reach the instruction after the JSR.
-		if (StepOver && Addr == ReturnAddress)
-		{
-			StepOver = false;
-			DebugBreakExecution(DebugType::Breakpoint);
-		}
-
-		// Check breakpoints
-		if (BPSOn && DebugSource != DebugType::Breakpoint)
-		{
-			for (size_t i = 0; i < Breakpoints.size(); i++)
-			{
-				if (DebugBreakpointHit(Breakpoints[i], Addr, Host))
-				{
-					DebugBreakExecution(DebugType::Breakpoint);
-				}
-			}
-		}
-	}
-	else
-	{
-		// Check breakpoints
-		if (BPSOn && DebugSource != DebugType::Breakpoint)
-		{
-			for (size_t i = 0; i < Breakpoints.size(); i++)
-			{
-				if (DebugBreakpointHit(Breakpoints[i], Addr, Host))
-				{
-					DebugBreakExecution(DebugType::Breakpoint);
-				}
-			}
-		}
-	}
-
-	if (DebugSource == DebugType::None)
-	{
-		DebugHalted = false;
-		return true;
-	}
-	
-	if (Host)
-	{
-		if (!DebugOS && Addr >= 0xc000 && Addr <= 0xfbff)
+		if (!DebugOS && Addr >= 0xC000 && Addr <= 0xFBFF)
 		{
 			if (!LastAddrInOS)
 			{
@@ -2331,7 +2297,8 @@ bool DebugDisassembler(int Addr,
 				}
 
 				LastAddrInOS = true;
-				LastAddrInBIOS = LastAddrInROM = false;
+				LastAddrInBIOS = false;
+				LastAddrInROM = false;
 			}
 
 			return true;
@@ -2339,7 +2306,7 @@ bool DebugDisassembler(int Addr,
 
 		LastAddrInOS = false;
 
-		if (!DebugROM && Addr >= 0x8000 && Addr <= 0xbfff)
+		if (!DebugROM && Addr >= 0x8000 && Addr <= 0xBFFF)
 		{
 			if (!LastAddrInROM)
 			{
@@ -2355,7 +2322,8 @@ bool DebugDisassembler(int Addr,
 				}
 
 				LastAddrInROM = true;
-				LastAddrInOS = LastAddrInBIOS = false;
+				LastAddrInOS = false;
+				LastAddrInBIOS = false;
 			}
 
 			return true;
@@ -2363,70 +2331,152 @@ bool DebugDisassembler(int Addr,
 
 		LastAddrInROM = false;
 	}
-	else
+	else if (TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80)
 	{
-		if (TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80)
+		if (!DebugOS && Addr >= 0xF800 && Addr <= 0xFFFF)
 		{
-			if (!DebugOS && Addr >= 0xF800 && Addr <= 0xFFFF)
+			if (!LastAddrInBIOS)
 			{
-				if (!LastAddrInBIOS)
+				AddrInfo Info;
+
+				if (DebugLookupAddress(Addr, Host, &Info))
 				{
-					AddrInfo Info;
-
-					if (DebugLookupAddress(Addr, Host, &Info))
-					{
-						DebugDisplayInfoF("Entered BIOS (0xF800-0xFFFF) at 0x%04X (%s)",
-						                  Addr,
-						                  Info.desc.c_str());
-					}
-					else
-					{
-						DebugDisplayInfoF("Entered BIOS (0xF800-0xFFFF) at 0x%04X",
-						                  Addr);
-					}
-
-					LastAddrInBIOS = true;
-					LastAddrInOS = LastAddrInROM = false;
+					DebugDisplayInfoF("Entered BIOS (0xF800-0xFFFF) at 0x%04X (%s)",
+					                  Addr,
+					                  Info.desc.c_str());
+				}
+				else
+				{
+					DebugDisplayInfoF("Entered BIOS (0xF800-0xFFFF) at 0x%04X",
+					                  Addr);
 				}
 
-				return true;
+				LastAddrInBIOS = true;
+				LastAddrInOS = false;
+				LastAddrInROM = false;
 			}
 
-			LastAddrInBIOS = false;
+			return true;
+		}
+
+		LastAddrInBIOS = false;
+	}
+
+	return false;
+}
+
+/****************************************************************************/
+
+bool DebugDisassembler(int Addr,
+                       int PrevAddr,
+                       int Accumulator,
+                       int XReg,
+                       int YReg,
+                       unsigned char PSR,
+                       unsigned char StackReg,
+                       bool Host)
+{
+	if (Host != DebugHost)
+	{
+		// Not debugging this processor.
+		return DebugControl.State != DebugState::Halted;
+	}
+
+	if (Host)
+	{
+		LastHostInstr.Addr = Addr;
+		LastHostInstr.Accumulator = Accumulator;
+		LastHostInstr.XReg = XReg;
+		LastHostInstr.YReg = YReg;
+		LastHostInstr.PSR = PSR;
+		LastHostInstr.StackReg = StackReg;
+	}
+
+	// The first instruction after Continue must not re-trigger the break
+	// that halted us.
+	const bool Resuming = Addr == DebugControl.ResumeAddr;
+
+	DebugControl.ResumeAddr = -1;
+
+	if (DebugControl.State == DebugState::Running && Host)
+	{
+		// Check for BRK instruction.
+		if (!Resuming &&
+		    DebugBreakEnable[(int)DebugType::BRK] &&
+		    DebugReadMem(Addr, Host) == 0)
+		{
+			DebugRequestBreak(DebugType::BRK);
+		}
+
+		// Stop when we reach the instruction after the JSR.
+		if (Addr == DebugControl.ReturnAddress)
+		{
+			DebugControl.ReturnAddress = -1;
+
+			DebugRequestBreak(DebugType::StepOver);
 		}
 	}
 
-	if (InstCount == 0)
+	if (BPSOn &&
+	    !Resuming &&
+	    (DebugControl.State == DebugState::Running ||
+	     DebugControl.State == DebugState::BreakPending))
 	{
-		DebugHalted = true;
-
-		if (PendingAddrShown != Addr)
+		// Check breakpoints
+		for (size_t i = 0; i < Breakpoints.size(); i++)
 		{
-			PendingAddrShown = Addr;
+			if (DebugBreakpointHit(Breakpoints[i], Addr, Host))
+			{
+				DebugRequestBreak(DebugType::Breakpoint);
+			}
+		}
+	}
 
-			DebugAssertBreak(Addr, PrevAddr, Host);
-			DebugUpdateWatches(true);
+	if (DebugControl.State == DebugState::Running)
+	{
+		return true;
+	}
+
+	// A break requested while running waits until we're somewhere we may stop.
+	if (DebugControl.State == DebugState::BreakPending &&
+	    DebugControl.Reason != DebugType::Breakpoint &&
+	    DebugInSkippedRegion(Addr, Host))
+	{
+		return true;
+	}
+
+	if (DebugControl.State == DebugState::Stepping &&
+	    DebugControl.StepsRemaining > 0)
+	{
+		if (DebugControl.PendingAddr == Addr)
+		{
+			// The pending instruction has already been displayed.
+			DebugControl.PendingAddr = -1;
+		}
+		else
+		{
 			DebugPrintInstruction(Addr, Host, Accumulator, XReg, YReg, PSR, StackReg);
 		}
 
-		return false;
+		DebugControl.StepsRemaining--;
+
+		return true;
 	}
 
-	DebugHalted = false;
+	DebugControl.State = DebugState::Halted;
+	DebugControl.ReturnAddress = -1;
 
-	if (PendingAddrShown == Addr)
+	if (DebugControl.PendingAddr != Addr)
 	{
-		// Already displayed.
-		PendingAddrShown = -1;
-	}
-	else
-	{
+		DebugControl.PendingAddr = Addr;
+
+		// Break and show the next instruction to be executed.
+		DebugAssertBreak(Addr, PrevAddr, Host);
+		DebugUpdateWatches(true);
 		DebugPrintInstruction(Addr, Host, Accumulator, XReg, YReg, PSR, StackReg);
 	}
 
-	InstCount--;
-
-	return true;
+	return false;
 }
 
 /****************************************************************************/
@@ -3840,14 +3890,14 @@ static bool DebugCmdNext(const char* args)
 		Count = MAX_LINES;
 	}
 
-	if (DebugSource == DebugType::None)
+	if (DebugControl.State == DebugState::Running)
 	{
 		DebugDisplayInfo("Invalid state: processor is running");
 		return true;
 	}
 
-	InstCount = Count;
-	DebugHalted = false;
+	DebugControl.State = DebugState::Stepping;
+	DebugControl.StepsRemaining = Count;
 
 	DebugSetCommandString("next");
 
@@ -3866,20 +3916,24 @@ static bool DebugCmdOver(const char* args)
 		return true;
 	}
 
-	// If current instruction is JSR, run to the following instruction,
-	// otherwise do a regular 'Next'
+	if (DebugControl.State == DebugState::Running)
+	{
+		DebugDisplayInfo("Invalid state: processor is running");
+		return true;
+	}
+
+	// If pending instruction is JSR, run to the following instruction,
+	// otherwise do a regular 'Next'.
 	int Instruction = DebugReadMem(ProgramCounter, true);
 
-	if (Instruction == 0x20)
+	if (DebugControl.State == DebugState::Halted && Instruction == 0x20)
 	{
-		StepOver = true;
-
 		const InstInfo* optable = GetOpcodeTable(true);
 
-		ReturnAddress = ProgramCounter + optable[Instruction].bytes;
+		DebugControl.ReturnAddress = ProgramCounter + optable[Instruction].bytes;
 
-		// Resume execution
-		DebugBreakExecution(DebugType::None);
+		// Resume execution.
+		DebugResume();
 	}
 	else
 	{

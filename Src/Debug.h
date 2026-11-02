@@ -48,6 +48,7 @@ enum class DebugType
 	BRK,
 	Manual,
 	Breakpoint,
+	StepOver,
 	Last
 };
 
