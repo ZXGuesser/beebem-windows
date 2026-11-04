@@ -109,6 +109,7 @@ class DebugControlType
 	public:
 		DebugState State;
 		DebugType Reason; // The reason for exiting the Running state.
+		bool SkipRomAddresses; // Skip OS/ROM addresses when stepping.
 		int StepsRemaining; // In the Stepping state, the number of instructions still to execute.
 		int PendingAddr; // Pending instruction printed but not yet executed.
 		int ResumeAddr; // Address we resumed from on exiting the Halted state.
@@ -125,6 +126,7 @@ void DebugControlType::Reset()
 {
 	State = DebugState::Running;
 	Reason = DebugType::None;
+	SkipRomAddresses = false;
 	StepsRemaining = 0;
 	PendingAddr = -1;
 	ResumeAddr = -1;
@@ -166,7 +168,7 @@ struct CPU6502State
 	unsigned char StackReg;
 };
 
-static CPU6502State LastHostInstr = { -1, 0, 0, 0, 0, 0 };
+static CPU6502State LastInstr = { -1, 0, 0, 0, 0, 0 };
 static int LastTraceAddr = -1;
 
 HWND hwndDebug;
@@ -254,6 +256,7 @@ static void DebugResetLastInstr();
 static void DebugResume();
 static void DebugRequestBreak(DebugType Type);
 static void DebugToggleRun();
+static bool DebugSkipAddress(int Addr, bool Host);
 
 static std::vector<DebugBreakpoint>::iterator DebugFindBreakpoint(const DebugBreakpoint& Breakpoint);
 static void DebugAddBreakpoints();
@@ -1662,14 +1665,42 @@ static INT_PTR CALLBACK DebugDlgProc(HWND hWnd, UINT Message, WPARAM wParam, LPA
 
 //*******************************************************************
 
+static void DebugUpdateBreakUI()
+{
+	const char* pszLabel = "Break";
+
+	switch (DebugControl.State)
+	{
+		case DebugState::Running:
+		default:
+			break;
+
+		case DebugState::BreakPending:
+			pszLabel = "Cancel";
+			break;
+
+		case DebugState::Stepping:
+			pszLabel = "Continue";
+			break;
+
+		case DebugState::Halted:
+			pszLabel = "Continue";
+			break;
+	}
+
+	SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, pszLabel);
+}
+
+//*******************************************************************
+
 static void DebugResetLastInstr()
 {
-	LastHostInstr.Addr = -1;
-	LastHostInstr.Accumulator = 0;
-	LastHostInstr.XReg = 0;
-	LastHostInstr.YReg = 0;
-	LastHostInstr.PSR = 0;
-	LastHostInstr.StackReg = 0;
+	LastInstr.Addr = -1;
+	LastInstr.Accumulator = 0;
+	LastInstr.XReg = 0;
+	LastInstr.YReg = 0;
+	LastInstr.PSR = 0;
+	LastInstr.StackReg = 0;
 
 	LastTraceAddr = -1;
 }
@@ -1691,13 +1722,14 @@ static void DebugResume()
 
 	DebugControl.State = DebugState::Running;
 	DebugControl.Reason = DebugType::None;
+	DebugControl.SkipRomAddresses = false;
 	DebugControl.StepsRemaining = 0;
 	DebugControl.PendingAddr = -1;
 	DebugControl.BreakReported = false;
 
 	DebugResetLastInstr();
 
-	SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Break");
+	DebugUpdateBreakUI();
 }
 
 /****************************************************************************/
@@ -1733,7 +1765,21 @@ static void DebugRequestBreak(DebugType Type)
 	LastAddrInOS = false;
 	LastAddrInROM = false;
 
-	SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Continue");
+	if (Type != DebugType::Breakpoint &&
+	    LastInstr.Addr != -1 &&
+	    DebugSkipAddress(LastInstr.Addr, DebugHost))
+	{
+		DebugUpdateBreakUI();
+
+		DebugDisplayInfo("Break pending, waiting to leave OS/ROM code");
+	}
+	else
+	{
+		SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Continue");
+	}
+
+
+	DebugUpdateBreakUI();
 
 	DebugUpdateWatches(true);
 }
@@ -1820,7 +1866,7 @@ static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 
 	DebugUpdateWatches(false);
 
-	SetDlgItemText(hwndDebug, IDC_DEBUGBREAK, "Continue");
+	DebugUpdateBreakUI();
 
 	if (DebugControl.BreakReported)
 	{
@@ -1898,22 +1944,27 @@ void DebugDisplayTrace(DebugType Type, bool Host, const char* Info)
 {
 	if (DebugEnabled && DebugHost == Host)
 	{
-		if (DebugBreakEnable[(int)Type])
+		bool Skipped = LastInstr.Addr != -1 &&
+		               DebugSkipAddress(LastInstr.Addr, Host);
+
+		bool Break = DebugBreakEnable[(int)Type] && !Skipped;
+
+		if (Break)
 		{
 			if (DebugControl.State == DebugState::Running &&
 			    DebugIsHardwareBreak(Type) &&
-			    LastHostInstr.Addr != -1 &&
-			    LastTraceAddr != LastHostInstr.Addr)
+			    LastInstr.Addr != -1 &&
+			    LastTraceAddr != LastInstr.Addr)
 			{
-				LastTraceAddr = LastHostInstr.Addr;
+				LastTraceAddr = LastInstr.Addr;
 
-				DebugPrintInstruction(LastHostInstr.Addr,
+				DebugPrintInstruction(LastInstr.Addr,
 				                      Host,
-				                      LastHostInstr.Accumulator,
-				                      LastHostInstr.XReg,
-				                      LastHostInstr.YReg,
-				                      LastHostInstr.PSR,
-				                      LastHostInstr.StackReg);
+				                      LastInstr.Accumulator,
+				                      LastInstr.XReg,
+				                      LastInstr.YReg,
+				                      LastInstr.PSR,
+				                      LastInstr.StackReg);
 			}
 		}
 
@@ -1922,7 +1973,7 @@ void DebugDisplayTrace(DebugType Type, bool Host, const char* Info)
 			DebugDisplayInfo(Info);
 		}
 
-		if (DebugBreakEnable[(int)Type])
+		if (Break)
 		{
 			DebugBreakExecution(Type);
 		}
@@ -2348,9 +2399,10 @@ static bool DebugBreakpointHit(const DebugBreakpoint& Breakpoint, int Addr, bool
 
 /****************************************************************************/
 
-// Returns true if the address is in an OS or ROM region.
+// Output a trace message on entering an OS or ROM address region.
+// Returns true if the address should be skipped.
 
-static bool DebugInSkippedRegion(int Addr, bool Host)
+static bool DebugSkipAddressAndTrace(int Addr, bool Host)
 {
 	if (Host)
 	{
@@ -2404,7 +2456,9 @@ static bool DebugInSkippedRegion(int Addr, bool Host)
 
 		LastAddrInROM = false;
 	}
-	else if (TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80)
+	else if (TubeType == TubeDevice::Acorn65C02 ||
+	         TubeType == TubeDevice::AcornZ80 ||
+	         TubeType == TubeDevice::TorchZ80)
 	{
 		if (!DebugOS && Addr >= 0xF800 && Addr <= 0xFFFF)
 		{
@@ -2440,6 +2494,44 @@ static bool DebugInSkippedRegion(int Addr, bool Host)
 
 /****************************************************************************/
 
+// Returns true if the address is in an OS or ROM region and should
+// be skipped.
+
+static bool DebugSkipAddress(int Addr, bool Host)
+{
+	if (Host)
+	{
+		if (!DebugOS && Addr >= 0xC000 && Addr <= 0xFBFF)
+		{
+			return true;
+		}
+
+		if (!DebugROM && Addr >= 0x8000 && Addr <= 0xBFFF)
+		{
+			return true;
+		}
+
+		return false;
+	}
+	else if (TubeType == TubeDevice::Acorn65C02 ||
+	         TubeType == TubeDevice::AcornZ80 ||
+	         TubeType == TubeDevice::TorchZ80)
+	{
+		if (!DebugOS && Addr >= 0xF800 && Addr <= 0xFFFF)
+		{
+			return true;
+		}
+
+		return false;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+/****************************************************************************/
+
 bool DebugDisassembler(int Addr,
                        int PrevAddr,
                        int Accumulator,
@@ -2455,15 +2547,12 @@ bool DebugDisassembler(int Addr,
 		return DebugControl.State != DebugState::Halted;
 	}
 
-	if (Host)
-	{
-		LastHostInstr.Addr = Addr;
-		LastHostInstr.Accumulator = Accumulator;
-		LastHostInstr.XReg = XReg;
-		LastHostInstr.YReg = YReg;
-		LastHostInstr.PSR = PSR;
-		LastHostInstr.StackReg = StackReg;
-	}
+	LastInstr.Addr = Addr;
+	LastInstr.Accumulator = Accumulator;
+	LastInstr.XReg = XReg;
+	LastInstr.YReg = YReg;
+	LastInstr.PSR = PSR;
+	LastInstr.StackReg = StackReg;
 
 	// The first instruction after Continue must not re-trigger the break
 	// that halted us.
@@ -2490,17 +2579,34 @@ bool DebugDisassembler(int Addr,
 		}
 	}
 
+	bool RunningThrough = DebugControl.State == DebugState::Stepping &&
+	                      DebugControl.SkipRomAddresses &&
+	                      Addr != DebugControl.PendingAddr;
+
 	if (BPSOn &&
 	    !Resuming &&
 	    (DebugControl.State == DebugState::Running ||
-	     DebugControl.State == DebugState::BreakPending))
+	     DebugControl.State == DebugState::BreakPending ||
+	     RunningThrough))
 	{
 		// Check breakpoints
 		for (size_t i = 0; i < Breakpoints.size(); i++)
 		{
 			if (DebugBreakpointHit(Breakpoints[i], Addr, Host))
 			{
-				DebugRequestBreak(DebugType::Breakpoint);
+				if (RunningThrough)
+				{
+					// Stop single stepping and halt here.
+					DebugControl.State = DebugState::BreakPending;
+					DebugControl.Reason = DebugType::Breakpoint;
+					DebugControl.StepsRemaining = 0;
+					DebugControl.SkipRomAddresses = false;
+					DebugControl.BreakReported = false;
+				}
+				else
+				{
+					DebugRequestBreak(DebugType::Breakpoint);
+				}
 			}
 		}
 	}
@@ -2510,10 +2616,19 @@ bool DebugDisassembler(int Addr,
 		return true;
 	}
 
-	// A break requested while running waits until we're somewhere we may stop.
+	// A break requested while running waits until the program counter
+	// exits any skipped OS or ROM address ranges.
 	if (DebugControl.State == DebugState::BreakPending &&
 	    DebugControl.Reason != DebugType::Breakpoint &&
-	    DebugInSkippedRegion(Addr, Host))
+	    DebugSkipAddressAndTrace(Addr, Host))
+	{
+		return true;
+	}
+
+	// Execute instructions if inside a skipped OS or ROM region.
+	if (DebugControl.State == DebugState::Stepping &&
+	    DebugControl.SkipRomAddresses &&
+	    DebugSkipAddressAndTrace(Addr, Host))
 	{
 		return true;
 	}
@@ -2537,11 +2652,14 @@ bool DebugDisassembler(int Addr,
 	}
 
 	DebugControl.State = DebugState::Halted;
+	DebugControl.SkipRomAddresses = false;
 	DebugControl.ReturnAddress = -1;
 
 	if (DebugControl.PendingAddr != Addr)
 	{
 		DebugControl.PendingAddr = Addr;
+
+		// DebugUpdateBreakUI();
 
 		// Break and show the next instruction to be executed.
 		DebugAssertBreak(Addr, PrevAddr, Host);
@@ -3974,8 +4092,16 @@ static bool DebugCmdNext(const char* args)
 		return true;
 	}
 
+	// Set SkipRomAddresses true if stepping from a non OS/ROM address that would
+	// be skipped. If starting within an OS/ROM address range and DebugOS or
+	// DebugROM is true, step normally.
+
 	DebugControl.State = DebugState::Stepping;
+	DebugControl.SkipRomAddresses = DebugControl.PendingAddr != -1 &&
+	                                !DebugSkipAddress(DebugControl.PendingAddr, DebugHost);
 	DebugControl.StepsRemaining = Count;
+
+	DebugUpdateBreakUI();
 
 	DebugSetCommandString("next");
 
