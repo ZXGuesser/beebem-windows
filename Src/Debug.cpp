@@ -4170,11 +4170,11 @@ static bool DebugGetNextInstructionAddress(int Addr, bool Host, int* pNextAddr)
 
 /****************************************************************************/
 
-// TODO: currently host only, enable for Tube debugging
+// TODO: Enable for other coprocessors.
 
 static bool DebugCmdOver(const char* args)
 {
-	if (!DebugHost)
+	if (!DebugHost && TubeType != TubeDevice::Acorn65C02)
 	{
 		DebugDisplayInfo("Not implemented for this coprocessor");
 		return true;
@@ -4188,13 +4188,15 @@ static bool DebugCmdOver(const char* args)
 
 	// If pending instruction is JSR, run to the following instruction,
 	// otherwise do a regular 'Next'.
-	int Instruction = DebugReadMem(ProgramCounter, true);
+	int PC = DebugHost ? ProgramCounter : TubeProgramCounter;
+
+	int Instruction = DebugReadMem(PC, DebugHost);
 
 	if (DebugControl.State == DebugState::Halted && Instruction == 0x20)
 	{
 		int Addr = -1;
 
-		if (!DebugGetNextInstructionAddress(ProgramCounter, DebugHost, &Addr))
+		if (!DebugGetNextInstructionAddress(PC, DebugHost, &Addr))
 		{
 			DebugDisplayInfo("Not implemented for this coprocessor");
 			return true;
