@@ -6,11 +6,11 @@ Unreleased changes
 
 Contributors: Chris Needham, Greg Cook
 
-* Implemented Timer 2 PB6 pulse counting mode in the 6522 System VIA.
-  This is used to signal interrupts from the TMS5220 speech chip.
+* Implemented Timer 2 PB6 pulse counting mode in the 6522 System VIA. This is
+  used to signal interrupts from the TMS5220 speech chip.
 * Fixed VSync timing in teletext mode.
-* Enabled support for extended width teletext display modes.
-  This fixes Firetrack, which has a 50 character width teletext display.
+* Enabled support for extended width teletext display modes. This fixes
+  Firetrack, which has a 50 character width teletext display.
 * Fixed the .uef and .uefstate file type registrations in the BeebEm
   installer.
 * Fixed -Data and -CustomData command line option handling.
@@ -32,7 +32,10 @@ Contributors: Chris Needham, Greg Cook
   - Added support for parasite debugger breakpoints.
   - The debugger now prevents watches from being set on I/O addresses.
   - Optimisations to improve emulation speed while the Debug window is open.
-
+  - Added a "go" debugger command to run until exection reaches a particular
+    address, or the next instruction after the current one.
+  - The "over" command now supports the 65C02 second processor.
+  - The "goto" command (alias "g") has been renamed "jump" (alias "j").
 
 Version 4.23 (6 April 2026)
 ------------
