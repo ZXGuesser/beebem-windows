@@ -45,6 +45,7 @@ enum class DebugType
 	Manual,
 	Breakpoint,
 	StepOver,
+	RunTo,
 	Last
 };
 

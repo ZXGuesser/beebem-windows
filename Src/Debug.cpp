@@ -113,7 +113,9 @@ class DebugControlType
 		int StepsRemaining; // In the Stepping state, the number of instructions still to execute.
 		int PendingAddr; // Pending instruction printed but not yet executed.
 		int ResumeAddr; // Address we resumed from on exiting the Halted state.
-		int ReturnAddress; // For the "over" command.
+		int ReturnAddr; // For the "over" command.
+		int RunToAddr; // For the "go" command.
+		int RunToBank; // Paged ROM bank, for the "go" command.
 		bool BreakReported; // Flag set when a "break at" message is shown since the last resume.
 };
 
@@ -130,7 +132,9 @@ void DebugControlType::Reset()
 	StepsRemaining = 0;
 	PendingAddr = -1;
 	ResumeAddr = -1;
-	ReturnAddress = -1;
+	ReturnAddr = -1;
+	RunToAddr = -1;
+	RunToBank = -1;
 	BreakReported = false;
 }
 
@@ -285,7 +289,8 @@ static bool DebugCmdWatch(const char* args);
 static bool DebugCmdState(const char* args);
 static bool DebugCmdSave(const char* args);
 static bool DebugCmdPoke(const char* args);
-static bool DebugCmdGoto(const char* args);
+static bool DebugCmdJump(const char* args);
+static bool DebugCmdRunTo(const char* args);
 static bool DebugCmdFile(const char* args);
 static bool DebugCmdEcho(const char* args);
 static bool DebugCmdScript(const char* args);
@@ -323,6 +328,8 @@ static const DebugCmd DebugCmdTable[] =
 	{ "n",          DebugCmdNext,          "", ""}, // Alias of "next"
 	{ "over",       DebugCmdOver,          "", "Step over JSR (host only)" },
 	{ "o",          DebugCmdOver,          "", ""}, // Alias of "over"
+	{ "go",         DebugCmdRunTo,         "next | <addr> [<bank>]", "Run to address, then break" },
+	{ "g",          DebugCmdRunTo,         "", "" },
 	{ "peek",       DebugCmdPeek,          "[p] [<start>] [<count>]", "Dump memory to the console" },
 	{ "m",          DebugCmdPeek,          "", ""}, // Alias of "peek"
 	{ "code",       DebugCmdCode,          "[p] [<start>] [<count>]", "Disassembles specified range" },
@@ -335,8 +342,8 @@ static const DebugCmd DebugCmdTable[] =
 	{ "w",          DebugCmdSave,          "", ""}, // Alias of "save"
 	{ "poke",       DebugCmdPoke,          "[p] <start> <byte> [<byte> ...]", "Write bytes to memory" },
 	{ "c",          DebugCmdPoke,          "", ""}, // Alias of "poke"
-	{ "goto",       DebugCmdGoto,          "[p] <addr>", "Jump to address" },
-	{ "g",          DebugCmdGoto,          "", ""}, // Alias of "goto"
+	{ "jump",       DebugCmdJump,          "[p] <addr>", "Jump to address" },
+	{ "j",          DebugCmdJump,          "", ""}, // Alias of "jump"
 	{ "file",       DebugCmdFile,          "<r|w> [p] <addr> [<count>] [<filename>]", "Read/Write memory at address from/to file" },
 	{ "f",          DebugCmdFile,          "", ""}, // Alias of "file"
 	{ "echo",       DebugCmdEcho,          "<string>", "Write a string to the console" },
@@ -1816,7 +1823,7 @@ void DebugBreakExecution(DebugType Type)
 
 // See DebugType in Debug.h.
 
-static const char* DebugSourceStr[] =
+static const char* DebugTypeStr[] =
 {
 	"None",
 	"Video",
@@ -1832,11 +1839,12 @@ static const char* DebugSourceStr[] =
 	"Manual",
 	"Breakpoint",
 	"Step over",
+	"Run to"
 };
 
-static const char* GetDebugSourceString()
+static const char* GetDebugTypeString()
 {
-	return DebugSourceStr[(int)DebugControl.Reason];
+	return DebugTypeStr[(int)DebugControl.Reason];
 }
 
 /****************************************************************************/
@@ -1924,7 +1932,7 @@ static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 		DebugDisplayInfoF("%s break at 0x%04X (%s / %s)",
 		                  CPUName,
 		                  Addr,
-		                  GetDebugSourceString(),
+		                  GetDebugTypeString(),
 		                  Info.Desc.c_str());
 	}
 	else
@@ -1932,7 +1940,7 @@ static void DebugAssertBreak(int Addr, int PrevAddr, bool Host)
 		DebugDisplayInfoF("%s break at 0x%04X (%s)",
 		                  CPUName,
 		                  Addr,
-		                  GetDebugSourceString());
+		                  GetDebugTypeString());
 	}
 
 	DebugDisplayPreviousAddress(PrevAddr, Host);
@@ -2331,7 +2339,9 @@ static void DebugSetTarget(bool Host)
 	}
 
 	DebugControl.ResumeAddr = -1;
-	DebugControl.ReturnAddress = -1;
+	DebugControl.ReturnAddr = -1;
+	DebugControl.RunToAddr = -1;
+	DebugControl.RunToBank = -1;
 
 	DebugResetLastInstr();
 }
@@ -2532,6 +2542,8 @@ static bool DebugSkipAddress(int Addr, bool Host)
 
 /****************************************************************************/
 
+// Returns true to continue execution, or false to halt.
+
 bool DebugDisassembler(int Addr,
                        int PrevAddr,
                        int Accumulator,
@@ -2560,22 +2572,34 @@ bool DebugDisassembler(int Addr,
 
 	DebugControl.ResumeAddr = -1;
 
-	if (DebugControl.State == DebugState::Running && Host)
+	if (DebugControl.State == DebugState::Running)
 	{
 		// Check for BRK instruction.
-		if (!Resuming &&
+		if (Host &&
+		    !Resuming &&
 		    DebugBreakEnable[(int)DebugType::BRK] &&
 		    DebugReadMem(Addr, Host) == 0)
 		{
 			DebugRequestBreak(DebugType::BRK);
 		}
 
-		// Stop when we reach the instruction after the JSR.
-		if (Addr == DebugControl.ReturnAddress)
+		if (Addr == DebugControl.ReturnAddr)
 		{
-			DebugControl.ReturnAddress = -1;
+			// Stop when we reach the instruction after the JSR.
+			DebugControl.ReturnAddr = -1;
 
 			DebugRequestBreak(DebugType::StepOver);
+		}
+		else if (Addr == DebugControl.RunToAddr &&
+		         !Resuming &&
+		         (!Host ||
+		          DebugControl.RunToBank == -1 ||
+		          DebugControl.RunToBank == ROMSEL))
+		{
+			DebugControl.RunToAddr = -1;
+			DebugControl.RunToBank = -1;
+
+			DebugRequestBreak(DebugType::RunTo);
 		}
 	}
 
@@ -2651,15 +2675,18 @@ bool DebugDisassembler(int Addr,
 		return true;
 	}
 
+	// Halt execution.
+
 	DebugControl.State = DebugState::Halted;
 	DebugControl.SkipRomAddresses = false;
-	DebugControl.ReturnAddress = -1;
+	DebugControl.ResumeAddr = -1;
+	DebugControl.ReturnAddr = -1;
+	DebugControl.RunToAddr = -1;
+	DebugControl.RunToBank = -1;
 
 	if (DebugControl.PendingAddr != Addr)
 	{
 		DebugControl.PendingAddr = Addr;
-
-		// DebugUpdateBreakUI();
 
 		// Break and show the next instruction to be executed.
 		DebugAssertBreak(Addr, PrevAddr, Host);
@@ -3301,7 +3328,9 @@ static bool DebugCmdEcho(const char* args)
 
 /****************************************************************************/
 
-static bool DebugCmdGoto(const char* args)
+// Jump to a given address.
+
+static bool DebugCmdJump(const char* args)
 {
 	std::vector<std::string> Args;
 
@@ -4110,6 +4139,37 @@ static bool DebugCmdNext(const char* args)
 
 /****************************************************************************/
 
+// Returns the address of the next instruction after the one at Addr.
+
+static bool DebugGetNextInstructionAddress(int Addr, bool Host, int* pNextAddr)
+{
+	if (Host || TubeType == TubeDevice::Acorn65C02)
+	{
+		const int Opcode = DebugReadMem(Addr, Host);
+		const InstInfo* OpTable = GetOpcodeTable(true);
+
+		*pNextAddr = Addr + OpTable[Opcode].bytes;
+
+		return true;
+	}
+
+	if (TubeType == TubeDevice::AcornZ80 || TubeType == TubeDevice::TorchZ80)
+	{
+		char Str[128];
+
+		*pNextAddr = Addr + Z80Disassemble(Addr, Str);
+
+		return true;
+	}
+
+	// TODO: Implement for TubeDevice::Master512CoPro, TubeDevice::AcornArm,
+	// and TubeDevice::SprowArm.
+
+	return false;
+}
+
+/****************************************************************************/
+
 // TODO: currently host only, enable for Tube debugging
 
 static bool DebugCmdOver(const char* args)
@@ -4132,9 +4192,15 @@ static bool DebugCmdOver(const char* args)
 
 	if (DebugControl.State == DebugState::Halted && Instruction == 0x20)
 	{
-		const InstInfo* optable = GetOpcodeTable(true);
+		int Addr = -1;
 
-		DebugControl.ReturnAddress = ProgramCounter + optable[Instruction].bytes;
+		if (!DebugGetNextInstructionAddress(ProgramCounter, DebugHost, &Addr))
+		{
+			DebugDisplayInfo("Not implemented for this coprocessor");
+			return true;
+		}
+
+		DebugControl.ReturnAddr = Addr;
 
 		// Resume execution.
 		DebugResume();
@@ -4145,6 +4211,97 @@ static bool DebugCmdOver(const char* args)
 	}
 
 	DebugSetCommandString("over");
+
+	return true;
+}
+
+/****************************************************************************/
+
+static bool DebugCmdRunTo(const char* args)
+{
+	std::vector<std::string> Args;
+
+	ParseLine(args, Args);
+
+	if (Args.empty() || Args.size() > 2)
+	{
+		return false;
+	}
+
+	unsigned long Address;
+	int Bank = -1;
+
+	if (StrCaseCmp(Args[0].c_str(), "next") == 0)
+	{
+		if (Args.size() != 1)
+		{
+			return false;
+		}
+
+		int Addr;
+
+		if (!DebugGetNextInstructionAddress(DebugControl.PendingAddr, DebugHost, &Addr))
+		{
+			DebugDisplayInfo("Not implemented for this coprocessor");
+			return true;
+		}
+
+		Address = (unsigned long)Addr;
+
+		if (DebugHost && Address >= 0x8000 && Address < 0xC000)
+		{
+			Bank = ROMSEL;
+		}
+	}
+	else
+	{
+		if (!ParseAddressOrLabel(Args[0].c_str(), DebugHost, &Address, nullptr))
+		{
+			return true;
+		}
+
+		bool RomAddress = DebugHost && Address >= 0x8000 && Address < 0xC000;
+
+		if (Args.size() == 2)
+		{
+			if (!RomAddress)
+			{
+				DebugDisplayInfo("The bank option only applies to host addresses 0x8000-0xBFFF");
+				return true;
+			}
+
+			bool Valid = true;
+
+			if (!ParseNumber(Args[1], &Bank))
+			{
+				Valid = false;
+			}
+
+			if (Valid && Bank < 0 || Bank > 15)
+			{
+				Valid = false;
+			}
+
+			if (!Valid)
+			{
+				DebugDisplayInfoF("Invalid SWR bank value: %s", Args[1].c_str());
+			}
+		}
+		else if (RomAddress)
+		{
+			// Default to the currently active SWR bank.
+			Bank = ROMSEL;
+		}
+	}
+
+	// Leave any halted, stepping or pending state, then run
+	if (DebugControl.State != DebugState::Running)
+	{
+		DebugResume();
+	}
+
+	DebugControl.RunToAddr = (int)Address;
+	DebugControl.RunToBank = Bank;
 
 	return true;
 }
@@ -4701,7 +4858,7 @@ static bool DebugCmdBreakpoint(const char* args)
 	{
 		if (!Breakpoint.Host)
 		{
-			DebugDisplayInfo("Banks only apply to host breakpoints.");
+			DebugDisplayInfo("The banks option only applies to host breakpoints.");
 			return true;
 		}
 
