@@ -318,15 +318,15 @@ static const DebugCmd DebugCmdTable[] =
 	{ "set",        DebugCmdSet,           "<host|parasite|rom|os|endian|breakpoints|decimal|brk> <on|off>", "Turn various UI checkboxes on or off" },
 	{ "next",       DebugCmdNext,          "[<count>]", "Execute the specified number instructions, default 1" },
 	{ "n",          DebugCmdNext,          "", ""}, // Alias of "next"
-	{ "over",       DebugCmdOver,          "", "Step over JSR (host only)" },
+	{ "over",       DebugCmdOver,          "", "Step over JSR (host and 65C02 coprocessor only)" },
 	{ "o",          DebugCmdOver,          "", ""}, // Alias of "over"
-	{ "go",         DebugCmdRunTo,         "next | <addr> [<bank>]", "Run to address, then break" },
+	{ "go",         DebugCmdRunTo,         "<next> | <addr> [<bank>]", "Run to address, then break" },
 	{ "g",          DebugCmdRunTo,         "", "" },
 	{ "peek",       DebugCmdPeek,          "[p] [<start>] [<count>]", "Dump memory to the console" },
 	{ "m",          DebugCmdPeek,          "", ""}, // Alias of "peek"
 	{ "code",       DebugCmdCode,          "[p] [<start>] [<count>]", "Disassembles specified range" },
 	{ "d",          DebugCmdCode,          "", ""}, // Alias of "code"
-	{ "watch",      DebugCmdWatch,         "[p] <addr> <b|w|d> [<name>]", "Set or clear a byte, word, or dword watch at addr" },
+	{ "watch",      DebugCmdWatch,         "[p] <addr> [<b|w|d>] [<name>]", "Set or clear a byte, word, or dword watch at addr" },
 	{ "e",          DebugCmdWatch,         "", ""}, // Alias of "watch"
 	{ "state",      DebugCmdState,         "<v|u|s|e|n|t|m|r>", "Display state of Video/UserVIA/SysVIA/Serial/Econet/Tube/Memory/ROMs" },
 	{ "s",          DebugCmdState,         "", ""}, // Alias of "state"
@@ -341,7 +341,7 @@ static const DebugCmd DebugCmdTable[] =
 	{ "echo",       DebugCmdEcho,          "<string>", "Write a string to the console" },
 	{ "!",          DebugCmdEcho,          "", "" }, // Alias of "echo"
 	{ "script",     DebugCmdScript,        "[<filename>]", "Execute a debugger script" },
-	{ "clear",      DebugCmdClear,         "", "Clear the console." }
+	{ "clear",      DebugCmdClear,         "", "Clear the console" }
 };
 
 /****************************************************************************/
