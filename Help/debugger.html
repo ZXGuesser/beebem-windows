@@ -40,12 +40,17 @@
       <h1>Built in Debugger</h1>
 
       <p>
-        The Debugger is a 6502/Z80/ARM disassembler and monitoring tool. When
-        the debug window is first opened it leaves BeebEm running. It's best to
-        leave the <span class="ui">Freeze when inactive</span> option switched
-        off (which happens automatically when you open the Debugger window)
-        otherwise BeebEm will only run when you bring the main window to the
-        front.
+        The Debugger is a 6502 and Z80 disassembler and monitoring tool. It
+        supports the host 6502 and 65C02 and Z80 coprocessors (but currently
+        not the Master 512 and ARM coprocessors).
+      </p>
+
+      <p>
+        When the debug window is first opened it leaves BeebEm running. It's
+        best to leave the <span class="ui">Freeze when inactive</span> option
+        switched off (which happens automatically when you open the Debugger
+        window) otherwise BeebEm will only run when you bring the main window
+        to the front.
       </p>
 
       <p>
@@ -64,7 +69,7 @@
             Stops BeebEm running. If currently executing in the OS or ROM area
             and OS/ROM debug is not enabled then BeebEm will only stop when
             execution moves out of the OS/ROM. When execution stops the
-            current instruction is displayed
+            next instruction to be executed is displayed
           </td>
         </tr>
 
@@ -85,17 +90,23 @@
 
         <tr>
           <td><span class="ui">BRK instruction</span></td>
-          <td>Breaks when the BRK instruction is executed</td>
+          <td>Breaks when the "BRK instruction is executed</td>
         </tr>
 
         <tr>
           <td><span class="ui">Attach to Host</span></td>
-          <td>Debugs the host processor</td>
+          <td>
+            Debugs the host processor. The debugger can be attached to either
+            the host or the Tube coprocessor (parasite) at once, not both at the
+            same time
+          </td>
         </tr>
 
         <tr>
           <td><span class="ui">Attach to Parasite</span></td>
-          <td>Debugs the Tube second processor</td>
+          <td>
+            Debugs the Tube second processor
+          </td>
         </tr>
 
         <tr>
@@ -134,11 +145,6 @@
       <blockquote>
         <b>Address OPCodes Instruction A X Y SR Flags</b>
       </blockquote>
-
-      <p>
-        Parasite instructions are shifted right so it's easier to follow both
-        host and parasite when debugging tube code.
-      </p>
 
       <h2>Debugger Commands</h2>
 
@@ -226,7 +232,30 @@
           <td><span class="cmd">over</span></td>
           <td><span class="cmd">o</span></td>
           <td>
-            Step over JSR (host only)
+            Step over JSR (host and 65C02 second processor only)
+          </td>
+        </tr>
+
+        <tr>
+          <td><span class="cmd">go &lt;next&gt; | [&lt;addr&gt;] [&lt;bank&gt;]</span></td>
+          <td><span class="cmd"></span></td>
+          <td>
+            Continue execution until the given address is reached.
+            <span class="cmd">go next</span> runs to the instruction after the
+            current location. This is useful for stepping out of loops, e.g.,
+            when used at a branch instruction. If <span class="cmd">addr</span>
+            is in the sideways ROM region (&amp;8000 to &amp;BFFF), the
+            <span class="cmd">bank</span> specifies which bank to stop in. The
+            default is the currently selected ROM (the paged ROM select register,
+            ROMSEL)
+          </td>
+        </tr>
+
+        <tr>
+          <td><span class="cmd">jump [p] &lt;addr&gt;</span></td>
+          <td><span class="cmd">j</span></td>
+          <td>
+            Jump to address
           </td>
         </tr>
 
@@ -289,14 +318,6 @@
           <td><span class="cmd">c</span></td>
           <td>
             Write bytes to memory
-          </td>
-        </tr>
-
-        <tr>
-          <td><span class="cmd">goto [p] &lt;addr&gt;</span></td>
-          <td><span class="cmd">g</span></td>
-          <td>
-            Jump to address
           </td>
         </tr>
 
