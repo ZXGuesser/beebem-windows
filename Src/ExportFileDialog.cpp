@@ -43,24 +43,24 @@ Boston, MA  02110-1301, USA.
 
 ExportFileDialog::ExportFileDialog(HINSTANCE hInstance,
                                    HWND hwndParent,
-                                   const char* szDiscFile,
+                                   const char* pszDiscFile,
                                    int NumSides,
                                    int Side,
-                                   DFS_DISC_CATALOGUE* dfsCat,
-                                   const char* ExportPath) :
+                                   DfsDiscCatalogue* pCatalogue,
+                                   const char* pszExportPath) :
 	Dialog(hInstance, hwndParent, IDD_DISCEXPORT),
-	m_DiscFile(szDiscFile),
+	m_DiscFile(pszDiscFile),
 	m_NumSides(NumSides),
 	m_Side(Side),
-	m_ExportPath(ExportPath),
+	m_ExportPath(pszExportPath),
 	m_NumSelected(0)
 {
-	for (int i = 0; i < dfsCat->numFiles; ++i)
+	for (int i = 0; i < pCatalogue->NumFiles; ++i)
 	{
 		FileExportEntry Entry;
-		Entry.DfsAttrs = dfsCat->fileAttrs[i];
-		Entry.BeebFileName = std::string(1, dfsCat->fileAttrs[i].directory) + "." + dfsCat->fileAttrs[i].filename;
-		Entry.HostFileName = BeebToLocalFileName(Entry.BeebFileName);
+		Entry.DfsAttrs = pCatalogue->FileAttrs[i];
+		Entry.BeebFileName = std::string(1, pCatalogue->FileAttrs[i].Directory) + "." + pCatalogue->FileAttrs[i].FileName;
+		Entry.HostFileName = DfsToLocalFileName(Entry.BeebFileName);
 
 		m_ExportFiles.push_back(Entry);
 	}
@@ -68,7 +68,8 @@ ExportFileDialog::ExportFileDialog(HINSTANCE hInstance,
 
 /****************************************************************************/
 
-static LPCTSTR Columns[] = {
+static LPCTSTR Columns[] =
+{
 	"File name",
 	"Load Addr",
 	"Exec Addr",
@@ -103,13 +104,13 @@ INT_PTR ExportFileDialog::DlgProc(UINT   nMessage,
 			                      reinterpret_cast<LPARAM>(&Entry));
 
 			char str[100];
-			sprintf(str, "%06X", Entry.DfsAttrs.loadAddr & 0xffffff);
+			sprintf(str, "%06X", Entry.DfsAttrs.LoadAddr & 0xffffff);
 			m_ListView.SetItemText(Row, 1, str);
 
-			sprintf(str, "%06X", Entry.DfsAttrs.execAddr & 0xffffff);
+			sprintf(str, "%06X", Entry.DfsAttrs.ExecAddr & 0xffffff);
 			m_ListView.SetItemText(Row, 2, str);
 
-			sprintf(str, "%06X", Entry.DfsAttrs.length);
+			sprintf(str, "%06X", Entry.DfsAttrs.Length);
 			m_ListView.SetItemText(Row, 3, str);
 
 			m_ListView.SetItemText(Row, 4, const_cast<LPTSTR>(Entry.HostFileName.c_str()));
@@ -264,11 +265,11 @@ void ExportFileDialog::ExportSelectedFiles()
 
 /****************************************************************************/
 
-bool ExportFileDialog::ExportFile(DFS_FILE_ATTR* DfsAttrs, const char* LocalFileName)
+bool ExportFileDialog::ExportFile(DfsFileAttributes* pDfsFileAttr, const char* LocalFileName)
 {
 	char szErrStr[512];
 
-	if (dfs_export_file(m_DiscFile, m_NumSides, m_Side, DfsAttrs, LocalFileName, szErrStr))
+	if (DfsExportFile(m_DiscFile, m_NumSides, m_Side, pDfsFileAttr, LocalFileName, szErrStr))
 	{
 		return true;
 	}

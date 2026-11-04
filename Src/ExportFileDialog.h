@@ -30,7 +30,7 @@ Boston, MA  02110-1301, USA.
 
 struct FileExportEntry
 {
-	DFS_FILE_ATTR DfsAttrs;
+	DfsFileAttributes DfsAttrs;
 	std::string BeebFileName;
 	std::string HostFileName;
 };
@@ -38,29 +38,25 @@ struct FileExportEntry
 class ExportFileDialog : public Dialog
 {
 	public:
-		ExportFileDialog(
-			HINSTANCE hInstance,
-			HWND hwndParent,
-			const char* szDiscFile,
-			int NumSides,
-			int Side,
-			DFS_DISC_CATALOGUE* dfsCat,
-			const char* ExportPath
-		);
+		ExportFileDialog(HINSTANCE hInstance,
+		                 HWND hwndParent,
+		                 const char* pszDiscFile,
+		                 int NumSides,
+		                 int Side,
+		                 DfsDiscCatalogue* pCatalogue,
+		                 const char* pszExportPath);
 
 	public:
 		std::string GetPath() const;
 
 	private:
 		void ExportSelectedFiles();
-		bool ExportFile(DFS_FILE_ATTR* DfsAttrs, const char* LocalFileName);
+		bool ExportFile(DfsFileAttributes* pDfsFileAttr, const char* LocalFileName);
 
 	private:
-		virtual INT_PTR DlgProc(
-			UINT   nMessage,
-			WPARAM wParam,
-			LPARAM lParam
-		);
+		virtual INT_PTR DlgProc(UINT nMessage,
+		                        WPARAM wParam,
+		                        LPARAM lParam);
 
 	private:
 		const char* m_DiscFile;

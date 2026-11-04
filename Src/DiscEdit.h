@@ -35,48 +35,48 @@ constexpr int DFS_MAX_NAME_LEN       = 7;
 constexpr int DFS_SECTORS_PER_TRACK  = 10;
 constexpr int DFS_SECTOR_SIZE        = 256;
 
-struct DFS_FILE_ATTR
+struct DfsFileAttributes
 {
-	char filename[DFS_MAX_NAME_LEN + 1];
-	char directory;
-	bool locked;
-	int loadAddr;
-	int execAddr;
-	int length;
-	int startSector;
+	char FileName[DFS_MAX_NAME_LEN + 1];
+	char Directory;
+	bool Locked;
+	int LoadAddr;
+	int ExecAddr;
+	int Length;
+	int StartSector;
 };
 
-struct DFS_DISC_CATALOGUE
+struct DfsDiscCatalogue
 {
-	char title[DFS_MAX_TITLE_LEN + 1];
-	int numWrites;
-	int numFiles;
-	int numSectors;
-	int bootOpts;
-	bool watford62;
-	DFS_FILE_ATTR fileAttrs[DFS_MAX_CAT_SIZE];
+	char Title[DFS_MAX_TITLE_LEN + 1];
+	int NumWrites;
+	int NumFiles;
+	int NumSectors;
+	int BootOpts;
+	bool Watford62;
+	DfsFileAttributes FileAttrs[DFS_MAX_CAT_SIZE];
 };
 
-std::string BeebToLocalFileName(const std::string& BeebFileName);
+std::string DfsToLocalFileName(const std::string& DfsFileName);
 
-bool dfs_get_catalogue(const char *szDiscFile,
-                       int numSides,
-                       int side,
-                       DFS_DISC_CATALOGUE *dfsCat);
+bool DfsGetCatalogue(const char* pszDiscFile,
+                     int NumSides,
+                     int Side,
+                     DfsDiscCatalogue* pCatalogue);
 
-bool dfs_export_file(const char *szDiscFile,
-                     int numSides,
-                     int side,
-                     const DFS_FILE_ATTR* attr,
-                     const char *szExportFolder,
-                     char *szErrStr);
+bool DfsExportFile(const char* pszDiscFile,
+                   int NumSides,
+                   int Side,
+                   const DfsFileAttributes* pFileAttr,
+                   const char* pszExportFolder,
+                   char* pszErrStr);
 
-bool dfs_import_file(const char *szDiscFile,
-                     int numSides,
-                     int side,
-                     DFS_DISC_CATALOGUE *dfsCat,
-                     const char *szFile,
-                     const char *szImportFolder,
-                     char *szErrStr);
+bool DfsImportFile(const char* pszDiscFile,
+                   int NumSides,
+                   int Side,
+                   DfsDiscCatalogue* pCatalog,
+                   const char* pszFile,
+                   const char* pszImportFolder,
+                   char* pszErrStr);
 
 #endif

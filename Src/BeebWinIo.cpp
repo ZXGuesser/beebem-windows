@@ -1783,9 +1783,9 @@ void BeebWin::ExportDiscFiles(int menuId)
 	const int Heads = DiscInfo[Drive].Type == DiscType::DSD || DiscInfo[Drive].DoubleSidedSSD ? 2 : 1;
 	const int Side = menuId == IDM_DISC_EXPORT_0 || menuId == IDM_DISC_EXPORT_1 ? 0 : 1;
 
-	DFS_DISC_CATALOGUE dfsCat;
+	DfsDiscCatalogue Catalogue;
 
-	bool Success = dfs_get_catalogue(DiscInfo[Drive].FileName, Heads, Side, &dfsCat);
+	bool Success = DfsGetCatalogue(DiscInfo[Drive].FileName, Heads, Side, &Catalogue);
 
 	if (!Success)
 	{
@@ -1800,7 +1800,7 @@ void BeebWin::ExportDiscFiles(int menuId)
 	GetDataPath(m_UserDataPath, szExportPath);
 
 	// Show export dialog
-	ExportFileDialog Dialog(hInst, m_hWnd, DiscInfo[Drive].FileName, Heads, Side, &dfsCat, szExportPath);
+	ExportFileDialog Dialog(hInst, m_hWnd, DiscInfo[Drive].FileName, Heads, Side, &Catalogue, szExportPath);
 
 	if (!Dialog.DoModal())
 	{
@@ -1852,9 +1852,9 @@ void BeebWin::ImportDiscFiles(int menuId)
 	const int Heads = DiscInfo[Drive].Type == DiscType::DSD || DiscInfo[Drive].DoubleSidedSSD ? 2 : 1;
 	const int Side = menuId == IDM_DISC_IMPORT_0 || menuId == IDM_DISC_IMPORT_1 ? 0 : 1;
 
-	DFS_DISC_CATALOGUE dfsCat;
+	DfsDiscCatalogue Catalogue;
 
-	bool Success = dfs_get_catalogue(DiscInfo[Drive].FileName, Heads, Side, &dfsCat);
+	bool Success = DfsGetCatalogue(DiscInfo[Drive].FileName, Heads, Side, &Catalogue);
 
 	if (!Success)
 	{
@@ -1938,7 +1938,13 @@ void BeebWin::ImportDiscFiles(int menuId)
 	{
 		char szErrStr[500];
 
-		Success = dfs_import_file(DiscInfo[Drive].FileName, Heads, Side, &dfsCat, fileNames[i], szExportPath, szErrStr);
+		Success = DfsImportFile(DiscInfo[Drive].FileName,
+		                        Heads,
+		                        Side,
+		                        &Catalogue,
+		                        fileNames[i],
+		                        szExportPath,
+		                        szErrStr);
 
 		if (Success)
 		{

@@ -36,7 +36,6 @@ void MakePreferredPath(char* PathName);
 void AppendPath(char* pszPath, const char* pszPathToAppend);
 bool IsRelativePath(const char* pszPath);
 std::string GetSystemError();
-
-/*----------------------------------------------------------------------------*/
+bool GetFileLength(const char* FileName, int* pFileLength);
 
 #endif

@@ -218,3 +218,21 @@ std::string GetSystemError()
 }
 
 /****************************************************************************/
+
+bool GetFileLength(const char* FileName, int* pFileLength)
+{
+	FILE* pFile = fopen(FileName, "rb");
+
+	if (pFile == nullptr)
+	{
+		return false;
+	}
+
+	fseek(pFile, 0, SEEK_END);
+	*pFileLength = ftell(pFile);
+	fclose(pFile);
+
+	return true;
+}
+
+/****************************************************************************/

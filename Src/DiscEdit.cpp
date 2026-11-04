@@ -46,26 +46,26 @@ static int DFS_LENGTH_TO_SECTORS(int Length)
 
 /****************************************************************************/
 
-static void strip_trailing_spaces(char *str)
+static void StripTrailingSpaces(char* str)
 {
-	size_t l = strlen(str);
+	size_t Index = strlen(str);
 
-	while (l > 0 && str[l - 1] == ' ')
+	while (Index > 0 && str[Index - 1] == ' ')
 	{
-		str[l - 1] = 0;
-		l--;
+		str[Index - 1] = 0;
+		Index--;
 	}
 }
 
 /****************************************************************************/
 
-std::string BeebToLocalFileName(const std::string& BeebFileName)
+std::string DfsToLocalFileName(const std::string& DfsFileName)
 {
 	std::string FileName;
 
-	for (std::string::size_type i = 0; i != BeebFileName.size(); i++)
+	for (std::string::size_type i = 0; i != DfsFileName.size(); i++)
 	{
-		char c = BeebFileName[i];
+		char c = DfsFileName[i];
 
 		if (!isprint(c) ||
 		    c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' ||
@@ -82,27 +82,27 @@ std::string BeebToLocalFileName(const std::string& BeebFileName)
 
 /****************************************************************************/
 
-static bool MakeBeebFileName(char* DFSName, const char* FileName)
+static bool MakeDfsFileName(char* DFSName, const char* FileName)
 {
-	int j = 0;
+	int Index = 0;
 
 	if (strlen(FileName) >= 3 && FileName[1] == '.')
 	{
 		DFSName[0] = FileName[0];
 		DFSName[1] = '.';
-		j = 2;
+		Index = 2;
 	}
 	else
 	{
 		strcpy(DFSName, "$.");
-		j = 0;
+		Index = 0;
 	}
 
-	int i = 0;
+	int Count = 0;
 
-	while (i < DFS_MAX_NAME_LEN && FileName[j] != 0)
+	while (Count < DFS_MAX_NAME_LEN && FileName[Index] != 0)
 	{
-		char c = static_cast<char>(toupper(FileName[j]));
+		char c = static_cast<char>(toupper(FileName[Index]));
 
 		if ((c >= 'A' && c <= 'Z') ||
 		    (c >= '0' && c <= '9') ||
@@ -110,587 +110,600 @@ static bool MakeBeebFileName(char* DFSName, const char* FileName)
 		    c == '_' || c == '-' || c == '=' || c == '+' || c == '[' || c == ']' || c == '{' ||
 		    c == '}' || c == '@' || c == '#' || c == '~' || c == ',')
 		{
-			DFSName[i + 2] = c;
-			i++;
+			DFSName[Count + 2] = c;
+			Count++;
 		}
 
-		j++;
+		Index++;
 	}
 
-	return i == 0;
+	return Count > 0;
 }
 
 /****************************************************************************/
 
-static void dfs_get_files_from_cat(const unsigned char *sect0,
-                                   const unsigned char *sect1,
-                                   int numFiles,
-                                   DFS_FILE_ATTR *attrs)
+static void DfsGetFilesFromCatalog(const unsigned char* pSector0,
+                                   const unsigned char* pSector1,
+                                   int NumFiles,
+                                   DfsFileAttributes* pFileAttr)
 {
-	for (int i = 0; i < numFiles; ++i)
+	for (int i = 0; i < NumFiles; ++i)
 	{
-		// Reverse order so files are in start sector order
-		int offset = (numFiles - i) * 8;
-		memcpy(attrs[i].filename, sect0 + offset, 7);
-		strip_trailing_spaces(attrs[i].filename);
-		attrs[i].directory   = sect0[offset + 7] & 0x7f;
-		attrs[i].locked      = (sect0[offset + 7] & 0x80) ? true : false;
-		unsigned char c = sect1[offset + 6];
-		attrs[i].loadAddr    = sect1[offset]     + (sect1[offset + 1] << 8) + ((c & 0x0c) ? 0xffff0000 : 0);
-		attrs[i].execAddr    = sect1[offset + 2] + (sect1[offset + 3] << 8) + ((c & 0xc0) ? 0xffff0000 : 0);
-		attrs[i].length      = sect1[offset + 4] + (sect1[offset + 5] << 8) + ((c & 0x30) << 12);
-		attrs[i].startSector = sect1[offset + 7] + ((c & 0x03) << 8);
+		// Reverse order so files are in start sector order.
+		int Offset = (NumFiles - i) * 8;
+
+		memcpy(pFileAttr[i].FileName, pSector0 + Offset, 7);
+		StripTrailingSpaces(pFileAttr[i].FileName);
+
+		pFileAttr[i].Directory   = pSector0[Offset + 7] & 0x7f;
+		pFileAttr[i].Locked      = (pSector0[Offset + 7] & 0x80) ? true : false;
+
+		unsigned char c = pSector1[Offset + 6];
+
+		pFileAttr[i].LoadAddr    = pSector1[Offset]     + (pSector1[Offset + 1] << 8) + ((c & 0x0c) ? 0xffff0000 : 0);
+		pFileAttr[i].ExecAddr    = pSector1[Offset + 2] + (pSector1[Offset + 3] << 8) + ((c & 0xc0) ? 0xffff0000 : 0);
+		pFileAttr[i].Length      = pSector1[Offset + 4] + (pSector1[Offset + 5] << 8) + ((c & 0x30) << 12);
+		pFileAttr[i].StartSector = pSector1[Offset + 7] + ((c & 0x03) << 8);
 	}
 }
 
 /****************************************************************************/
 
-bool dfs_get_catalogue(const char *szDiscFile,
-                       int numSides,
-                       int side,
-                       DFS_DISC_CATALOGUE *dfsCat)
+bool DfsGetCatalogue(const char* pszDiscFile,
+                     int NumSides,
+                     int Side,
+                     DfsDiscCatalogue* pCatalog)
 {
-	bool success = true;
+	bool Success = true;
 
-	FILE* fd = fopen(szDiscFile, "rb");
+	FILE* pFile = fopen(pszDiscFile, "rb");
 
-	if (fd == nullptr)
+	if (pFile == nullptr)
 	{
-		success = false;
+		Success = false;
 	}
 	else
 	{
-		bool DoubleSidedSSD = IsDoubleSidedSSD(szDiscFile, fd);
+		bool DoubleSidedSSD = IsDoubleSidedSSD(pszDiscFile, pFile);
 
-		int catOffset = 0;
+		int CatalogOffset = 0;
 
-		if (numSides == 2 && side == 1)
+		if (NumSides == 2 && Side == 1)
 		{
 			if (DoubleSidedSSD)
 			{
-				// Tracks are not interleaved, so side 2 appears after side 1
-				catOffset = 80 * DFS_SECTORS_PER_TRACK * DFS_SECTOR_SIZE;
+				// Tracks are not interleaved, so side 2 appears after side 1.
+				CatalogOffset = 80 * DFS_SECTORS_PER_TRACK * DFS_SECTOR_SIZE;
 			}
 			else
 			{
-				// Tracks are interleaved in a double sided disc image
-				catOffset = DFS_SECTORS_PER_TRACK * DFS_SECTOR_SIZE;
+				// Tracks are interleaved in a double sided disc image.
+				CatalogOffset = DFS_SECTORS_PER_TRACK * DFS_SECTOR_SIZE;
 			}
 		}
 
-		if (fseek(fd, catOffset, SEEK_SET) != 0)
+		if (fseek(pFile, CatalogOffset, SEEK_SET) != 0)
 		{
-			success = false;
+			Success = false;
 		}
 		else
 		{
-			unsigned char buffer[DFS_SECTOR_SIZE * 4];
-			memset(buffer, 0, DFS_SECTOR_SIZE * 4);
+			unsigned char Buffer[DFS_SECTOR_SIZE * 4];
+			ZeroMemory(Buffer, DFS_SECTOR_SIZE * 4);
 
-			if (fread(buffer, 1, DFS_SECTOR_SIZE * 4, fd) < DFS_SECTOR_SIZE * 2)
+			if (fread(Buffer, 1, DFS_SECTOR_SIZE * 4, pFile) < DFS_SECTOR_SIZE * 2)
 			{
-				success = false;
+				Success = false;
 			}
 			else
 			{
-				memset(dfsCat, 0, sizeof(DFS_DISC_CATALOGUE));
-				memcpy(dfsCat->title, buffer, 8);
-				memcpy(dfsCat->title + 8, buffer + DFS_SECTOR_SIZE, 4);
-				strip_trailing_spaces(dfsCat->title);
+				ZeroMemory(pCatalog, sizeof(DfsDiscCatalogue));
+				memcpy(pCatalog->Title, Buffer, 8);
+				memcpy(pCatalog->Title + 8, Buffer + DFS_SECTOR_SIZE, 4);
+				StripTrailingSpaces(pCatalog->Title);
 
-				dfsCat->numWrites  = buffer[DFS_SECTOR_SIZE + 4];
-				dfsCat->numFiles   = buffer[DFS_SECTOR_SIZE + 5] / 8;
-				dfsCat->numSectors = ((buffer[DFS_SECTOR_SIZE + 6] & 3) << 8) + buffer[DFS_SECTOR_SIZE + 7];
-				dfsCat->bootOpts   = (buffer[DFS_SECTOR_SIZE + 6] >> 4) & 3;
+				pCatalog->NumWrites  = Buffer[DFS_SECTOR_SIZE + 4];
+				pCatalog->NumFiles   = Buffer[DFS_SECTOR_SIZE + 5] / 8;
+				pCatalog->NumSectors = ((Buffer[DFS_SECTOR_SIZE + 6] & 3) << 8) + Buffer[DFS_SECTOR_SIZE + 7];
+				pCatalog->BootOpts   = (Buffer[DFS_SECTOR_SIZE + 6] >> 4) & 3;
 
 				// Read first 31 files
-				dfs_get_files_from_cat(buffer, buffer + DFS_SECTOR_SIZE, dfsCat->numFiles, dfsCat->fileAttrs);
+				DfsGetFilesFromCatalog(Buffer, Buffer + DFS_SECTOR_SIZE, pCatalog->NumFiles, pCatalog->FileAttrs);
 
 				// Check for a Watford DFS 62 file catalogue
 				int i;
 
 				for (i = DFS_SECTOR_SIZE * 2; i < DFS_SECTOR_SIZE * 2 + 8; ++i)
 				{
-					if (buffer[i] != 0xAA)
+					if (Buffer[i] != 0xAA)
 						break;
 				}
 
 				if (i == DFS_SECTOR_SIZE * 2 + 8)
 				{
-					dfsCat->watford62 = true;
+					pCatalog->Watford62 = true;
 
 					// Total number of sectors is in second catalogue
-					dfsCat->numSectors = ((buffer[DFS_SECTOR_SIZE * 3 + 6] & 3) << 8) +
-					                     buffer[DFS_SECTOR_SIZE * 3 + 7];
+					pCatalog->NumSectors = ((Buffer[DFS_SECTOR_SIZE * 3 + 6] & 3) << 8) +
+					                       Buffer[DFS_SECTOR_SIZE * 3 + 7];
 
-					i = buffer[DFS_SECTOR_SIZE * 3 + 5] / 8;
-					dfs_get_files_from_cat(buffer + DFS_SECTOR_SIZE * 2, buffer + DFS_SECTOR_SIZE * 3,
-					                       i, &dfsCat->fileAttrs[dfsCat->numFiles]);
-					dfsCat->numFiles += i;
+					i = Buffer[DFS_SECTOR_SIZE * 3 + 5] / 8;
+
+					DfsGetFilesFromCatalog(Buffer + DFS_SECTOR_SIZE * 2,
+					                       Buffer + DFS_SECTOR_SIZE * 3,
+					                       i,
+					                       &pCatalog->FileAttrs[pCatalog->NumFiles]);
+
+					pCatalog->NumFiles += i;
 				}
 			}
 		}
 
-		fclose(fd);
+		fclose(pFile);
 	}
 
-	return success;
+	return Success;
 }
 
 /****************************************************************************/
 
-bool dfs_export_file(const char *szDiscFile,
-                     int numSides,
-                     int side,
-                     const DFS_FILE_ATTR* attr,
-                     const char *szLocalFileName,
-                     char *szErrStr)
+bool DfsExportFile(const char* pszDiscFile,
+                   int NumSides,
+                   int Side,
+                   const DfsFileAttributes* pFileAttr,
+                   const char* pszLocalFileName,
+                   char* pszErrStr)
 {
-	bool success = true;
+	bool Success = true;
 	unsigned char buffer[DFS_SECTOR_SIZE];
 
-	FILE *discfd = fopen(szDiscFile, "rb");
+	FILE* pDiscFile = fopen(pszDiscFile, "rb");
 
-	if (discfd == nullptr)
+	if (pDiscFile == nullptr)
 	{
-		sprintf(szErrStr, "Failed to open disc file:\n  %s", szDiscFile);
+		sprintf(pszErrStr, "Failed to open disc file:\n  %s", pszDiscFile);
 		return false;
 	}
 
-	FILE* filefd = fopen(szLocalFileName, "wb");
+	FILE* pFile = fopen(pszLocalFileName, "wb");
 
-	if (filefd == NULL)
+	if (pFile == nullptr)
 	{
-		sprintf(szErrStr, "Failed to open file for writing:\n  %s", szLocalFileName);
-		success = false;
+		sprintf(pszErrStr, "Failed to open file for writing:\n  %s", pszLocalFileName);
+		Success = false;
 	}
 	else
 	{
-		bool DoubleSidedSSD = IsDoubleSidedSSD(szDiscFile, discfd);
+		bool DoubleSidedSSD = IsDoubleSidedSSD(pszDiscFile, pDiscFile);
 
 		// Export the data
-		int sector = attr->startSector;
-		size_t len = (size_t)attr->length;
-		int offset;
-		int track;
+		int Sector = pFileAttr->StartSector;
+		size_t Length = (size_t)pFileAttr->Length;
+		int Offset;
+		int Track;
 
-		while (success && len > 0)
+		while (Success && Length > 0)
 		{
 			// Calc file offset for next sector
-			if (numSides == 1)
+			if (NumSides == 1)
 			{
-				offset = sector * DFS_SECTOR_SIZE;
+				Offset = Sector * DFS_SECTOR_SIZE;
 			}
 			else
 			{
 				if (DoubleSidedSSD)
 				{
-					offset = 80 * DFS_SECTORS_PER_TRACK * DFS_SECTOR_SIZE;
-					offset += sector * DFS_SECTOR_SIZE;
+					Offset = 80 * DFS_SECTORS_PER_TRACK * DFS_SECTOR_SIZE;
+					Offset += Sector * DFS_SECTOR_SIZE;
 				}
 				else
 				{
-					track = sector / DFS_SECTORS_PER_TRACK;
-					offset = (track * 2 + side) * DFS_SECTORS_PER_TRACK;
-					offset += (sector % DFS_SECTORS_PER_TRACK);
-					offset *= DFS_SECTOR_SIZE;
+					Track = Sector / DFS_SECTORS_PER_TRACK;
+					Offset = (Track * 2 + Side) * DFS_SECTORS_PER_TRACK;
+					Offset += (Sector % DFS_SECTORS_PER_TRACK);
+					Offset *= DFS_SECTOR_SIZE;
 				}
 			}
 
 			// Read next sector
-			size_t n = len < DFS_SECTOR_SIZE ? len : DFS_SECTOR_SIZE;
+			size_t n = Length < DFS_SECTOR_SIZE ? Length : DFS_SECTOR_SIZE;
 
-			if (fseek(discfd, offset, SEEK_SET) != 0 ||
-			    fread(buffer, 1, n, discfd) != n)
+			if (fseek(pDiscFile, Offset, SEEK_SET) != 0 ||
+			    fread(buffer, 1, n, pDiscFile) != n)
 			{
-				sprintf(szErrStr, "Failed to read data from:\n  %s", szDiscFile);
-				success = false;
+				sprintf(pszErrStr, "Failed to read data from:\n  %s", pszDiscFile);
+				Success = false;
 			}
 			else
 			{
 				// Export to file
-				if (fwrite(buffer, 1, n, filefd) != n)
+				if (fwrite(buffer, 1, n, pFile) != n)
 				{
-					sprintf(szErrStr, "Failed to write data to:\n  %s", szLocalFileName);
-					success = false;
+					sprintf(pszErrStr, "Failed to write data to:\n  %s", pszLocalFileName);
+					Success = false;
 				}
 			}
 
-			sector++;
-			len -= n;
+			Sector++;
+			Length -= n;
 		}
 
-		fclose(filefd);
+		fclose(pFile);
 
-		if (success)
+		if (Success)
 		{
-			// Create INF file
-			std::string InfFileName = szLocalFileName + std::string(".inf");
+			// Create .inf file.
+			std::string InfFileName = pszLocalFileName + std::string(".inf");
 
-			filefd = fopen(InfFileName.c_str(), "wb");
+			pFile = fopen(InfFileName.c_str(), "wb");
 
-			if (filefd == NULL)
+			if (pFile == nullptr)
 			{
-				sprintf(szErrStr, "Failed to open file for writing:\n  %s", InfFileName.c_str());
-				success = false;
+				sprintf(pszErrStr, "Failed to open file for writing:\n  %s", InfFileName.c_str());
+				Success = false;
 			}
 			else
 			{
-				fprintf(filefd, "%c.%-7s %06X %06X %06X\n",
-				        attr->directory,
-				        attr->filename,
-				        attr->loadAddr & 0xffffff,
-				        attr->execAddr & 0xffffff,
-				        attr->length);
-				fclose(filefd);
+				fprintf(pFile, "%c.%-7s %06X %06X %06X\n",
+				        pFileAttr->Directory,
+				        pFileAttr->FileName,
+				        pFileAttr->LoadAddr & 0xffffff,
+				        pFileAttr->ExecAddr & 0xffffff,
+				        pFileAttr->Length);
+
+				fclose(pFile);
 			}
 		}
 	}
 
-	fclose(discfd);
+	fclose(pDiscFile);
 
-	return success;
+	return Success;
 }
 
 /****************************************************************************/
 
-static void dfs_write_files_to_cat(unsigned char *sect0,
-                                   unsigned char *sect1,
-                                   int numFiles,
-                                   DFS_FILE_ATTR *attrs)
+static void DfsWriteFilesToCatalog(unsigned char* pSector0,
+                                   unsigned char* pSector1,
+                                   int NumFiles,
+                                   DfsFileAttributes* pFileAttrs)
 {
-	for (int i = 0; i < numFiles; ++i)
+	for (int i = 0; i < NumFiles; ++i)
 	{
-		// Reverse order so files are in reverse start sector order
-		int offset = (numFiles - i) * 8;
+		// Reverse order so files are in reverse start sector order.
+		int Offset = (NumFiles - i) * 8;
 
-		memcpy(sect0 + offset, attrs[i].filename, 7);
-		for (int j = (int)strlen(attrs[i].filename); j < 7; ++j)
-			sect0[offset + j] = ' ';
+		memcpy(pSector0 + Offset, pFileAttrs[i].FileName, 7);
 
-		sect0[offset + 7] = attrs[i].directory | (attrs[i].locked ? 0x80 : 0);
+		for (int j = (int)strlen(pFileAttrs[i].FileName); j < 7; ++j)
+		{
+			pSector0[Offset + j] = ' ';
+		}
+
+		pSector0[Offset + 7] = pFileAttrs[i].Directory | (pFileAttrs[i].Locked ? 0x80 : 0);
 
 		unsigned char c = 0;
 
-		sect1[offset] = attrs[i].loadAddr & 0xff;
-		sect1[offset + 1] = (attrs[i].loadAddr >> 8) & 0xff;
-		c |= ((attrs[i].loadAddr >> 16) & 0x3) << 2;
+		pSector1[Offset + 0] = pFileAttrs[i].LoadAddr & 0xff;
+		pSector1[Offset + 1] = (pFileAttrs[i].LoadAddr >> 8) & 0xff;
+		c |= ((pFileAttrs[i].LoadAddr >> 16) & 0x3) << 2;
 
-		sect1[offset + 2] = attrs[i].execAddr & 0xff;
-		sect1[offset + 3] = (attrs[i].execAddr >> 8) & 0xff;
-		c |= ((attrs[i].execAddr >> 16) & 0x3) << 6;
+		pSector1[Offset + 2] = pFileAttrs[i].ExecAddr & 0xff;
+		pSector1[Offset + 3] = (pFileAttrs[i].ExecAddr >> 8) & 0xff;
+		c |= ((pFileAttrs[i].ExecAddr >> 16) & 0x3) << 6;
 
-		sect1[offset + 4] = attrs[i].length & 0xff;
-		sect1[offset + 5] = (attrs[i].length >> 8) & 0xff;
-		c |= ((attrs[i].length >> 16) & 0x3) << 4;
+		pSector1[Offset + 4] = pFileAttrs[i].Length & 0xff;
+		pSector1[Offset + 5] = (pFileAttrs[i].Length >> 8) & 0xff;
+		c |= ((pFileAttrs[i].Length >> 16) & 0x3) << 4;
 
-		sect1[offset + 7] = attrs[i].startSector & 0xff;
-		c |= ((attrs[i].startSector >> 8) & 0x3);
+		pSector1[Offset + 7] = pFileAttrs[i].StartSector & 0xff;
+		c |= ((pFileAttrs[i].StartSector >> 8) & 0x3);
 
-		sect1[offset + 6] = c;
+		pSector1[Offset + 6] = c;
 	}
 }
 
 /****************************************************************************/
 
-bool dfs_import_file(const char *szDiscFile,
-                     int numSides,
-                     int side,
-                     DFS_DISC_CATALOGUE *dfsCat,
-                     const char *szFile,
-                     const char *szImportFolder,
-                     char *szErrStr)
+bool DfsImportFile(const char* pszDiscFile,
+                   int NumSides,
+                   int Side,
+                   DfsDiscCatalogue* pCatalogue,
+                   const char* pszFileName,
+                   const char* pszImportFolder,
+                   char* pszErrStr)
 {
-	bool success = true;
+	// Open the DFS disc image.
+	FILE* pDiscImageFile = fopen(pszDiscFile, "rb+");
 
-	char dfsname[DFS_MAX_NAME_LEN + 3];
-	int startSector = 0;
-	int catIndex = 0;
-	int i;
-	unsigned char buffer[DFS_SECTOR_SIZE * 4];
-
-	DFS_FILE_ATTR *attrs = dfsCat->fileAttrs;
-
-	// Open the DFS disc
-	FILE *discfd = fopen(szDiscFile, "rb+");
-
-	if (discfd == NULL)
+	if (pDiscImageFile == nullptr)
 	{
-		sprintf(szErrStr, "Failed to open disc file for writing:\n  %s", szDiscFile);
+		sprintf(pszErrStr, "Failed to open disc file for writing:\n  %s", pszDiscFile);
 		return false;
 	}
 
+	bool Success = true;
+
+	int StartSector = 0;
+	int CatalogIndex = 0;
+	int i;
+	unsigned char Buffer[DFS_SECTOR_SIZE * 4];
+
+	char DfsFileName[DFS_MAX_NAME_LEN + 3];
+
 	// Build file names
-	char filename[MAX_PATH];
-	strcpy(filename, szImportFolder);
-	AppendPath(filename, szFile);
+	char FileName[MAX_PATH];
+	strcpy(FileName, pszImportFolder);
+	AppendPath(FileName, pszFileName);
 
-	char infname[MAX_PATH];
-	strcpy(infname, filename);
-	strcat(infname, ".inf");
+	char InfFileName[MAX_PATH];
+	strcpy(InfFileName, FileName);
+	strcat(InfFileName, ".inf");
 
-	// Read .INF file
-	int loadAddr = 0;
-	int execAddr = 0;
-	int fileLen = -1;
+	// Read .inf file
+	int LoadAddr = 0;
+	int ExecAddr = 0;
+	int FileLength = -1;
 
-	FILE* filefd = fopen(infname, "rb");
+	FILE* pInfFile = fopen(InfFileName, "rb");
 
-	if (filefd != NULL)
+	if (pInfFile != NULL)
 	{
-		if (fscanf(filefd, "%9s %X %X", dfsname, (unsigned int*)&loadAddr, (unsigned int*)&execAddr) < 1)
+		if (fscanf(pInfFile, "%9s %X %X", DfsFileName, (unsigned int*)&LoadAddr, (unsigned int*)&ExecAddr) < 1)
 		{
-			sprintf(szErrStr, "Failed to read file attributes from:\n  %s", infname);
-			success = false;
+			sprintf(pszErrStr, "Failed to read file attributes from:\n  %s", InfFileName);
+			Success = false;
 		}
 
-		fclose(filefd);
+		fclose(pInfFile);
 	}
 	else
 	{
-		// No .INF file, construct dfsname
-		memset(dfsname, 0, sizeof(dfsname));
+		// No .inf file, construct DFS filename from the host filename.
+		ZeroMemory(DfsFileName, sizeof(DfsFileName));
 
-		success = MakeBeebFileName(dfsname, szFile);
+		Success = MakeDfsFileName(DfsFileName, pszFileName);
 
-		if (!success)
+		if (!Success)
 		{
-			sprintf(szErrStr, "Failed to create DFS file name for:\n  %s", szFile);
+			sprintf(pszErrStr, "Failed to create DFS file name for:\n  %s", pszFileName);
 		}
 	}
 
-	if (success)
+	if (Success)
 	{
-		// Determine file len
-		filefd = fopen(filename, "rb");
-
-		if (filefd == NULL)
+		// Determine file length.
+		if (GetFileLength(FileName, &FileLength))
 		{
-			sprintf(szErrStr, "Failed to open file:\n  %s", filename);
-			success = false;
+			if (FileLength < 0)
+			{
+				sprintf(pszErrStr, "Failed to determine file length:\n  %s", FileName);
+				Success = false;
+			}
+			else if (FileLength >= 0x80000)
+			{
+				sprintf(pszErrStr, "File too large to import:\n  %s", FileName);
+				Success = false;
+			}
 		}
 		else
 		{
-			fseek(filefd, 0, SEEK_END);
-			fileLen = ftell(filefd);
-			fclose(filefd);
-		}
-
-		if (fileLen < 0)
-		{
-			sprintf(szErrStr, "Failed to determine file length:\n  %s", filename);
-			success = false;
-		}
-		else if (fileLen >= 0x80000)
-		{
-			sprintf(szErrStr, "File too large to import:\n  %s", filename);
-			success = false;
+			sprintf(pszErrStr, "Failed to open file:\n  %s", FileName);
+			Success = false;
 		}
 	}
 
-	if (success)
+	if (Success)
 	{
-		// Search catalogue for existing file with same name
-		for (i = 0; i < dfsCat->numFiles; ++i)
+		// Search catalogue for existing file with same name.
+		for (i = 0; i < pCatalogue->NumFiles; ++i)
 		{
-			if (attrs[i].directory == dfsname[0] &&
-			    strcmp(attrs[i].filename, dfsname + 2) == 0)
+			if (pCatalogue->FileAttrs[i].Directory == DfsFileName[0] &&
+			    strcmp(pCatalogue->FileAttrs[i].FileName, DfsFileName + 2) == 0)
 			{
 				// Delete the file
-				memmove(&attrs[i], &attrs[i+1],
-				        sizeof(DFS_FILE_ATTR) * dfsCat->numFiles - i - 1);
-				dfsCat->numFiles--;
+				memmove(&pCatalogue->FileAttrs[i], &pCatalogue->FileAttrs[i + 1],
+				        sizeof(DfsFileAttributes) * pCatalogue->NumFiles - i - 1);
+				pCatalogue->NumFiles--;
 				break;
 			}
 		}
 	}
 
-	if (success)
+	if (Success)
 	{
 		// Check for space in the catalogue
-		if ((dfsCat->watford62 && dfsCat->numFiles >= 62) ||
-		    (!dfsCat->watford62 && dfsCat->numFiles >= 31))
+		if ((pCatalogue->Watford62 && pCatalogue->NumFiles >= 62) ||
+		    (!pCatalogue->Watford62 && pCatalogue->NumFiles >= 31))
 		{
-			sprintf(szErrStr, "Catalogue full, cannot import %s", szFile);
-			success = false;
+			sprintf(pszErrStr, "Catalogue full, cannot import %s", pszFileName);
+			Success = false;
 		}
 	}
 
-	if (success)
+	if (Success)
 	{
-		// Search catalogue for suitable gap (catalogue is in startSector order)
-		if (dfsCat->watford62)
-			startSector = 4;
-		else
-			startSector = 2;
+		// Search catalogue for suitable gap (catalogue is in StartSector order).
+		StartSector = pCatalogue->Watford62 ? 4 : 2;
 
-		int numSectors = DFS_LENGTH_TO_SECTORS(fileLen);
+		int NumSectors = DFS_LENGTH_TO_SECTORS(FileLength);
 
-		for (i = 0; i < dfsCat->numFiles; ++i)
+		for (i = 0; i < pCatalogue->NumFiles; ++i)
 		{
-			if ((attrs[i].startSector - startSector) >= numSectors)
+			if ((pCatalogue->FileAttrs[i].StartSector - StartSector) >= NumSectors)
 			{
-				// Found a gap large enough
+				// Found a gap large enough.
 				break;
 			}
 			else
 			{
-				startSector = attrs[i].startSector + DFS_LENGTH_TO_SECTORS(attrs[i].length);
+				StartSector = pCatalogue->FileAttrs[i].StartSector +
+				              DFS_LENGTH_TO_SECTORS(pCatalogue->FileAttrs[i].Length);
 			}
 		}
 
-		if (i == dfsCat->numFiles)
+		if (i == pCatalogue->NumFiles)
 		{
 			// Space at end of disc?
-			if ((dfsCat->numSectors - startSector) < numSectors)
+			if ((pCatalogue->NumSectors - StartSector) < NumSectors)
 			{
-				sprintf(szErrStr, "Insufficient space to import %s", szFile);
-				success = false;
+				sprintf(pszErrStr, "Insufficient space to import %s", pszFileName);
+				Success = false;
 			}
 		}
 
-		catIndex = i;
+		CatalogIndex = i;
 	}
 
-	if (success)
+	if (Success)
 	{
-		// Import the data
-		filefd = fopen(filename, "rb");
+		// Import the data.
+		FILE* pFile = fopen(FileName, "rb");
 
-		if (filefd == NULL)
+		if (pFile == nullptr)
 		{
-			sprintf(szErrStr, "Failed to open file:\n  %s", filename);
-			success = false;
+			sprintf(pszErrStr, "Failed to open file:\n  %s", FileName);
+			Success = false;
 		}
 		else
 		{
-			int sector = startSector;
-			size_t len = (size_t)fileLen;
+			int Sector = StartSector;
+			size_t len = (size_t)FileLength;
 
-			while (success && len > 0)
+			while (Success && len > 0)
 			{
-				int offset;
+				int Offset;
 
-				// Calc file offset for next sector
-				if (numSides == 1)
+				// Calculate file offset for next sector.
+				if (NumSides == 1)
 				{
-					offset = sector * DFS_SECTOR_SIZE;
+					Offset = Sector * DFS_SECTOR_SIZE;
 				}
 				else
 				{
-					int track = sector / DFS_SECTORS_PER_TRACK;
-					offset = (track * 2 + side) * DFS_SECTORS_PER_TRACK;
-					offset += (sector % DFS_SECTORS_PER_TRACK);
-					offset *= DFS_SECTOR_SIZE;
+					int Track = Sector / DFS_SECTORS_PER_TRACK;
+					Offset = (Track * 2 + Side) * DFS_SECTORS_PER_TRACK;
+					Offset += (Sector % DFS_SECTORS_PER_TRACK);
+					Offset *= DFS_SECTOR_SIZE;
 				}
 
 				// Read next sector
-				memset(buffer, 0, DFS_SECTOR_SIZE);
+				ZeroMemory(Buffer, DFS_SECTOR_SIZE);
 
 				size_t n = len < DFS_SECTOR_SIZE ? len : DFS_SECTOR_SIZE;
 
-				if (fread(buffer, 1, n, filefd) != n)
+				if (fread(Buffer, 1, n, pFile) != n)
 				{
-					sprintf(szErrStr, "Failed to read data from:\n  %s", filename);
-					success = false;
+					sprintf(pszErrStr, "Failed to read data from:\n  %s", FileName);
+					Success = false;
 				}
 				else
 				{
 					// Import to file
-					if (fseek(discfd, offset, SEEK_SET) != 0 ||
-					    fwrite(buffer, 1, DFS_SECTOR_SIZE, discfd) != DFS_SECTOR_SIZE)
+					if (fseek(pDiscImageFile, Offset, SEEK_SET) != 0 ||
+					    fwrite(Buffer, 1, DFS_SECTOR_SIZE, pDiscImageFile) != DFS_SECTOR_SIZE)
 					{
-						sprintf(szErrStr, "Failed to write data to:\n  %s", szDiscFile);
-						success = false;
+						sprintf(pszErrStr, "Failed to write data to:\n  %s", pszDiscFile);
+						Success = false;
 					}
 				}
 
-				sector++;
+				Sector++;
 				len -= n;
 			}
 
-			fclose(filefd);
+			fclose(pFile);
 		}
 	}
 
-	if (success)
+	if (Success)
 	{
 		// Update the catalogue
-		int offset = 0;
+		int Offset = 0;
 
-		if (numSides == 2 && side == 1)
+		if (NumSides == 2 && Side == 1)
 		{
-			// Tracks are interleaved in a double sided disc image
-			offset = DFS_SECTORS_PER_TRACK * DFS_SECTOR_SIZE;
+			// Tracks are interleaved in a double sided disc image.
+			Offset = DFS_SECTORS_PER_TRACK * DFS_SECTOR_SIZE;
 		}
 
-		if (fseek(discfd, offset, SEEK_SET) != 0)
+		if (fseek(pDiscImageFile, Offset, SEEK_SET) != 0)
 		{
-			sprintf(szErrStr, "Failed to seek in file:\n  %s", szDiscFile);
-			success = false;
+			sprintf(pszErrStr, "Failed to seek in file:\n  %s", pszDiscFile);
+			Success = false;
 		}
 		else
 		{
-			memset(buffer, 0, DFS_SECTOR_SIZE * 4);
-			size_t numSectors = dfsCat->watford62 ? 4 : 2;
-			if (fread(buffer, 1, DFS_SECTOR_SIZE * numSectors, discfd) !=
-			    (DFS_SECTOR_SIZE * numSectors))
+			ZeroMemory(Buffer, DFS_SECTOR_SIZE * 4);
+
+			size_t NumSectors = pCatalogue->Watford62 ? 4 : 2;
+
+			if (fread(Buffer, 1, DFS_SECTOR_SIZE * NumSectors, pDiscImageFile) !=
+			    (DFS_SECTOR_SIZE * NumSectors))
 			{
-				sprintf(szErrStr, "Failed to read catalogue from:\n  %s", szDiscFile);
-				success = false;
+				sprintf(pszErrStr, "Failed to read catalogue from:\n  %s", pszDiscFile);
+				Success = false;
 			}
 			else
 			{
 				// Add file to catalogue
-				memmove(&attrs[catIndex+1], &attrs[catIndex],
-				        sizeof(DFS_FILE_ATTR) * dfsCat->numFiles - catIndex);
-				strcpy(attrs[catIndex].filename, dfsname + 2);
-				attrs[catIndex].directory = dfsname[0];
-				attrs[catIndex].locked = false;
-				attrs[catIndex].loadAddr = loadAddr;
-				attrs[catIndex].execAddr = execAddr;
-				attrs[catIndex].length = fileLen;
-				attrs[catIndex].startSector = startSector;
-				dfsCat->numFiles++;
+				memmove(&pCatalogue->FileAttrs[CatalogIndex + 1],
+				        &pCatalogue->FileAttrs[CatalogIndex],
+				        sizeof(DfsFileAttributes) * pCatalogue->NumFiles - CatalogIndex);
 
-				// Update catalogue sectors
-				int n = (dfsCat->numFiles > 31) ? 31 : dfsCat->numFiles;
-				buffer[DFS_SECTOR_SIZE + 5] = (unsigned char)(n * 8);
-				dfs_write_files_to_cat(buffer, buffer + DFS_SECTOR_SIZE, n, attrs);
+				strcpy(pCatalogue->FileAttrs[CatalogIndex].FileName, DfsFileName + 2);
 
-				if (dfsCat->watford62)
+				pCatalogue->FileAttrs[CatalogIndex].Directory = DfsFileName[0];
+				pCatalogue->FileAttrs[CatalogIndex].Locked = false;
+				pCatalogue->FileAttrs[CatalogIndex].LoadAddr = LoadAddr;
+				pCatalogue->FileAttrs[CatalogIndex].ExecAddr = ExecAddr;
+				pCatalogue->FileAttrs[CatalogIndex].Length = FileLength;
+				pCatalogue->FileAttrs[CatalogIndex].StartSector = StartSector;
+
+				pCatalogue->NumFiles++;
+
+				// Update catalogue sectors.
+				int n = (pCatalogue->NumFiles > 31) ? 31 : pCatalogue->NumFiles;
+				Buffer[DFS_SECTOR_SIZE + 5] = (unsigned char)(n * 8);
+
+				DfsWriteFilesToCatalog(Buffer, Buffer + DFS_SECTOR_SIZE, n, pCatalogue->FileAttrs);
+
+				if (pCatalogue->Watford62)
 				{
-					n = (dfsCat->numFiles > 31) ? dfsCat->numFiles - 31 : 0;
-					buffer[DFS_SECTOR_SIZE * 3 + 5] = (unsigned char)(n * 8);
-					dfs_write_files_to_cat(buffer + DFS_SECTOR_SIZE * 2, buffer + DFS_SECTOR_SIZE * 3,
-					                       n, &attrs[31]);
+					n = (pCatalogue->NumFiles > 31) ? pCatalogue->NumFiles - 31 : 0;
+					Buffer[DFS_SECTOR_SIZE * 3 + 5] = (unsigned char)(n * 8);
+
+					DfsWriteFilesToCatalog(Buffer + DFS_SECTOR_SIZE * 2,
+					                       Buffer + DFS_SECTOR_SIZE * 3,
+					                       n,
+					                       &pCatalogue->FileAttrs[31]);
 				}
 
-				// Write catalogue sectors back to file
-				if (fseek(discfd, offset, SEEK_SET) != 0)
+				// Write catalogue sectors back to file.
+				if (fseek(pDiscImageFile, Offset, SEEK_SET) != 0)
 				{
-					sprintf(szErrStr, "Failed to seek in file:\n  %s", szDiscFile);
-					success = false;
+					sprintf(pszErrStr, "Failed to seek in file:\n  %s", pszDiscFile);
+					Success = false;
 				}
-				else if (fwrite(buffer, 1, DFS_SECTOR_SIZE * numSectors, discfd) !=
-				         (DFS_SECTOR_SIZE * numSectors))
+				else if (fwrite(Buffer, 1, DFS_SECTOR_SIZE * NumSectors, pDiscImageFile) !=
+				         (DFS_SECTOR_SIZE * NumSectors))
 				{
-					sprintf(szErrStr, "Failed to write catalogue to:\n  %s", szDiscFile);
-					success = false;
+					sprintf(pszErrStr, "Failed to write catalogue to:\n  %s", pszDiscFile);
+					Success = false;
 				}
 			}
 		}
 	}
 
-	fclose(discfd);
+	fclose(pDiscImageFile);
 
-	if (!success)
+	if (!Success)
 	{
-		// Re-read the catalogue from the disc image
-		dfs_get_catalogue(szDiscFile, numSides, side, dfsCat);
+		// Re-read the catalogue from the disc image.
+		DfsGetCatalogue(pszDiscFile, NumSides, Side, pCatalogue);
 	}
 
-	return success;
+	return Success;
 }
 
 /****************************************************************************/
