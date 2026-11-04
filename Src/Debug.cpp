@@ -184,16 +184,8 @@ static HACCEL haccelDebug;
 
 struct DebugLabel
 {
+	int Addr = 0;
 	std::string Name;
-	int Addr;
-
-	DebugLabel() : Addr(0)
-	{
-	}
-
-	DebugLabel(const std::string& n, int a) : Name(n), Addr(a)
-	{
-	}
 };
 
 static std::vector<DebugLabel> Labels[2]; // Host and copro
@@ -3103,7 +3095,7 @@ bool DebugLoadLabels(const char* FileName, bool Host)
 
 			ParseLine(Line, Tokens);
 
-			unsigned long Addr;
+			unsigned long Addr = 0;
 
 			if (Tokens.size() != 3)
 			{
@@ -3132,20 +3124,17 @@ bool DebugLoadLabels(const char* FileName, bool Host)
 				}
 			}
 
-			if (Valid)
-			{
-				Labels[(int)Host].emplace_back(Tokens[2], Addr);
-			}
+			DebugLabel Label;
+			Label.Addr = (int)Addr;
+			Label.Name = Tokens[2];
+
+			Labels[(int)Host].push_back(Label);
 		}
 	}
 
 	if (Valid)
 	{
 		DebugDisplayInfoF("Loaded %u labels from %s", Labels[(int)Host].size(), FileName);
-	}
-	else
-	{
-		Labels[(int)Host].clear();
 	}
 
 	return Valid;
