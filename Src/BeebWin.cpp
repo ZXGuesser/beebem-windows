@@ -6479,6 +6479,11 @@ static LRESULT CALLBACK CBTMessageBox(int nCode, WPARAM wParam, LPARAM lParam)
 		DisableRoundedCorners(hWnd);
 
 		CentreWindow(mainWin->GethWnd(), hWnd);
+
+		UnhookWindowsHookEx(hCBTHook);
+		hCBTHook = nullptr;
+
+		return 0;
 	}
 
 	return CallNextHookEx(hCBTHook, nCode, wParam, lParam);
@@ -6492,8 +6497,11 @@ static int CentreMessageBox(HWND hWnd, LPCTSTR pszText, LPCTSTR pszCaption, UINT
 
 	int Result = MessageBox(hWnd, pszText, pszCaption, Type);
 
-	UnhookWindowsHookEx(hCBTHook);
-	hCBTHook = nullptr;
+	if (hCBTHook != nullptr)
+	{
+		UnhookWindowsHookEx(hCBTHook);
+		hCBTHook = nullptr;
+	}
 
 	return Result;
 }

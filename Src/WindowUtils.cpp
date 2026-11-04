@@ -90,7 +90,7 @@ void CentreWindow(HWND hWndParent, HWND hWnd)
 	             rcParent.left + (rc.right / 2),
 	             rcParent.top + (rc.bottom / 2),
 	             0, 0, // Ignores size arguments.
-	             SWP_NOSIZE);
+	             SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 /****************************************************************************/
