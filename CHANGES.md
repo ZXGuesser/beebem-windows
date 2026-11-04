@@ -20,6 +20,7 @@ Contributors: Chris Needham, Greg Cook
   setting implements the correct serial ULA behaviour, and bypasses the BeebEm
   detection in those games.
 * Fixed log file output.
+* Fixed importing files to SSD or DSD disc images.
 * Debugger improvements:
   - The debugger now shows the next instruction to be executed instead of the
     last instruction that was executed.
